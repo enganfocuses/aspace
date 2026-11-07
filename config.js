@@ -1,5 +1,15 @@
 // Заполните адрес вашей базы Firebase Realtime Database (см. README.md)
 window.CFG = {
+  firebase: {
+    apiKey: 'AIzaSyBLnl86ZjGYdIdY3ddMO6K2cTHzKSNIAVA',
+    authDomain: 'myspace-5d573.firebaseapp.com',
+    databaseURL: 'https://myspace-5d573-default-rtdb.firebaseio.com',
+    projectId: 'myspace-5d573',
+    storageBucket: 'myspace-5d573.firebasestorage.app',
+    messagingSenderId: '958854089477',
+    appId: '1:958854089477:web:48d8ab533c4144ab9f856c',
+    measurementId: 'G-0KZLMCCZT6'
+  },
   db: 'https://myspace-5d573-default-rtdb.firebaseio.com',
   // Для VPN и сетей с ограниченным UDP нужен TURN. Получите учётные данные у TURN-провайдера.
   // Желательно указать UDP/TCP и TLS на порту 443:
