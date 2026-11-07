@@ -399,6 +399,8 @@ const ICONS={
  video:'<rect x="3" y="6" width="12" height="12" rx="3"/><path d="M15 10l6-3v10l-6-3z"/>',
  mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',
  menu:'<path d="M4 7h16M4 12h16M4 17h16"/>',
+ home:'<path d="M3 10.5L12 3l9 7.5M5.5 9v11h13V9M9.5 20v-6h5v6"/>',
+ align:'<path d="M4 5h16M4 12h10M4 19h16M18 9l3 3-3 3"/>',
  full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'};
 const ic=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('class','ic');s.innerHTML=ICONS[n];return s};
 const FONTS=['Roboto','Open Sans','Montserrat','Raleway','Oswald','PT Sans','PT Serif','Merriweather','Playfair Display','Lobster','Pacifico','Caveat','Marck Script','Comfortaa','Neucha'];
@@ -560,7 +562,7 @@ async function openBoard(m,id,guest){
   Object.keys(SYMS).forEach(k=>tabs.append(B(k,()=>showSyms(k))));showSyms('Звёзды');
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
-    tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),tb('select','Выравнивание',()=>showPop(alignPop)),sep(),
+    tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),tb('align','Выравнивание',()=>showPop(alignPop)),sep(),
     tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()));
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
@@ -616,7 +618,7 @@ async function openBoard(m,id,guest){
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
   const bgb=k=>{bg=k;wrap.className='wrap '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
-  const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:()=>go(boardsView)},ic('menu'),E('span',{textContent:'Домой'}));
+  const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:()=>go(boardsView)},ic('home'),E('span',{textContent:'Домой'}));
   const menu=E('div',{className:'menu'},home,mb,mp);
   mp.append(followPanel);refreshPeers();
   mi('⌂ Домой',()=>go(boardsView));
