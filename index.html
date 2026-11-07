@@ -410,6 +410,7 @@ async function openBoard(m,id,guest){
     out.push('</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
   const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
   const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const c=E('canvas',{width:im.naturalWidth,height:im.naturalHeight});c.getContext('2d').drawImage(im,0,0);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
+  const exportPdf=async()=>{const w=window.open('about:blank','_blank');if(!w){alert('Разрешите всплывающие окна для экспорта PDF');return}try{const blob=await makeSvg(),url=URL.createObjectURL(blob);w.document.open();w.document.write('<!doctype html><html><head><title>'+xml(d.name||'Доска')+'</title><style>html,body{margin:0}img{width:100%;height:auto;display:block}@page{margin:10mm}</style></head><body><img src="'+url+'" onload="setTimeout(()=>window.print(),300)"></body></html>');w.document.close()}catch(e){w.close();alert('Не удалось подготовить PDF: '+e.message)}};
   const exportCsv=()=>{const rows=[['type','text','x','y','width','height'],...items.filter(n=>n.t).map(n=>[n.k,n.t,n.x,n.y,n.w,n.h])];const csv='\ufeff'+rows.map(r=>r.map(v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"').join(';')).join('\r\n');const a=E('a',{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:(d.name||'board')+'.csv'});a.click()};
   const fi=E('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:async()=>{
     const[cx,cy]=center();let y=cy-150;try{for(const f of fi.files){say('Загрузка картинки…');const s=await shrink(f);addImg(await upload(s.u),s.w,s.h,cx-200,y);y+=40}persist()}catch{alert('Не удалось загрузить картинку. Проверьте config.js и правила базы (см. инструкцию).')}say('');fi.value=''}});
@@ -488,7 +489,7 @@ async function openBoard(m,id,guest){
   const menu=E('div',{className:'menu'},mb,mp);
   mi('⌂ Домой',()=>go(boardsView));
   if(!guest)mi('← Список досок',()=>go(boardsView));
-  mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Экспорт CSV (текст)',exportCsv);
+  mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   mi('📹 Видеозвонок на доске',openVideo);
   mi('🔗 Ссылка для просмотра',()=>copyLink(boardLink(id,'view')));
   if(!guest)mi('✎ Ссылка для редактирования',()=>copyLink(boardLink(id,'edit')));
