@@ -179,12 +179,17 @@ function Call(r,box){
     pc.oniceconnectionstatechange=async()=>{if(pc.iceConnectionState==='failed'&&init){const o=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(o);r.emit('sig',{to:id,from:me,k:'offer',d:o})}};
     if(init){const o=await pc.createOffer();await pc.setLocalDescription(o);r.emit('sig',{to:id,from:me,k:'offer',d:o})}
     return pc};
-  offs.push(r.on('hello',m=>{const x=m.data;if(x&&x.from!==me&&!pcs[x.from])mk(x.from,true)}));
+  offs.push(r.on('hello',m=>{const x=m.data;if(x&&x.from!==me&&!pcs[x.from])mk(x.from,me<x.from)}));
   offs.push(r.on('bye',m=>m.data&&drop(m.data.from)));
+  const iceQueue={};
+  const flushIce=async id=>{const pc=pcs[id],q=iceQueue[id]||[];if(!pc?.remoteDescription)return;delete iceQueue[id];for(const c of q)try{await pc.addIceCandidate(c)}catch(e){console.warn('ICE candidate rejected',e)}};
   offs.push(r.on('sig',async m=>{const x=m.data;if(!x||x.to!==me)return;
-    if(x.k==='offer'){const pc=pcs[x.from]||await mk(x.from,false);await pc.setRemoteDescription(x.d);const a=await pc.createAnswer();await pc.setLocalDescription(a);r.emit('sig',{to:x.from,from:me,k:'answer',d:a})}
-    else if(x.k==='answer')await pcs[x.from]?.setRemoteDescription(x.d);
-    else try{await pcs[x.from]?.addIceCandidate(x.d)}catch{}}));
+    try{
+      if(x.k==='offer'){const pc=pcs[x.from]||await mk(x.from,false);await pc.setRemoteDescription(x.d);await flushIce(x.from);const a=await pc.createAnswer();await pc.setLocalDescription(a);r.emit('sig',{to:x.from,from:me,k:'answer',d:a})}
+      else if(x.k==='answer'){const pc=pcs[x.from];if(pc){await pc.setRemoteDescription(x.d);await flushIce(x.from)}}
+      else if(x.k==='ice'){const pc=pcs[x.from];if(pc?.remoteDescription)await pc.addIceCandidate(x.d);else(iceQueue[x.from]=iceQueue[x.from]||[]).push(x.d)}
+    }catch(e){console.error('WebRTC signaling error',x.k,e)}
+  }));
   return{
     async start(){
       if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Камера и микрофон работают только по HTTPS (или на localhost). Сейчас сайт открыт по небезопасному адресу: '+location.origin+'. Подключите HTTPS (хостинг с сертификатом или Cloudflare) и откройте сайт по https://…');
