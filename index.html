@@ -236,8 +236,8 @@ const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';await fn(main(
 /* ---------- старт / пароль ---------- */
 function loginView(message=''){
   const root=$('#root'),email=E('input',{type:'email',placeholder:'Электронная почта',autocomplete:'username',required:true}),pass=E('input',{type:'password',placeholder:'Пароль',autocomplete:'current-password',required:true}),status=E('div',{className:'mut',textContent:message});
-  const submit=B('Войти',async()=>{status.textContent='Проверяю данные…';submit.disabled=true;try{await auth.signInWithEmailAndPassword(email.value.trim(),pass.value);status.textContent='Вход выполнен'}catch(e){status.textContent=e.code==='auth/invalid-credential'?'Неверная почта или пароль':e.message;submit.disabled=false}});
-  const card=E('form',{className:'box',onsubmit:e=>{e.preventDefault();submit.click()}},E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,status);
+  const submit=E('button',{type:'button',textContent:'Войти',onclick:async()=>{status.textContent='Проверяю данные…';submit.disabled=true;try{await auth.signInWithEmailAndPassword(email.value.trim(),pass.value);status.textContent='Вход выполнен'}catch(e){status.textContent=e.code==='auth/invalid-credential'?'Неверная почта или пароль':e.message;submit.disabled=false}}});
+  const card=E('form',{className:'box',onsubmit:e=>{e.preventDefault()}},E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,status);
   root.replaceChildren(E('div',{className:'gate'},card));
 }
 function start(){
