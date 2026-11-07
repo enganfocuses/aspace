@@ -4,6 +4,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Oswald:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Lobster&family=Pacifico&family=Caveat:wght@400;700&family=Marck+Script&family=Comfortaa:wght@400;700&family=Neucha&subset=cyrillic&display=swap">
 <script src="config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <title>Моё пространство</title>
 <style>
 :root{--bg:#fffef9;--card:#fffef9;--ink:#3a3a46;--mut:#8a8580;--btn:#B7D1EA;/* TCX 14-4005 */--line:#7f9bbd;/* обводка: замените на цвет 20-0124 */--pink:#eaa8b8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -19,6 +21,11 @@ input,select,textarea{background:var(--card);border:1px solid var(--line);border
 .gate{display:grid;place-items:center;height:100%;padding:20px}
 .box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px;width:min(360px,100%);display:grid;gap:12px;text-align:center}
 .box h1{margin:0;font-size:24px}
+.gate{display:grid;place-items:center;min-height:100%;padding:20px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:28px;width:min(390px,100%);display:grid;gap:12px;text-align:center;margin:auto}
+.box h1{margin:0;font-size:28px}
+.box input{width:100%;border-radius:12px}
+.box button{border:0}
 header{display:flex;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
 header b{margin-right:auto}
 #app{display:flex;flex-direction:column;height:100%}
@@ -197,12 +204,17 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
+let auth=null,currentUser=null;
+const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
+const rawFetch=window.fetch.bind(window);
+window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
+const eventUrl=async url=>dbUrl(url);
 async function load(p){try{const r=await fetch(DB()+'/docs/'+p+'.json');if(r.ok){const v=await r.json();if(v&&v.j)return JSON.parse(v.j);const l=ls.g(p,null);if(l)save(p,l);return l}}catch{}return ls.g(p,null)}
 async function save(p,d){ls.s(p,d);try{await fetch(DB()+'/docs/'+p+'.json',{method:'PUT',body:JSON.stringify({j:JSON.stringify(d)})})}catch{}}
 const room0={join:name=>new Promise(res=>{
   const me=uid()+uid(),H={},dead=[],base=DB()+'/rooms/'+encodeURIComponent(name);
   const deliver=v=>{if(v&&v.s&&v.s!==me&&v.t)(H[v.t]||[]).forEach(f=>{let d=null;try{d=JSON.parse(v.d)}catch{}f({data:d,isMe:false})})};
-  const es=new EventSource(base+'.json');
+  const es=new EventSource(await eventUrl(base+'.json'));
   es.addEventListener('put',e=>{try{const m=JSON.parse(e.data);if(m.data==null)return;if(m.path==='/'){Object.values(m.data).forEach(v=>v&&typeof v==='object'&&deliver(v))}else if(m.path.split('/').length===2)deliver(m.data)}catch{}});
   const gc=setInterval(()=>{if(!dead.length)return;const o={};dead.splice(0).forEach(k=>o[k]=null);fetch(base+'.json',{method:'PATCH',body:JSON.stringify(o)}).catch(()=>{})},10000);
   const api={id:me,emit:(t,d)=>{fetch(base+'.json',{method:'POST',body:JSON.stringify({t,d:JSON.stringify(d),s:me})}).then(r=>r.json()).then(j=>{if(j&&j.name)dead.push(j.name)}).catch(()=>{})},
@@ -222,12 +234,24 @@ const main=()=>$('#main');
 const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
+function loginView(message=''){
+  const root=$('#root'),email=E('input',{type:'email',placeholder:'Электронная почта',autocomplete:'username',required:true}),pass=E('input',{type:'password',placeholder:'Пароль',autocomplete:'current-password',required:true}),status=E('div',{className:'mut',textContent:message});
+  const submit=B('Войти',async()=>{status.textContent='Проверяю данные…';submit.disabled=true;try{await auth.signInWithEmailAndPassword(email.value.trim(),pass.value);status.textContent='Вход выполнен'}catch(e){status.textContent=e.code==='auth/invalid-credential'?'Неверная почта или пароль':e.message;submit.disabled=false}});
+  const card=E('form',{className:'box',onsubmit:e=>{e.preventDefault();submit.click()}},E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,status);
+  root.replaceChildren(E('div',{className:'gate'},card));
+}
 function start(){
-  if(!window.CFG||!CFG.db||/ВАШ/.test(CFG.db))document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнен config.js: укажите адрес базы Firebase (см. README).'}));
- const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'))}
+  if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
+  try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();auth.onAuthStateChanged(user=>{
+    currentUser=user;if(!user){loginView();return}
+    if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
+    const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
+  })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
+}
+
 function shell(guest){
   const hd=E('header',{},E('b',{textContent:'✿ Моё пространство'}),B('⌂ Домой',()=>go(boardsView)));
-  if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)))}
+  if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/);
   if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
