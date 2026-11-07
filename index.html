@@ -251,8 +251,14 @@ function start(){
   })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
 }
 
+function goHome(){
+  if(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid){
+    history.replaceState(null,'',location.pathname+location.search);
+    shell(false);
+  }else go(boardsView);
+}
 function shell(guest){
-  const hd=E('header',{},E('b',{textContent:'Aspace'}),B('⌂ Домой',()=>go(boardsView)));
+  const hd=E('header',{},E('b',{textContent:'Aspace'}),B('⌂ Домой',goHome));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/);
@@ -626,10 +632,10 @@ async function openBoard(m,id,guest){
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
   const bgb=k=>{bg=k;wrap.className='wrap '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
-  const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:()=>go(boardsView)},ic('home'),E('span',{textContent:'Домой'}));
+  const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:goHome},ic('home'),E('span',{textContent:'Домой'}));
   const menu=E('div',{className:'menu'},home,mb,mp);
   mp.append(followPanel);refreshPeers();
-  mi('⌂ Домой',()=>go(boardsView));
+  mi('⌂ Домой',goHome);
   if(!guest)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   mi('📹 Видеозвонок на доске',openVideo);
