@@ -195,6 +195,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 }
 @media(max-width:600px){.vwin{right:8px;top:64px;width:min(94vw,420px);height:min(68vh,420px)}.vbar{position:static;transform:none;max-height:130px;overflow:auto}.device-select{min-width:90px;max-width:125px}}
 @media print{header{display:none!important}}
+/* Совместный просмотр сайта рядом с доской */
+.site-panel{position:absolute;right:0;top:0;bottom:0;width:50%;z-index:18;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.site-head{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);min-height:48px}
+.site-head b{margin-right:auto;color:var(--wine);font-size:13px}
+.site-frame{border:0;width:100%;height:100%;flex:1;background:#fff}
+.bfull.with-site .bscroll{right:50%;width:50%}
+@media(max-width:760px){.site-panel{top:50%;left:0;right:0;bottom:0;width:100%;border-left:0;border-top:1px solid var(--line)}.bfull.with-site .bscroll{top:0;left:0;right:0;bottom:50%;width:100%}}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -449,7 +456,7 @@ async function openBoard(m,id,guest){
   r.on('bring',m=>{const p=m.data;if(p&&p.to===r.id){applyViewport(p.v);say((p.name||'Участник')+' подтянул тебя к себе')}});
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;say((p.name||'Участник')+' попросил следовать за ним')}});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
-  const persist=()=>{clearTimeout(tm);tm=setTimeout(()=>save('boards/'+id,{name:d.name,strokes,items,bg,upd:Date.now()}),1200)};
+  const persist=()=>{clearTimeout(tm);tm=setTimeout(()=>save('boards/'+id,{name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()}),1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
@@ -533,6 +540,7 @@ async function openBoard(m,id,guest){
   r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n)}});
   r.on('clr',()=>{strokes=[];items=[];redraw();renderAll()});
   r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg});
+  r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
   r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg})});
   r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;wrap.className='wrap '+bg;redraw();renderAll()});
   /* картинки / PDF */
@@ -558,6 +566,9 @@ async function openBoard(m,id,guest){
     const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>3*1024*1024){alert('Файл «'+f.name+'» больше 3 МБ. Пока поддерживаются файлы до 3 МБ.');continue}say('Добавляю '+f.name+'…');const u=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось добавить медиафайл: '+e.message)}say('');fm.value=''}});
   /* интерфейс */
   const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp,fm);
+  const sitePanel=E('section',{className:'site-panel'});
+  const renderSite=()=>{const url=d.siteUrl||'';root.classList.toggle('with-site',!!url);sitePanel.replaceChildren();if(!url)return;const head=E('div',{className:'site-head'},E('b',{textContent:'Совместный просмотр · сайт'}),B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')),B('×',()=>{if(guest)return;d.siteUrl='';renderSite();persist();r.emit('site',{url:''})}));const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, открой его отдельно кнопкой ↗.'});sitePanel.append(head,frame,note)};
+  renderSite();root.append(sitePanel);
   const tb=(icon,lb,fn,t)=>{const b=E('button',{className:'tbtn',title:lb,'aria-label':lb,onclick:fn},ic(icon));if(t)b.dataset.t=t;return b};
   const sep=()=>E('span',{className:'sep'}),tbar=E('div',{className:'bar tbar'}),pops=[];
   const mkpop=()=>{const p=E('div',{className:'bar pop'});p.onmousedown=e=>{if(!['SELECT','INPUT'].includes(e.target.tagName))e.preventDefault()};pops.push(p);root.append(p);return p};
@@ -639,6 +650,7 @@ async function openBoard(m,id,guest){
   if(!guest)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   mi('📹 Видеозвонок на доске',openVideo);
+  if(!guest)mi('🖥 Совместный просмотр · добавить сайт',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}d.siteUrl=url;renderSite();persist();r.emit('site',{url})});
   if(!guest){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(!guest)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
