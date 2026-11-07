@@ -211,7 +211,7 @@ window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.u
 const eventUrl=async url=>dbUrl(url);
 async function load(p){try{const r=await fetch(DB()+'/docs/'+p+'.json');if(r.ok){const v=await r.json();if(v&&v.j)return JSON.parse(v.j);const l=ls.g(p,null);if(l)save(p,l);return l}}catch{}return ls.g(p,null)}
 async function save(p,d){ls.s(p,d);try{await fetch(DB()+'/docs/'+p+'.json',{method:'PUT',body:JSON.stringify({j:JSON.stringify(d)})})}catch{}}
-const room0={join:name=>new Promise(res=>{
+const room0={join:name=>new Promise(async res=>{
   const me=uid()+uid(),H={},dead=[],base=DB()+'/rooms/'+encodeURIComponent(name);
   const deliver=v=>{if(v&&v.s&&v.s!==me&&v.t)(H[v.t]||[]).forEach(f=>{let d=null;try{d=JSON.parse(v.d)}catch{}f({data:d,isMe:false})})};
   const es=new EventSource(await eventUrl(base+'.json'));
