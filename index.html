@@ -523,7 +523,7 @@ async function openBoard(m,id,guest){
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();delItem(sel)}
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
-  setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});
+  setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
   cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();save('boards/'+id,{name:d.name,strokes,items,bg,upd:Date.now()})};
 }
 
