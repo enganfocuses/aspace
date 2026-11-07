@@ -157,13 +157,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .wrap{background-color:#fbfaff}
 .wrap.dots{background-image:radial-gradient(#d9cfe7 1.2px,transparent 1.2px);background-size:22px 22px}
 .bar,.menu .mp{background:#fff;border:1px solid var(--line);box-shadow:0 8px 28px #34233f1c;border-radius:13px}
-.tbar{left:18px;top:50%;bottom:auto;transform:translateY(-50%);flex-direction:column;max-width:none;padding:8px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 8px 28px #34233f1c}
+.tbar{left:50%;top:auto;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);flex-direction:row;max-width:calc(100vw - 24px);overflow-x:auto;scrollbar-width:none;padding:8px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 8px 28px #34233f1c}
 .tbar .sep{width:26px;height:1px;background:var(--line);margin:3px 0}
 .tbtn{width:42px;height:42px;border-radius:10px}
 .tbtn.on{background:var(--wine)!important;color:#fff!important;box-shadow:none!important}
 .pop{border:1px solid var(--line);background:#fff;box-shadow:0 8px 28px #34233f1c;border-radius:14px}
 .mbtn,.vtop{border-radius:10px;box-shadow:0 5px 18px #34233f18}
 .mbtn{background:#fff!important;color:var(--wine)!important;border:1px solid var(--line)}
+.menu{display:flex;gap:8px;align-items:flex-start}.menu .mp{position:absolute;top:42px;left:0}.homebtn{padding:8px 12px}.menu>.mbtn:not(.homebtn){padding:8px 12px}
 .toast{background:var(--wine);color:#fff;border:0;border-radius:10px}
 .it.rr .bgl,.it.rect .bgl,.it.pill .bgl,.it.oval .bgl{border-color:#b8a5d0}
 .it.frame .bgl{border-color:#9a80ba}
@@ -423,7 +424,7 @@ async function openBoard(m,id,guest){
   const d0=await load('boards/'+id);
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
-  let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,got=false,sent=0,lastT=0,pan=null,vw=null,call=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
+  let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const wrap=E('div',{className:'wrap '+bg},cvM,cv),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
@@ -457,8 +458,8 @@ async function openBoard(m,id,guest){
   const rmEl=n=>{els[n.id]?.remove();delete els[n.id];if(sel===n)select(null)};
   const delItem=(n,keep)=>{items=items.filter(x=>x!==n);rmEl(n);r.emit('d',{id:n.id});persist();if(!keep)rec({t:'d',n})};
   const dup=n=>{const c={...n,id:uid(),x:n.x+24,y:n.y+24};items.push(c);upsert(c);r.emit('i',{n:c});persist();rec({t:'i',n:c});select(c)};
-  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(e.button||e.target.closest('.g,.sb'))return;if(h===el&&e.target.closest('.t'))return;e.preventDefault();h.setPointerCapture(e.pointerId);const ox=e.clientX/z-n.x,oy=e.clientY/z-n.y;
-      h.onpointermove=ev=>{n.x=Math.max(0,ev.clientX/z-ox);n.y=Math.max(0,ev.clientY/z-oy);geom(el,n);push(n)};
+  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(e.button||e.target.closest('.g,.sb'))return;if(h===el&&e.target.closest('.t'))return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
+      h.onpointermove=ev=>{const r=wrap.getBoundingClientRect();n.x=Math.max(0,(ev.clientX-r.left)/z-ox);n.y=Math.max(0,(ev.clientY-r.top)/z-oy);geom(el,n);push(n)};
       h.onpointerup=()=>{h.onpointermove=h.onpointerup=null;fit()}})};
   const upsert=n=>{
     let el=els[n.id];
@@ -472,7 +473,7 @@ async function openBoard(m,id,guest){
       const g=E('div',{className:'g'}),sb=E('div',{className:'sb'},E('button',{textContent:'⧉',title:'Дублировать',onclick:()=>dup(n)}),E('button',{textContent:'✕',title:'Удалить',onclick:()=>delItem(n)}));
       g.onpointerdown=e=>{e.stopPropagation();e.preventDefault();g.setPointerCapture(e.pointerId);const sx=e.clientX,sy=e.clientY,w0=n.w,h0=n.h;
         g.onpointermove=ev=>{n.w=Math.max(40,w0+(ev.clientX-sx)/z);n.h=n.k==='img'?n.w*h0/w0:Math.max(30,h0+(ev.clientY-sy)/z);upsert(n);push(n)};g.onpointerup=()=>{g.onpointermove=g.onpointerup=null;fit()}};
-      el.append(g,sb);el.addEventListener('pointerdown',()=>select(n),true);
+      el.append(g,sb);el.addEventListener('pointerdown',e=>{if(e.shiftKey){const i=selectedItems.indexOf(n);if(i>=0)selectedItems.splice(i,1);else selectedItems.push(n);sel=selectedItems[selectedItems.length-1]||null;Object.values(els).forEach(x=>x.classList.toggle('sel',selectedItems.some(q=>els[q.id]===x)));if(sel)syncBar();else fbar.style.display='none'}else select(n)},true);
       drag(hd,el,n);wrap.insertBefore(el,n.k==='frame'?cv.nextSibling:null)}
     geom(el,n);
     if(n.k==='emo')el._bg.style.fontSize=n.w*.8+'px';
@@ -559,7 +560,7 @@ async function openBoard(m,id,guest){
   Object.keys(SYMS).forEach(k=>tabs.append(B(k,()=>showSyms(k))));showSyms('Звёзды');
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
-    tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
+    tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),tb('select','Выравнивание',()=>showPop(alignPop)),sep(),
     tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()));
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
@@ -577,9 +578,12 @@ async function openBoard(m,id,guest){
   fbar.append(fontSec,E('span',{className:'sep'}),fillSec);fbar.onmousedown=e=>{if(e.target.tagName!=='SELECT')e.preventDefault()};
   const fmt=(k,v)=>{if(!sel)return;sel[k]=v;upsert(sel);push(sel);syncBar()};
   const syncBar=()=>{if(!sel)return;fsel.value=sel.f||'Open Sans';ssel.value=sel.fs||16;bB.classList.toggle('on',!!sel.b);bI.classList.toggle('on',!!sel.i);bU.classList.toggle('on',!!sel.ul)};
-  const select=n=>{if(sel&&els[sel.id])els[sel.id].classList.remove('sel');sel=n;if(n&&els[n.id])els[n.id].classList.add('sel');
+  const select=n=>{selectedItems=n?[n]:[];if(sel&&els[sel.id])els[sel.id].classList.remove('sel');sel=n;if(n&&els[n.id])els[n.id].classList.add('sel');
     const ok=n&&(FILLK.includes(n.k)||n.k==='txt');fbar.style.display=ok?'flex':'none';if(ok){fontSec.style.display='flex';fillSec.style.display=FILLK.includes(n.k)?'flex':'none';syncBar()}};
   /* история и масштаб */
+  const alignPop=mkpop(),alignRow=E('div',{className:'row'});alignPop.append(E('b',{textContent:'Выравнивание · выдели несколько объектов с Shift'}),alignRow);
+  const align=(mode)=>{const a=selectedItems.filter(n=>items.includes(n));if(a.length<2){say('Выдели минимум два объекта: удерживай Shift и нажимай на них');return}const minX=Math.min(...a.map(n=>n.x)),maxX=Math.max(...a.map(n=>n.x+n.w),),minY=Math.min(...a.map(n=>n.y)),maxY=Math.max(...a.map(n=>n.y+n.h));a.forEach(n=>{if(mode==='left')n.x=minX;else if(mode==='center')n.x=minX+(maxX-minX-n.w)/2;else if(mode==='right')n.x=maxX-n.w;else if(mode==='top')n.y=minY;else if(mode==='middle')n.y=minY+(maxY-minY-n.h)/2;else if(mode==='bottom')n.y=maxY-n.h;geom(els[n.id],n);push(n)});persist();say('Элементы выровнены')};
+  [['По левому краю','left'],['По центру','center'],['По правому краю','right'],['По верхнему краю','top'],['По середине','middle'],['По нижнему краю','bottom']].forEach(([label,key])=>alignRow.append(B(label,()=>{hidePops();align(key)})));
   const hist=E('div',{className:'bar hist'},tb('undo','Отменить (Ctrl+Z)',doUndo),tb('redo','Повторить (Ctrl+Y)',doRedo));
   const zl=E('span',{className:'zl',textContent:'100%'}),zoom=E('div',{className:'bar zoom'},B('−',()=>setZ(z/1.2)),zl,B('+',()=>setZ(z*1.2)),B('100%',()=>setZ(1)));
   /* видео-окно */
@@ -612,7 +616,8 @@ async function openBoard(m,id,guest){
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
   const bgb=k=>{bg=k;wrap.className='wrap '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
-  const menu=E('div',{className:'menu'},mb,mp);
+  const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:()=>go(boardsView)},ic('menu'),E('span',{textContent:'Домой'}));
+  const menu=E('div',{className:'menu'},home,mb,mp);
   mp.append(followPanel);refreshPeers();
   mi('⌂ Домой',()=>go(boardsView));
   if(!guest)mi('← Список досок',()=>go(boardsView));
