@@ -503,7 +503,13 @@ async function openBoard(m,id,guest){
   const fsel=E('select',{onchange:()=>fmt('f',fsel.value)},...FONTS.map(f=>{const o=E('option',{value:f,textContent:f});o.style.fontFamily=`'${f}'`;return o})),
     ssel=E('select',{onchange:()=>fmt('fs',+ssel.value)},...[12,14,16,18,20,24,28,32,40,48,64,80].map(x=>E('option',{value:x,textContent:x})));
   const bB=B('B',()=>fmt('b',!sel?.b)),bI=B('I',()=>fmt('i',!sel?.i)),bU=B('U',()=>fmt('ul',!sel?.ul));bB.style.fontWeight=700;bI.style.fontStyle='italic';bU.style.textDecoration='underline';
-  fontSec.append(fsel,ssel,bB,bI,bU);['#3a3a46','#4f86b3','#d9738f','#a67c52','#2f7d5b','#7a5cc4','#ffffff'].forEach(c=>{const s=E('button',{className:'sw',title:'Цвет текста',onclick:()=>fmt('col',c)});s.style.background=c;fontSec.append(s)});
+  fontSec.append(fsel,ssel,bB,bI,bU);
+  const defaultTextPalette=['#3a3a46','#4f86b3','#d9738f','#a67c52','#2f7d5b','#7a5cc4','#ffffff'];
+  let textPalette=ls.g('aspace-text-palette',defaultTextPalette);
+  const drawTextPalette=()=>{fontSec.querySelectorAll('[data-text-color]').forEach(x=>x.remove());textPalette.forEach(c=>{const sw=E('button',{className:'sw',title:'Цвет текста '+c,'data-text-color':'1',onclick:()=>fmt('col',c)});sw.style.background=c;sw.style.borderColor=c.toLowerCase()==='#ffffff'?'#b9ad9e':'#fff';fontSec.append(sw)})};
+  const customColor=E('input',{type:'color',value:'#49372f',title:'Выбрать собственный цвет текста',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
+  customColor.onchange=()=>{const c=customColor.value.toLowerCase();if(!textPalette.includes(c)){textPalette.push(c);ls.s('aspace-text-palette',textPalette);drawTextPalette()}fmt('col',c)};
+  fontSec.append(customColor);drawTextPalette();
   FILLS.forEach(c=>{const s=E('button',{className:'sw',title:'Заливка',onclick:()=>fmt('c',c)});s.style.background=c;fillSec.append(s)});
   fbar.append(fontSec,E('span',{className:'sep'}),fillSec);fbar.onmousedown=e=>{if(e.target.tagName!=='SELECT')e.preventDefault()};
   const fmt=(k,v)=>{if(!sel)return;sel[k]=v;upsert(sel);push(sel);syncBar()};
