@@ -136,7 +136,7 @@ input,select,textarea{background:#fffdfb;border:1.5px solid var(--outline);color
 .vwin button:hover{background:linear-gradient(135deg,#f5b5cf,#addbf1)}
 .vwin button.off{background:#d96b7d;color:white;border-color:#9b4657}
 .vgrid{gap:8px;padding:8px}.vwin .tile{border:1px solid #9b6d69;border-radius:16px;box-shadow:0 5px 18px #49372f25}
-.vbar{left:8px;right:8px;bottom:8px;transform:none;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px;border-radius:18px;background:#fffdf2ed;border:1px solid #9b6d6966;opacity:1;backdrop-filter:blur(12px)}
+.vbar{position:static;left:auto;right:auto;bottom:auto;transform:none;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px;border-radius:18px;background:#fffdf2ed;border:1px solid #9b6d6966;opacity:1;backdrop-filter:blur(12px)}
 .vbar button{min-height:36px}.device-select{min-width:112px;max-width:160px;padding:6px 28px 6px 10px;border-radius:12px;font-size:12px;font-weight:600}
 .toast{background:#f7c4d7;color:#573e38;border:1.5px solid var(--outline)}
 .bar,.menu .mp{background:#fffdf2ed;border-color:#9b6d6966;backdrop-filter:blur(14px)}
@@ -238,7 +238,8 @@ function Call(r,box){
   };
 }
 function devicePicker(call,kind,title){
-  const select=E('select',{title, 'aria-label':title,className:'device-select'});
+  const supported=kind!=='audiooutput'||typeof HTMLMediaElement.prototype.setSinkId==='function';
+  const select=E('select',{title:kind==='audiooutput'&&!supported?'Выбор динамика не поддерживается этим браузером':title, 'aria-label':title,className:'device-select',disabled:!supported});
   const refresh=async()=>{const ds=await call.devices(),items=ds.filter(d=>d.kind===kind),old=select.value;select.replaceChildren(E('option',{value:'',textContent:title}));items.forEach((d,i)=>select.append(E('option',{value:d.deviceId,textContent:d.label||title+' '+(i+1)})));if(items.some(d=>d.deviceId===old))select.value=old};
   refresh();if(navigator.mediaDevices?.addEventListener)navigator.mediaDevices.addEventListener('devicechange',refresh);
   select.addEventListener('change',async()=>{if(!select.value)return;try{if(kind==='videoinput')await call.camera(select.value);else if(kind==='audioinput')await call.microphone(select.value);else await call.speaker(select.value)}catch(e){alert('Не удалось переключить устройство: '+e.message)}});
