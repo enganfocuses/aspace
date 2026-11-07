@@ -204,6 +204,7 @@ function Call(r,box){
     cam(){const t=st?.getVideoTracks()[0];if(t)return t.enabled=!t.enabled},
     async cameras(){return (await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput')},
     async camera(id){if(!st)return;const ns=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id}},audio:false}),nt=ns.getVideoTracks()[0],ot=st.getVideoTracks()[0];for(const pc of Object.values(pcs)){const sender=pc.getSenders().find(x=>x.track&&x.track.kind==='video');if(sender)await sender.replaceTrack(nt)}if(ot){st.removeTrack(ot);ot.stop()}st.addTrack(nt);tiles.me.v.srcObject=st;return nt.getCapabilities?nt.getCapabilities():{}},
+    zoomCaps(){const t=st?.getVideoTracks()[0];const c=t?.getCapabilities?.();return c?.zoom||null},
     async zoom(value){const t=st?.getVideoTracks()[0];if(!t||!t.getCapabilities)return null;const c=t.getCapabilities();if(!c.zoom)return null;await t.applyConstraints({advanced:[{zoom:Math.max(c.zoom.min,Math.min(c.zoom.max,value))}]});return c.zoom},
     async noise(on){await st?.getAudioTracks()[0]?.applyConstraints({noiseSuppression:on,echoCancellation:true,autoGainControl:true})},
     stop(){r.emit('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
@@ -213,6 +214,7 @@ function controls(call,onLeave){
   let ns=true;
   const mic=B('🎤 Микрофон',()=>{mic.classList.toggle('on',call.mic()===false)}),cam=B('📷 Камера',()=>{call.cam()}),nz=B('🔇 Шумодав: вкл',async()=>{ns=!ns;await call.noise(ns);nz.textContent='🔇 Шумодав: '+(ns?'вкл':'выкл')},'on'),lv=B('Выйти из звонка',onLeave),cams=E('select',{title:'Выбрать камеру',onchange:async()=>{try{const cap=await call.camera(cams.value);zoom.replaceChildren();if(cap&&cap.zoom){zoom.append(E('span',{className:'mut',textContent:'Zoom'}),E('input',{type:'range',min:cap.zoom.min,max:cap.zoom.max,step:cap.zoom.step||.1,value:cap.zoom.min,oninput:e=>call.zoom(+e.target.value)}))}}catch(e){alert('Не удалось переключить камеру: '+e.message)}}}),zoom=E('span',{className:'row'});
   call.cameras().then(ds=>ds.forEach((d,i)=>cams.append(E('option',{value:d.deviceId,textContent:d.label||'Камера '+(i+1)}))));
+  const zc=call.zoomCaps();if(zc)zoom.append(E('span',{className:'mut',textContent:'Zoom'}),E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,oninput:e=>call.zoom(+e.target.value)}));
   return[mic,cam,nz,cams,zoom,lv];
 }
 async function roomUI(m,id,name,back){
@@ -401,10 +403,12 @@ async function openBoard(m,id,guest){
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
-  const exportSvg=async()=>{const maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
+  const makeSvg=async()=>{const maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
     for(const st of strokes){let p='';for(let i=0;i<st.p.length;i+=2)p+=(i?'L':'M')+st.p[i]+' '+st.p[i+1]+' ';out.push(`<path d=\"${p}\" fill=\"none\" stroke=\"${st.e?'#fff':xml(st.c)}\" stroke-width=\"${st.w}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>`)}
     for(const n of items){if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}
-    out.push('</svg>');const blob=new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'}),a=E('a',{href:URL.createObjectURL(blob),download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000)};
+    out.push('</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
+  const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
+  const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const c=E('canvas',{width:im.naturalWidth,height:im.naturalHeight});c.getContext('2d').drawImage(im,0,0);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
   const exportCsv=()=>{const rows=[['type','text','x','y','width','height'],...items.filter(n=>n.t).map(n=>[n.k,n.t,n.x,n.y,n.w,n.h])];const csv='\\ufeff'+rows.map(r=>r.map(v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"').join(';')).join('\\r\\n');const a=E('a',{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:(d.name||'board')+'.csv'});a.click()};
   const fi=E('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:async()=>{
     const[cx,cy]=center();let y=cy-150;try{for(const f of fi.files){say('Загрузка картинки…');const s=await shrink(f);addImg(await upload(s.u),s.w,s.h,cx-200,y);y+=40}persist()}catch{alert('Не удалось загрузить картинку. Проверьте config.js и правила базы (см. инструкцию).')}say('');fi.value=''}});
@@ -469,6 +473,7 @@ async function openBoard(m,id,guest){
         nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});nz.classList.add('on');
       const cams=E('select',{title:'Выбрать камеру',onchange:async()=>{try{const cap=await call.camera(cams.value);if(cap&&cap.zoom){const zr=E('input',{type:'range',min:cap.zoom.min,max:cap.zoom.max,step:cap.zoom.step||.1,value:cap.zoom.min,title:'Приблизить камеру',oninput:()=>call.zoom(+zr.value)});vbar.insertBefore(zr,B('Zoom',()=>{zr.value=cap.zoom.min;call.zoom(+zr.value)}))}}catch(e){alert('Не удалось переключить камеру: '+e.message)}}});
       (await call.cameras()).forEach((d,i)=>cams.append(E('option',{value:d.deviceId,textContent:d.label||'Камера '+(i+1)})));
+      const zc=call.zoomCaps();if(zc)vbar.append(E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,title:'Приблизить / отдалить камеру',oninput:e=>call.zoom(+e.target.value)}));
       vbar.append(mic,cam,nz,cams,B('⛶',fs),B('Выйти',close))});
     grid.append(go);
     hd.onpointerdown=e=>{if(e.target.closest('button'))return;hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
@@ -482,7 +487,7 @@ async function openBoard(m,id,guest){
   const menu=E('div',{className:'menu'},mb,mp);
   mi('⌂ Домой',()=>go(boardsView));
   if(!guest)mi('← Список досок',()=>go(boardsView));
-  mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт CSV (текст)',exportCsv);
+  mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Экспорт CSV (текст)',exportCsv);
   mi('📹 Видеозвонок на доске',openVideo);
   mi('🔗 Ссылка для просмотра',()=>copyLink(boardLink(id,'view')));
   if(!guest)mi('✎ Ссылка для редактирования',()=>copyLink(boardLink(id,'edit')));
