@@ -48,9 +48,9 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 
 .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .bfull{position:fixed;inset:0;z-index:20;background:#fffef9}
-.bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain}
+.bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:none}
 .sizer{position:relative}
-.wrap{position:absolute;left:0;top:0;transform-origin:0 0;background-color:#fffef9}
+.wrap{position:absolute;left:0;top:0;transform-origin:0 0;background-color:#fffef9;will-change:transform}
 .wrap.dots{background-image:radial-gradient(#ddd5c0 1.4px,transparent 1.4px);background-size:24px 24px}
 .wrap canvas{position:absolute;left:0;top:0;touch-action:none}.wrap canvas.cm{opacity:.4}
 .bar{background:#fffffff2;border:1px solid #7f9bbd77;box-shadow:0 8px 28px #3a3a4624;border-radius:999px}
@@ -115,6 +115,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .vwin.min{height:auto!important;min-height:0;resize:none}.vwin.min .vgrid,.vwin.min .vbar{display:none}
 .vwin:fullscreen{width:100vw;height:100vh;border-radius:0;resize:none}.vwin:fullscreen .vgrid{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
 @media(max-width:900px){.tbar{overflow-x:auto;scrollbar-width:none}.hist,.zoom{bottom:calc(88px + env(safe-area-inset-bottom,0px))}}
+.readonly .tbar,.readonly .hist,.readonly .fbar,.readonly .vtop{display:none!important}.readonly .it,.readonly canvas{pointer-events:none!important}.readonly .it>i,.readonly .it .g,.readonly .it .sb{display:none!important}
 @media print{header,.noprint{display:none!important}html,body,#app{height:auto}#main{overflow:visible}}
 @media(max-width:700px){.bw{flex-direction:column;height:auto}.vid{width:100%;flex-direction:row}.scroll{height:55vh}}
 </style></head><body>
@@ -140,6 +141,7 @@ const room0={join:name=>new Promise(res=>{
   es.onopen=()=>res(api);setTimeout(()=>res(api),2500)})};
 const isLocal=false;
 const link=(k,id)=>location.origin+location.pathname+'#'+k+'-'+id;
+const boardLink=(id,mode='view')=>location.origin+location.pathname+'#b-'+id+'-'+mode;
 const icsEsc=t=>String(t||'').replace(/[\\;,]/g,m=>'\\'+m).replace(/\n/g,'\\n');
 const icsZ=t=>new Date(t).toISOString().replace(/[-:]|\.\d{3}/g,'');
 const icsDl=(evs,name)=>{const body='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//workspace//RU\r\nCALSCALE:GREGORIAN\r\n'+evs.map(e=>['BEGIN:VEVENT','UID:'+e.id+'@workspace','DTSTAMP:'+icsZ(Date.now()),'DTSTART:'+icsZ(e.start),'DTEND:'+icsZ(new Date(e.start).getTime()+e.dur*60000),'SUMMARY:'+icsEsc(e.title),'DESCRIPTION:'+icsEsc('Видеозвонок: '+link('c',e.room)),'URL:'+link('c',e.room),'LOCATION:'+link('c',e.room),'END:VEVENT'].join('\r\n')).join('\r\n')+'\r\nEND:VCALENDAR\r\n';E('a',{href:URL.createObjectURL(new Blob([body],{type:'text/calendar'})),download:name}).click()};
@@ -158,8 +160,8 @@ function shell(guest){
   const hd=E('header',{},E('b',{textContent:'✿ Моё пространство'}),B('⌂ Домой',()=>go(boardsView)));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
-  const h=location.hash;
-  if(h.startsWith('#b-'))go(m=>openBoard(m,h.slice(3),guest));
+  const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/);
+  if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
   else if(h.startsWith('#c-'))go(m=>roomUI(m,h.slice(3),'Видеозвонок',false));
   else go(boardsView);
 }
@@ -209,11 +211,9 @@ function Call(r,box){
 }
 function controls(call,onLeave){
   let ns=true;
-  const mic=B('🎤 Микрофон',()=>{mic.classList.toggle('on',call.mic()===false)}),
-        cam=B('📷 Камера',()=>{call.cam()}),
-        nz=B('🔇 Шумодав: вкл',async()=>{ns=!ns;await call.noise(ns);nz.textContent='🔇 Шумодав: '+(ns?'вкл':'выкл')},'on'),
-        lv=B('Выйти из звонка',onLeave);
-  return[mic,cam,nz,lv];
+  const mic=B('🎤 Микрофон',()=>{mic.classList.toggle('on',call.mic()===false)}),cam=B('📷 Камера',()=>{call.cam()}),nz=B('🔇 Шумодав: вкл',async()=>{ns=!ns;await call.noise(ns);nz.textContent='🔇 Шумодав: '+(ns?'вкл':'выкл')},'on'),lv=B('Выйти из звонка',onLeave),cams=E('select',{title:'Выбрать камеру',onchange:async()=>{try{const cap=await call.camera(cams.value);zoom.replaceChildren();if(cap&&cap.zoom){zoom.append(E('span',{className:'mut',textContent:'Zoom'}),E('input',{type:'range',min:cap.zoom.min,max:cap.zoom.max,step:cap.zoom.step||.1,value:cap.zoom.min,oninput:e=>call.zoom(+e.target.value)}))}}catch(e){alert('Не удалось переключить камеру: '+e.message)}}}),zoom=E('span',{className:'row'});
+  call.cameras().then(ds=>ds.forEach((d,i)=>cams.append(E('option',{value:d.deviceId,textContent:d.label||'Камера '+(i+1)}))));
+  return[mic,cam,nz,cams,zoom,lv];
 }
 async function roomUI(m,id,name,back){
   const box=E('div',{className:'vid big'}),bar=E('div',{className:'tb'}),url=link('c',id);let call=null;
@@ -221,7 +221,7 @@ async function roomUI(m,id,name,back){
     const r=await room0.join('c-'+id);call=Call(r,box);
     try{await call.start()}catch(e){alert(e.message);call=null;return}
     bar.replaceChildren(...controls(call,()=>{call.stop();call=null;bar.replaceChildren(...idle)}))});
-  const boardBtn=B('▤ Включить доску',async()=>{const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=link('b',bid);window.open(u,'_blank','noopener');say2('Совместная доска создана и открыта в новой вкладке')});
+  const boardBtn=B('▤ Включить доску',async()=>{const tab=window.open('about:blank','_blank');const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=boardLink(bid,'edit');if(tab)tab.location.href=u;else copyLink(u);say2('Совместная доска создана')});
   const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,boardBtn,B('🔗 Копировать ссылку',()=>{copyLink(url);alert('Постоянная ссылка скопирована')})];
   bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:url}),box);
   cleanup=()=>call&&call.stop();
@@ -415,7 +415,7 @@ async function openBoard(m,id,guest){
         if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
       persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
   /* интерфейс */
-  const root=E('div',{className:'bfull'},sc,toast,fi,fp);
+  const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp);
   const tb=(icon,lb,fn,t)=>{const b=E('button',{className:'tbtn',title:lb,'aria-label':lb,onclick:fn},ic(icon));if(t)b.dataset.t=t;return b};
   const sep=()=>E('span',{className:'sep'}),tbar=E('div',{className:'bar tbar'}),pops=[];
   const mkpop=()=>{const p=E('div',{className:'bar pop'});p.onmousedown=e=>{if(!['SELECT','INPUT'].includes(e.target.tagName))e.preventDefault()};pops.push(p);root.append(p);return p};
@@ -484,11 +484,12 @@ async function openBoard(m,id,guest){
   if(!guest)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт CSV (текст)',exportCsv);
   mi('📹 Видеозвонок на доске',openVideo);
-  mi('🔗 Копировать ссылку на доску',()=>copyLink(link('b',id)));
-  mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
-  mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click());
+  mi('🔗 Ссылка для просмотра',()=>copyLink(boardLink(id,'view')));
+  if(!guest)mi('✎ Ссылка для редактирования',()=>copyLink(boardLink(id,'edit')));
+  if(!guest){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
+  mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(!guest)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
-  mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
+  if(!guest)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
   if(!guest){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
   root.append(menu,vtop,fbar,tbar,hist,zoom);m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
