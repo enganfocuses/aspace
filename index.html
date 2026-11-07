@@ -527,7 +527,7 @@ async function openBoard(m,id,guest){
   r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n)}});
   r.on('clr',()=>{strokes=[];items=[];redraw();renderAll()});
   r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg});
-  r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<900000)r.emit('state',{strokes,items,bg})});
+  r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg})});
   r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;wrap.className='wrap '+bg;redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
