@@ -6,7 +6,7 @@
 <script src="config.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<title>Моё пространство</title>
+<title>Aspace</title>
 <style>
 :root{--bg:#fffef9;--card:#fffef9;--ink:#3a3a46;--mut:#8a8580;--btn:#B7D1EA;/* TCX 14-4005 */--line:#7f9bbd;/* обводка: замените на цвет 20-0124 */--pink:#eaa8b8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{height:100%;margin:0}
@@ -83,7 +83,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .menu{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:12px;z-index:30}
 .mbtn{display:flex;align-items:center;gap:8px;padding:8px 18px 8px 14px;box-shadow:0 8px 28px #3a3a4624}
 .menu .mp{display:none;margin-top:8px;background:#fffffff5;border:1px solid #7f9bbd77;border-radius:24px;padding:10px;min-width:260px;box-shadow:0 8px 28px #3a3a4624;flex-direction:column;gap:6px}
-.menu .mp.open{display:flex}.menu .mp button{text-align:left}
+.menu .mp.open{display:flex}.menu .mp button{text-align:left}.menu .mp{max-height:calc(100dvh - 110px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.menu{max-width:calc(100vw - 24px)}.menu .mp{max-width:calc(100vw - 24px)}
 .vtop{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:12px;z-index:30;box-shadow:0 8px 28px #3a3a4624}
 .toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:none;background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:6px 16px;z-index:60}
 .it{position:absolute;color:#3a3a46}
@@ -94,7 +94,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .k-diamond{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}.k-triangle{clip-path:polygon(50% 0,100% 100%,0 100%)}
 .k-star{clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}.k-hex{clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
 .it.img{cursor:move;touch-action:none}.it.img .bgl{border-radius:22px;overflow:hidden;box-shadow:0 4px 18px #3a3a4626}
-.it.img img{width:100%;height:100%;object-fit:cover;display:block}
+.it.img img{width:100%;height:100%;object-fit:cover;display:block}.it.aud .bgl,.it.vid .bgl{display:flex;align-items:center;justify-content:center;background:#292230;border-radius:12px;padding:8px;overflow:hidden}.it.aud audio{max-width:100%}.it.vid video{max-width:100%;max-height:100%}
 .it.emo{cursor:move;touch-action:none}.it.emo .bgl{display:grid;place-items:center;line-height:1}
 .it.frame{pointer-events:none}.it.frame .bgl{border:2px solid #7f9bbd;border-radius:12px;background:#ffffff66}
 .it.frame .fl,.it.frame>i,.it.frame .g,.it.frame .sb{pointer-events:auto}
@@ -164,7 +164,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .pop{border:1px solid var(--line);background:#fff;box-shadow:0 8px 28px #34233f1c;border-radius:14px}
 .mbtn,.vtop{border-radius:10px;box-shadow:0 5px 18px #34233f18}
 .mbtn{background:#fff!important;color:var(--wine)!important;border:1px solid var(--line)}
-.menu{display:flex;gap:8px;align-items:flex-start}.menu .mp{position:absolute;top:42px;left:0}.homebtn{padding:8px 12px}.menu>.mbtn:not(.homebtn){padding:8px 12px}
+.menu{display:flex;gap:8px;align-items:flex-start}.menu .mp{position:absolute;top:42px;left:0;max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.homebtn{padding:8px 12px}.menu>.mbtn:not(.homebtn){padding:8px 12px}
 .toast{background:var(--wine);color:#fff;border:0;border-radius:10px}
 .it.rr .bgl,.it.rect .bgl,.it.pill .bgl,.it.oval .bgl{border-color:#b8a5d0}
 .it.frame .bgl{border-color:#9a80ba}
@@ -252,7 +252,7 @@ function start(){
 }
 
 function shell(guest){
-  const hd=E('header',{},E('b',{textContent:'✿ Моё пространство'}),B('⌂ Домой',()=>go(boardsView)));
+  const hd=E('header',{},E('b',{textContent:'Aspace'}),B('⌂ Домой',()=>go(boardsView)));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/);
@@ -477,6 +477,7 @@ async function openBoard(m,id,guest){
       el=E('div',{className:'it '+n.k+(FILLK.includes(n.k)?' fill':'')});els[n.id]=el;
       const bgl=E('div',{className:'bgl k-'+n.k});el._bg=bgl;el.append(bgl);let hd=el;
       if(n.k==='img'){const im=E('img',{draggable:false});imgSrc(n.u).then(v=>im.src=v);bgl.append(im)}
+      else if(n.k==='aud'||n.k==='vid'){const media=E(n.k==='aud'?'audio':'video',{controls:true,preload:'metadata',src:n.u,style:'width:100%;height:100%;object-fit:contain'});if(n.k==='vid')media.playsInline=true;bgl.append(media);el._media=media;hd=E('i');el.append(hd)}
       else if(n.k==='emo')bgl.textContent=n.t;
       else{hd=E('i');const t=E('div',{className:'t',contentEditable:true,oninput:()=>{n.t=t.innerText;push(n)}});el._t=t;
         el.append(hd,n.k==='frame'?E('div',{className:'fl'},t):E('div',{className:'tw'},t))}
@@ -547,8 +548,10 @@ async function openBoard(m,id,guest){
         await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;const u=await upload(c.toDataURL('image/jpeg',.7)),dw=420,dh=dw*v.height/v.width;
         if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
       persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
+  const fm=E('input',{type:'file',accept:'audio/*,video/*',multiple:true,hidden:true,onchange:async()=>{
+    const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>3*1024*1024){alert('Файл «'+f.name+'» больше 3 МБ. Пока поддерживаются файлы до 3 МБ.');continue}say('Добавляю '+f.name+'…');const u=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось добавить медиафайл: '+e.message)}say('');fm.value=''}});
   /* интерфейс */
-  const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp);
+  const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp,fm);
   const tb=(icon,lb,fn,t)=>{const b=E('button',{className:'tbtn',title:lb,'aria-label':lb,onclick:fn},ic(icon));if(t)b.dataset.t=t;return b};
   const sep=()=>E('span',{className:'sep'}),tbar=E('div',{className:'bar tbar'}),pops=[];
   const mkpop=()=>{const p=E('div',{className:'bar pop'});p.onmousedown=e=>{if(!['SELECT','INPUT'].includes(e.target.tagName))e.preventDefault()};pops.push(p);root.append(p);return p};
@@ -571,7 +574,7 @@ async function openBoard(m,id,guest){
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
     tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
-    tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()));
+    tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()));
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
   const fsel=E('select',{onchange:()=>fmt('f',fsel.value)},...FONTS.map(f=>{const o=E('option',{value:f,textContent:f});o.style.fontFamily=`'${f}'`;return o})),
@@ -584,7 +587,7 @@ async function openBoard(m,id,guest){
   const customColor=E('input',{type:'color',value:'#49372f',title:'Выбрать собственный цвет текста',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
   customColor.onchange=()=>{const c=customColor.value.toLowerCase();if(!textPalette.includes(c)){textPalette.push(c);ls.s('aspace-text-palette',textPalette);drawTextPalette()}fmt('col',c)};
   fontSec.append(customColor);drawTextPalette();
-  FILLS.forEach(c=>{const s=E('button',{className:'sw',title:'Заливка',onclick:()=>fmt('c',c)});s.style.background=c;fillSec.append(s)});
+  FILLS.forEach(c=>{const s=E('button',{className:'sw',title:'Цвет фигуры / заливка',onclick:()=>fmt('c',c)});s.style.background=c;fillSec.append(s)});const shapeColor=E('input',{type:'color',value:'#b7d1ea',title:'Любой цвет фигуры',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});shapeColor.oninput=()=>fmt('c',shapeColor.value);fillSec.append(shapeColor);
   fbar.append(fontSec,E('span',{className:'sep'}),fillSec);fbar.onmousedown=e=>{if(e.target.tagName!=='SELECT')e.preventDefault()};
   const fmt=(k,v)=>{if(!sel)return;sel[k]=v;upsert(sel);push(sel);syncBar()};
   const syncBar=()=>{if(!sel)return;fsel.value=sel.f||'Open Sans';ssel.value=sel.fs||16;bB.classList.toggle('on',!!sel.b);bI.classList.toggle('on',!!sel.i);bU.classList.toggle('on',!!sel.ul)};
