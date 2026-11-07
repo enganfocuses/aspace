@@ -212,15 +212,19 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
-let auth=null,currentUser=null;
+let auth=null,currentUser=null,activeShareToken=null;
+const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
+const shareRead=async(token,part)=>{const r=await fetch(shareURL(token)+'/'+part+'.json');if(!r.ok)throw new Error('Ссылка недействительна или доступ отозван');return r.json()};
+const shareWrite=async(token,part,value,method='PUT')=>{const r=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});if(!r.ok)throw new Error('Firebase не разрешил операцию: '+part);return true};
+const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
 const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
 const rawFetch=window.fetch.bind(window);
 window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
 const eventUrl=async url=>dbUrl(url);
 async function load(p){try{const r=await fetch(DB()+'/docs/'+p+'.json');if(r.ok){const v=await r.json();if(v&&v.j)return JSON.parse(v.j);const l=ls.g(p,null);if(l)save(p,l);return l}}catch{}return ls.g(p,null)}
 async function save(p,d){ls.s(p,d);try{await fetch(DB()+'/docs/'+p+'.json',{method:'PUT',body:JSON.stringify({j:JSON.stringify(d)})})}catch{}}
-const room0={join:name=>new Promise(async res=>{
-  const me=uid()+uid(),H={},dead=[],base=DB()+'/rooms/'+encodeURIComponent(name);
+const room0={join:(name,customPath)=>new Promise(async res=>{
+  const me=uid()+uid(),H={},dead=[],base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
   const deliver=v=>{if(v&&v.s&&v.s!==me&&v.t)(H[v.t]||[]).forEach(f=>{let d=null;try{d=JSON.parse(v.d)}catch{}f({data:d,isMe:false})})};
   const es=new EventSource(await eventUrl(base+'.json'));
   es.addEventListener('put',e=>{try{const m=JSON.parse(e.data);if(m.data==null)return;if(m.path==='/'){Object.values(m.data).forEach(v=>v&&typeof v==='object'&&deliver(v))}else if(m.path.split('/').length===2)deliver(m.data)}catch{}});
@@ -252,7 +256,7 @@ function loginView(message=''){
 function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
   try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();auth.onAuthStateChanged(user=>{
-    currentUser=user;if(!user){loginView();return}
+    currentUser=user;const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
     if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
     const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
   })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
@@ -268,8 +272,9 @@ function shell(guest){
   const hd=E('header',{},E('b',{textContent:'Aspace'}),B('⌂ Домой',goHome));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
-  const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/);
-  if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
+  const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
+  if(sm)go(m=>openBoard(m,null,true,sm[1]));
+  else if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
   else if(h.startsWith('#c-'))go(m=>roomUI(m,h.slice(3),'Видеозвонок',false));
   else go(boardsView);
 }
@@ -383,14 +388,31 @@ async function boardsView(m){
   g.append(nw);
   idx.items.forEach(b=>g.append(E('div',{className:'card'},E('b',{textContent:b.name}),E('div',{className:'row'},
     B('Открыть',()=>go(mm=>openBoard(mm,b.id,false))),
-    B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);await save('meta/boards',idx);go(boardsView)})))));
+    B(b.shareToken?'🔗 Ссылка':'🔗 Создать ссылку',async()=>{
+      try{
+        if(!b.shareToken){
+          const board=await load('boards/'+b.id);if(!board)throw new Error('Сначала открой и сохрани доску');
+          const token=newShareToken(),role=confirm('Создать ссылку для РЕДАКТОРА?\n\nОК — редактор, Отмена — только просмотр.')?'editor':'viewer';
+          await shareWrite(token,'meta',{boardId:b.id,name:b.name,role,createdAt:Date.now()});
+          await shareWrite(token,'board',board);
+          for(const it of (board.items||[])){if(it.u&&it.u.startsWith('img:')){const aid=it.u.slice(4),ar=await fetch(DB()+'/img/'+aid+'.json');if(ar.ok)await shareWrite(token,'assets/'+aid,await ar.json())}}
+          b.shareToken=token;await save('meta/boards',idx);activeShareToken=null;
+        }else{
+          const choice=prompt('Управление ссылкой:\n1 — скопировать\n2 — изменить права\n3 — отозвать','1');
+          if(choice==='2'){const role=confirm('ОК — редактор, Отмена — только просмотр.')?'editor':'viewer';await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()})}
+          else if(choice==='3'){if(!confirm('Отозвать ссылку? Она сразу перестанет открываться.'))return;await shareWrite(b.shareToken,'','', 'DELETE').catch(()=>{});await fetch(shareURL(b.shareToken)+'.json',{method:'DELETE'});delete b.shareToken;await save('meta/boards',idx);return}
+        }
+        if(b.shareToken)copyLink(location.origin+location.pathname+'#s-'+b.shareToken);
+      }catch(e){alert('Не удалось создать ссылку: '+e.message)}
+    }),
+    B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);if(b.shareToken)await fetch(shareURL(b.shareToken)+'.json',{method:'DELETE'});await save('meta/boards',idx);go(boardsView)})))));
   m.append(E('h2',{textContent:'Доски'}),g);
 }
 const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src,onload:ok,onerror:no}))});
 const PDFCDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfP=null;const pdfjs=()=>pdfP||(pdfP=loadScript('vendor/pdf.min.js').then(()=>'vendor/pdf.worker.min.js',()=>loadScript(PDFCDN+'pdf.min.js').then(()=>PDFCDN+'pdf.worker.min.js')).then(w=>{pdfjsLib.GlobalWorkerOptions.workerSrc=w;return pdfjsLib}));
-const upload=async d=>{const id=uid()+uid(),r=await fetch(DB()+'/img/'+id+'.json',{method:'PUT',body:JSON.stringify(d)});if(!r.ok)throw new Error('upload');return'img:'+id};
-const imgCache={};const imgSrc=u=>(!u||!u.startsWith('img:'))?Promise.resolve(u):(imgCache[u]||(imgCache[u]=fetch(DB()+'/img/'+u.slice(4)+'.json').then(r=>r.json())));
+const upload=async d=>{const id=uid()+uid(),path=activeShareToken?shareURL(activeShareToken)+'/assets/'+id+'.json':DB()+'/img/'+id+'.json';const r=await fetch(path,{method:'PUT',body:JSON.stringify(d)});if(!r.ok)throw new Error('upload');if(activeShareToken&&currentUser&&currentUser.uid===CFG.ownerUid){const p=await fetch(DB()+'/img/'+id+'.json',{method:'PUT',body:JSON.stringify(d)});if(!p.ok)throw new Error('Не удалось сохранить приватную копию файла')}return'img:'+id};
+const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';return imgCache[u]||(imgCache[u]=fetch(path).then(r=>{if(!r.ok)throw new Error('Файл недоступен');return r.json()}))};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
  select:'<path d="M5 3l13 7-5.5 1.8L10 18z"/>',
@@ -434,8 +456,11 @@ const SHL={rr:'Скруглённый',rect:'Прямоугольник',pill:'�
 const INK=['#1f1f2b','#4f86b3','#2f7d5b','#d9738f','#e57f2d','#c9a227','#7a5cc4','#a67c52','#8a8a93','#e5484d'];
 const FILLS=['#B7D1EA','#f8d3dc','#f6e7b8','#dfeccf','#e4d7f5','#fbd9c0','#d5eef0','#ffffff','#e9e9ee','#ffe3e3'];
 const SIZES={note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
-async function openBoard(m,id,guest){
-  const d0=await load('boards/'+id);
+async function openBoard(m,id,guest,shareToken=null){
+  let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
+  activeShareToken=shareToken;
+  if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
+  else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
   let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
@@ -443,7 +468,7 @@ async function openBoard(m,id,guest){
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
-  const r=await room0.join('b-'+id);
+  const r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
   const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null;
@@ -456,7 +481,7 @@ async function openBoard(m,id,guest){
   r.on('bring',m=>{const p=m.data;if(p&&p.to===r.id){applyViewport(p.v);say((p.name||'Участник')+' подтянул тебя к себе')}});
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;say((p.name||'Участник')+' попросил следовать за ним')}});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
-  const persist=()=>{clearTimeout(tm);tm=setTimeout(()=>save('boards/'+id,{name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()}),1200)};
+  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)await save('boards/'+id,data);if(activeShareToken)try{await shareWrite(activeShareToken,'board',data)}catch(e){say('Не удалось сохранить общую доску: '+e.message)}},1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
@@ -534,12 +559,12 @@ async function openBoard(m,id,guest){
   sc.addEventListener('touchmove',e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),nz=Math.min(2.5,Math.max(.25,pinch.z*dist/pinch.dist));const x=pinch.x/pinch.z,y=pinch.y/pinch.z;z=nz;applyZ();sc.scrollLeft=x*z-(a.clientX+b.clientX)/2+sc.getBoundingClientRect().left;sc.scrollTop=y*z-(a.clientY+b.clientY)/2+sc.getBoundingClientRect().top},{passive:false});
   sc.addEventListener('touchend',e=>{if(e.touches.length<2){pinch=null;queueViewport()}});
   /* синхронизация */
-  r.on('sp',x=>{const o=x.data;if(!o)return;let s=strokes.find(q=>q.id===o.id);const had=!!s;if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a)});
-  r.on('ds',x=>{strokes=strokes.filter(q=>q.id!==x.data.id);redraw()});
-  r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n)});
-  r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n)}});
-  r.on('clr',()=>{strokes=[];items=[];redraw();renderAll()});
-  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg});
+  r.on('sp',x=>{const o=x.data;if(!o)return;let s=strokes.find(q=>q.id===o.id);const had=!!s;if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a);persist()});
+  r.on('ds',x=>{strokes=strokes.filter(q=>q.id!==x.data.id);redraw();persist()});
+  r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);persist()});
+  r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n);persist()}});
+  r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist()});
+  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
   r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg})});
   r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;wrap.className='wrap '+bg;redraw();renderAll()});
@@ -647,15 +672,15 @@ async function openBoard(m,id,guest){
   const menu=E('div',{className:'menu'},home,mb,mp);
   mp.append(followPanel);refreshPeers();
   mi('⌂ Домой',goHome);
-  if(!guest)mi('← Список досок',()=>go(boardsView));
+  if(isOwner)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   mi('📹 Видеозвонок на доске',openVideo);
   if(!guest)mi('🖥 Совместный просмотр · добавить сайт',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}d.siteUrl=url;renderSite();persist();r.emit('site',{url})});
-  if(!guest){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
+  if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
-  if(!guest)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
-  if(!guest)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
-  if(!guest){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
+  if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
+  if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
+  if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
   root.append(menu,vtop,fbar,tbar,hist,zoom);m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
@@ -664,7 +689,7 @@ async function openBoard(m,id,guest){
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();save('boards/'+id,{name:d.name,strokes,items,bg,upd:Date.now()})};
+  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)shareWrite(activeShareToken,'board',data).catch(()=>{})}activeShareToken=null};
 }
 
 /* ---------- образование ---------- */
