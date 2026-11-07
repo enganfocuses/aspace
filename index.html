@@ -119,36 +119,74 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 @media print{header,.noprint{display:none!important}html,body,#app{height:auto}#main{overflow:visible}}
 @media(max-width:700px){.bw{flex-direction:column;height:auto}.vid{width:100%;flex-direction:row}.scroll{height:55vh}}
 
-/* Aspace · warm beige with separate accent colors */
-:root{--bg:#f3ecdf;--card:#fbf7ef;--ink:#49372f;--mut:#89796d;--pink:#e9b3c3;--blue:#b8d8e8;--brown:#80604e;--outline:transparent}
-body{background:#f3ecdf;color:var(--ink)}
-header{background:#fbf7ef;border-bottom:1px solid #d8cbbb;box-shadow:0 4px 18px #49372f0c;backdrop-filter:blur(12px)}
-header b{color:var(--brown);letter-spacing:.01em}
-button{background:var(--brown);color:#fff;font-weight:600;border:0;outline:0;box-shadow:none}
-button:nth-of-type(3n+1){background:var(--blue);color:#49372f}
-button:nth-of-type(3n+2){background:var(--pink);color:#49372f}
-button:nth-of-type(3n){background:var(--brown);color:#fff}
-button:hover{filter:brightness(.96);box-shadow:0 3px 10px #49372f14}
-button:focus,button:focus-visible{outline:none;box-shadow:none}
-button.on{box-shadow:none}
-input,select,textarea{background:#fbf7ef;border:1px solid #d8cbbb;color:var(--ink)}
-.card,.box,.scroll{background:#fbf7ef;border-color:#d8cbbb;box-shadow:0 8px 24px #49372f0b}
-.card.new{background:#f8f1e6;border-color:#d8cbbb}
-.vwin{background:#f3ecdf;border:0;border-radius:22px;box-shadow:0 14px 42px #49372f24}
-.vh{color:var(--brown);border-bottom:1px solid #d8cbbb}
-.vwin button{border:0;outline:0;box-shadow:none}
-.vwin button:nth-of-type(3n+1){background:var(--blue);color:#49372f}
-.vwin button:nth-of-type(3n+2){background:var(--pink);color:#49372f}
-.vwin button:nth-of-type(3n){background:var(--brown);color:#fff}
-.vwin button:hover{filter:brightness(.96)}
-.vwin button:focus,.vwin button:focus-visible,.vwin button.on{outline:none;box-shadow:none}
-.vwin button.off{background:#b95e69;color:#fff}
-.vgrid{gap:8px;padding:8px}.vwin .tile{border:0;border-radius:14px;box-shadow:0 4px 14px #49372f18}
-.vbar{position:static;left:auto;right:auto;bottom:auto;transform:none;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding:8px;border-radius:16px;background:#fbf7ef;border:0;opacity:1;backdrop-filter:blur(10px)}
-.vbar button{min-height:36px}.device-select{min-width:112px;max-width:160px;padding:6px 28px 6px 10px;border-radius:10px;font-size:12px;font-weight:600}
-.toast{background:var(--pink);color:#49372f;border:0}
-.bar,.menu .mp{background:#fbf7ef;border-color:#d8cbbb;backdrop-filter:blur(12px)}
+/* Aspace · Miro-inspired lavender & wine workspace */
+:root{--bg:#f7f5fa;--card:#fff;--ink:#30283b;--mut:#81778b;--lav:#c8b8e8;--lav-deep:#8065ad;--wine:#71384f;--wine-dark:#54283c;--line:#e7e1ed;--soft:#f0ebf6;--shadow:0 5px 22px #34233f12}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+#app{display:flex;flex-direction:row;height:100%;min-height:0}
+header{width:224px;min-width:224px;flex:none;display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:22px 14px;background:#fff;border:0;border-right:1px solid var(--line);box-shadow:4px 0 24px #34233f08}
+header b{font-size:20px;letter-spacing:-.04em;color:var(--wine);margin:0 0 20px;padding:4px 10px 18px;border-bottom:1px solid var(--line)}
+header button{width:100%;text-align:left;justify-content:flex-start;border-radius:10px;padding:11px 13px;background:transparent!important;color:#665b70!important;font-weight:550;box-shadow:none!important}
+header button:hover{background:var(--soft)!important;color:var(--wine)!important}
+header button:first-of-type{background:#eee8f7!important;color:var(--wine)!important}
+#main{min-width:0;min-height:0;flex:1;overflow:auto;padding:28px 34px;background:var(--bg)}
+h1,h2,h3{color:#35283f;letter-spacing:-.025em}
+button{border:0;border-radius:9px;padding:9px 14px;background:var(--lav);color:#35283f;font-weight:600;box-shadow:none;transition:background .15s,transform .08s}
+button:hover{background:#bba8df;box-shadow:none;filter:none}
+button:active{transform:scale(.98)}
+button.on{background:var(--wine)!important;color:white!important;box-shadow:0 0 0 2px #fff,0 0 0 4px #b89acb!important}
+input,select,textarea{border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);padding:9px 12px}
+input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset:1px}
+.grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.card,.box{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px}
+.card{transition:box-shadow .16s,border-color .16s,transform .16s}
+.card:hover{border-color:#c8b8e8;box-shadow:0 10px 28px #34233f18;transform:translateY(-1px)}
+.card.new{border:1.5px dashed #bba8d5;background:#fcfaff;box-shadow:none;color:var(--wine)}
+.mut{color:var(--mut)}
+.li{border-color:var(--line)}
+.gate{background:var(--bg)}
+.box{border-radius:18px}
+.bfull{background:var(--bg)}
+.wrap{background-color:#fbfaff}
+.wrap.dots{background-image:radial-gradient(#d9cfe7 1.2px,transparent 1.2px);background-size:22px 22px}
+.bar,.menu .mp{background:#fff;border:1px solid var(--line);box-shadow:0 8px 28px #34233f1c;border-radius:13px}
+.tbar{left:18px;top:50%;bottom:auto;transform:translateY(-50%);flex-direction:column;max-width:none;padding:8px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 8px 28px #34233f1c}
+.tbar .sep{width:26px;height:1px;background:var(--line);margin:3px 0}
+.tbtn{width:42px;height:42px;border-radius:10px}
+.tbtn.on{background:var(--wine)!important;color:#fff!important;box-shadow:none!important}
+.pop{border:1px solid var(--line);background:#fff;box-shadow:0 8px 28px #34233f1c;border-radius:14px}
+.mbtn,.vtop{border-radius:10px;box-shadow:0 5px 18px #34233f18}
+.mbtn{background:#fff!important;color:var(--wine)!important;border:1px solid var(--line)}
+.toast{background:var(--wine);color:#fff;border:0;border-radius:10px}
+.it.rr .bgl,.it.rect .bgl,.it.pill .bgl,.it.oval .bgl{border-color:#b8a5d0}
+.it.frame .bgl{border-color:#9a80ba}
+.it>i{background:#9275b5}
+.it.sel{outline-color:#9275b5}
+.g{border-color:#9275b5}
+.vwin{background:#292230;border:1px solid #46364e;border-radius:16px;box-shadow:0 18px 50px #24152d55}
+.vh{color:#fff;border:0}
+.vwin button{background:#5d496b!important;color:#fff!important;border:0}
+.vwin button:hover{background:#765b85!important}
+.vwin button.on{background:#a98bc9!important;color:#251b2d!important;box-shadow:none!important}
+.vwin button.off{background:#a9435d!important}
+.vgrid{gap:8px;padding:8px}
+.vwin .tile{border-radius:12px}
+.vbar{background:#352a3d;border:0;border-radius:12px}
+.device-select{border-radius:8px;background:#fff;color:#30283b}
+.readonly .tbar,.readonly .hist,.readonly .fbar,.readonly .vtop{display:none!important}
+@media(max-width:760px){
+ #app{flex-direction:column}
+ header{width:100%;min-width:0;flex-direction:row;align-items:center;overflow-x:auto;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line)}
+ header b{font-size:17px;margin:0 auto 0 0;padding:4px 8px;border:0;white-space:nowrap}
+ header button{width:auto;white-space:nowrap;padding:8px 10px}
+ #main{padding:18px 14px}
+ .tbar{left:50%;top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);flex-direction:row;max-width:calc(100vw - 16px);overflow-x:auto}
+ .tbar .sep{width:1px;height:26px;margin:0 3px}
+ .tbtn{width:40px;height:40px}
+ .pop{bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+}
 @media(max-width:600px){.vwin{right:8px;top:64px;width:min(94vw,420px);height:min(68vh,420px)}.vbar{position:static;transform:none;max-height:130px;overflow:auto}.device-select{min-width:90px;max-width:125px}}
+@media print{header{display:none!important}}
 </style></head><body>
 <div id="root"></div>
 <script>
