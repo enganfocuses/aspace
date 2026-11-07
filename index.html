@@ -264,6 +264,7 @@ function start(){
 }
 
 function goHome(){
+  if(location.hash.startsWith('#s-')){say2('Это гостевая доска. Для повторного входа используй ту же ссылку.');return}
   if(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid){
     history.replaceState(null,'',location.pathname+location.search);
     shell(false);
@@ -675,7 +676,7 @@ async function openBoard(m,id,guest,shareToken=null){
   mi('⌂ Домой',goHome);
   if(isOwner)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
-  mi('📹 Видеозвонок на доске',openVideo);
+  if(!guest)mi('📹 Видеозвонок на доске',openVideo);
   if(!guest)mi('🖥 Совместный просмотр · добавить сайт',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}d.siteUrl=url;renderSite();persist();r.emit('site',{url})});
   if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
