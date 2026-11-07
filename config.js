@@ -1,5 +1,7 @@
 // Заполните адрес вашей базы Firebase Realtime Database (см. README.md)
 window.CFG = {
+  // UID владельца будет добавлен после создания учётной записи в Firebase Authentication.
+  ownerUid: '',
   firebase: {
     apiKey: 'AIzaSyBLnl86ZjGYdIdY3ddMO6K2cTHzKSNIAVA',
     authDomain: 'myspace-5d573.firebaseapp.com',
