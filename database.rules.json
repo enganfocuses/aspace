@@ -1,6 +1,46 @@
 {
   "rules": {
-    ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
-    ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
+    ".read": false,
+    ".write": false,
+    "docs": {
+      "$path": {
+        ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
+        ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
+      }
+    },
+    "img": {
+      "$asset": {
+        ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
+        ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
+      }
+    },
+    "rooms": {
+      "$room": {
+        ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
+        ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
+      }
+    },
+    "shares": {
+      "$token": {
+        "meta": {
+          ".read": "data.exists()",
+          ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
+        },
+        "board": {
+          ".read": "root.child('shares').child($token).child('meta').exists()",
+          ".write": "(root.child('shares').child($token).child('meta').child('role').val() === 'editor') || (auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2')"
+        },
+        "assets": {
+          "$asset": {
+            ".read": "root.child('shares').child($token).child('meta').exists()",
+            ".write": "(root.child('shares').child($token).child('meta').child('role').val() === 'editor') || (auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2')"
+          }
+        },
+        "room": {
+          ".read": "root.child('shares').child($token).child('meta').exists()",
+          ".write": "(root.child('shares').child($token).child('meta').child('role').val() === 'editor') || (auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2')"
+        }
+      }
+    }
   }
 }
