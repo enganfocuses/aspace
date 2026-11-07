@@ -55,7 +55,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 
 .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .bfull{position:fixed;inset:0;z-index:20;background:#fffef9}
-.bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:none}
+.bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y}
 .sizer{position:relative}
 .wrap{position:absolute;left:0;top:0;transform-origin:0 0;background-color:#fffef9;will-change:transform}
 .wrap.dots{background-image:radial-gradient(#ddd5c0 1.4px,transparent 1.4px);background-size:24px 24px}
@@ -82,7 +82,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .hist{left:14px}.zoom{right:14px}.zoom button{padding:6px 12px;min-width:38px}.zl{min-width:48px;text-align:center;font-size:13px}
 .menu{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:12px;z-index:30}
 .mbtn{display:flex;align-items:center;gap:8px;padding:8px 18px 8px 14px;box-shadow:0 8px 28px #3a3a4624}
-.menu .mp{display:none;margin-top:8px;background:#fffffff5;border:1px solid #7f9bbd77;border-radius:24px;padding:10px;min-width:260px;box-shadow:0 8px 28px #3a3a4624;flex-direction:column;gap:6px}
+.menu .mp{display:none;margin-top:8px;background:#fffffff5;border:1px solid #7f9bbd77;border-radius:24px;padding:10px;min-width:260px;box-shadow:0 8px 28px #3a3a4624;flex-direction:column;gap:6px}.menu .mp{height:min(70dvh,calc(100dvh - 100px));min-height:0;overflow-y:scroll;overflow-x:hidden;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;}
 .menu .mp.open{display:flex}.menu .mp button{text-align:left}.menu .mp{max-height:calc(100dvh - 110px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.menu{max-width:calc(100vw - 24px)}.menu .mp{max-width:calc(100vw - 24px)}
 .vtop{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:12px;z-index:30;box-shadow:0 8px 28px #3a3a4624}
 .toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);display:none;background:var(--btn);border:1px solid var(--line);border-radius:999px;padding:6px 16px;z-index:60}
