@@ -59,7 +59,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .sizer{position:relative}
 .wrap{position:absolute;left:0;top:0;transform-origin:0 0;background-color:#fffef9;will-change:transform}
 .wrap.dots{background-image:radial-gradient(#ddd5c0 1.4px,transparent 1.4px);background-size:24px 24px}
-.wrap canvas{position:absolute;left:0;top:0;touch-action:none}.wrap canvas.cm{opacity:.4}
+.wrap canvas{position:absolute;left:0;top:0;touch-action:none}.wrap canvas.cm{opacity:.4}.snap-guides{position:absolute;inset:0;z-index:12;pointer-events:none}.snap-guide{position:absolute;background:#b34b78;box-shadow:0 0 0 1px #fff8;opacity:.95}.snap-guide.v{top:0;bottom:0;width:1px}.snap-guide.h{left:0;right:0;height:1px}
 .bar{background:#fffffff2;border:1px solid #7f9bbd77;box-shadow:0 8px 28px #3a3a4624;border-radius:999px}
 .tbar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;align-items:center;padding:6px 10px;z-index:25;max-width:calc(100vw - 16px)}
 .tbar .sep{width:1px;height:26px;background:#7f9bbd66;margin:0 4px;flex:none}
@@ -428,7 +428,7 @@ async function openBoard(m,id,guest){
   let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
-  const wrap=E('div',{className:'wrap '+bg},cvM,cv),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
+  const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
   const r=await room0.join('b-'+id);
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
@@ -459,9 +459,18 @@ async function openBoard(m,id,guest){
   const rmEl=n=>{els[n.id]?.remove();delete els[n.id];if(sel===n)select(null)};
   const delItem=(n,keep)=>{items=items.filter(x=>x!==n);rmEl(n);r.emit('d',{id:n.id});persist();if(!keep)rec({t:'d',n})};
   const dup=n=>{const c={...n,id:uid(),x:n.x+24,y:n.y+24};items.push(c);upsert(c);r.emit('i',{n:c});persist();rec({t:'i',n:c});select(c)};
+  const clearGuides=()=>guideLayer.replaceChildren();
+  const snapPosition=(n,x,y)=>{const threshold=9/z,others=items.filter(q=>q!==n);let gx=null,gy=null,dx=threshold+1,dy=threshold+1;
+    const ax=[x,x+n.w/2,x+n.w],ay=[y,y+n.h/2,y+n.h];
+    others.forEach(q=>{[q.x,q.x+q.w/2,q.x+q.w].forEach(v=>ax.forEach(a=>{const d=Math.abs(v-a);if(d<dx){dx=d;gx=v}}));[q.y,q.y+q.h/2,q.y+q.h].forEach(v=>ay.forEach(a=>{const d=Math.abs(v-a);if(d<dy){dy=d;gy=v}}))});
+    if(dx>threshold)gx=null;if(dy>threshold)gy=null;
+    if(gx!==null){const candidates=[x,x+n.w/2,x+n.w],nearest=candidates.reduce((best,v)=>Math.abs(v-gx)<Math.abs(best-gx)?v:best,candidates[0]);x+=gx-nearest}
+    if(gy!==null){const candidates=[y,y+n.h/2,y+n.h],nearest=candidates.reduce((best,v)=>Math.abs(v-gy)<Math.abs(best-gy)?v:best,candidates[0]);y+=gy-nearest}
+    guideLayer.replaceChildren();if(gx!==null)guideLayer.append(E('div',{className:'snap-guide v',style:`left:${gx}px`}));if(gy!==null)guideLayer.append(E('div',{className:'snap-guide h',style:`top:${gy}px`}));return{x:Math.max(0,x),y:Math.max(0,y)};
+  };
   const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(e.button||e.target.closest('.g,.sb'))return;if(h===el&&e.target.closest('.t'))return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
-      h.onpointermove=ev=>{const r=wrap.getBoundingClientRect();n.x=Math.max(0,(ev.clientX-r.left)/z-ox);n.y=Math.max(0,(ev.clientY-r.top)/z-oy);geom(el,n);push(n)};
-      h.onpointerup=()=>{h.onpointermove=h.onpointerup=null;fit()}})};
+      h.onpointermove=ev=>{const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);n.x=p.x;n.y=p.y;geom(el,n);push(n)};
+      h.onpointerup=()=>{h.onpointermove=h.onpointerup=null;clearGuides();fit()}})};
   const upsert=n=>{
     let el=els[n.id];
     if(!el){
@@ -561,7 +570,7 @@ async function openBoard(m,id,guest){
   Object.keys(SYMS).forEach(k=>tabs.append(B(k,()=>showSyms(k))));showSyms('Звёзды');
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
-    tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),tb('align','Выравнивание',()=>showPop(alignPop)),sep(),
+    tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
     tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()));
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
@@ -582,9 +591,6 @@ async function openBoard(m,id,guest){
   const select=n=>{selectedItems=n?[n]:[];if(sel&&els[sel.id])els[sel.id].classList.remove('sel');sel=n;if(n&&els[n.id])els[n.id].classList.add('sel');
     const ok=n&&(FILLK.includes(n.k)||n.k==='txt');fbar.style.display=ok?'flex':'none';if(ok){fontSec.style.display='flex';fillSec.style.display=FILLK.includes(n.k)?'flex':'none';syncBar()}};
   /* история и масштаб */
-  const alignPop=mkpop(),alignRow=E('div',{className:'row'});alignPop.append(E('b',{textContent:'Выравнивание · выдели несколько объектов с Shift'}),alignRow);
-  const align=(mode)=>{const a=selectedItems.filter(n=>items.includes(n));if(a.length<2){say('Выдели минимум два объекта: удерживай Shift и нажимай на них');return}const minX=Math.min(...a.map(n=>n.x)),maxX=Math.max(...a.map(n=>n.x+n.w),),minY=Math.min(...a.map(n=>n.y)),maxY=Math.max(...a.map(n=>n.y+n.h));a.forEach(n=>{if(mode==='left')n.x=minX;else if(mode==='center')n.x=minX+(maxX-minX-n.w)/2;else if(mode==='right')n.x=maxX-n.w;else if(mode==='top')n.y=minY;else if(mode==='middle')n.y=minY+(maxY-minY-n.h)/2;else if(mode==='bottom')n.y=maxY-n.h;geom(els[n.id],n);push(n)});persist();say('Элементы выровнены')};
-  [['По левому краю','left'],['По центру','center'],['По правому краю','right'],['По верхнему краю','top'],['По середине','middle'],['По нижнему краю','bottom']].forEach(([label,key])=>alignRow.append(B(label,()=>{hidePops();align(key)})));
   const hist=E('div',{className:'bar hist'},tb('undo','Отменить (Ctrl+Z)',doUndo),tb('redo','Повторить (Ctrl+Y)',doRedo));
   const zl=E('span',{className:'zl',textContent:'100%'}),zoom=E('div',{className:'bar zoom'},B('−',()=>setZ(z/1.2)),zl,B('+',()=>setZ(z*1.2)),B('100%',()=>setZ(1)));
   /* видео-окно */
