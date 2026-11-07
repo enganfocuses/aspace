@@ -217,6 +217,7 @@ const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{const r=await fetch(shareURL(token)+'/'+part+'.json');if(!r.ok)throw new Error('Ссылка недействительна или доступ отозван');return r.json()};
 const shareWrite=async(token,part,value,method='PUT')=>{const r=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});if(!r.ok)throw new Error('Firebase не разрешил операцию: '+part);return true};
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
+const revokeShare=async token=>{const board=await shareRead(token,'board').catch(()=>null);for(const it of (board?.items||[])){if(it.u&&it.u.startsWith('img:'))await fetch(shareURL(token)+'/assets/'+encodeURIComponent(it.u.slice(4))+'.json',{method:'DELETE'})}for(const part of ['board','room','meta'])await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})};
 const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
 const rawFetch=window.fetch.bind(window);
 window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
@@ -400,12 +401,12 @@ async function boardsView(m){
         }else{
           const choice=prompt('Управление ссылкой:\n1 — скопировать\n2 — изменить права\n3 — отозвать','1');
           if(choice==='2'){const role=confirm('ОК — редактор, Отмена — только просмотр.')?'editor':'viewer';await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()})}
-          else if(choice==='3'){if(!confirm('Отозвать ссылку? Она сразу перестанет открываться.'))return;await shareWrite(b.shareToken,'','', 'DELETE').catch(()=>{});await fetch(shareURL(b.shareToken)+'.json',{method:'DELETE'});delete b.shareToken;await save('meta/boards',idx);return}
+          else if(choice==='3'){if(!confirm('Отозвать ссылку? Она сразу перестанет открываться.'))return;await revokeShare(b.shareToken);delete b.shareToken;await save('meta/boards',idx);return}
         }
         if(b.shareToken)copyLink(location.origin+location.pathname+'#s-'+b.shareToken);
       }catch(e){alert('Не удалось создать ссылку: '+e.message)}
     }),
-    B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);if(b.shareToken)await fetch(shareURL(b.shareToken)+'.json',{method:'DELETE'});await save('meta/boards',idx);go(boardsView)})))));
+    B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);if(b.shareToken)await revokeShare(b.shareToken);await save('meta/boards',idx);go(boardsView)})))));
   m.append(E('h2',{textContent:'Доски'}),g);
 }
 const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src,onload:ok,onerror:no}))});
