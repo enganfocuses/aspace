@@ -5,7 +5,7 @@ const FIREBASE_JWKS = createRemoteJWKSet(
 );
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
   "Access-Control-Max-Age": "86400"
 };
@@ -82,6 +82,14 @@ export default {
     if (docMatch) {
       const key = decodeURIComponent(docMatch[1]);
       if (!safeKey(key)) return json({ error: "invalid_key" }, 400);
+      // Allow owner to clean up only disposable diagnostic documents.
+      if (request.method === "DELETE") {
+        if (!/^diag-[0-9a-f-]{36}$/.test(key)) return json({ error: "delete_not_allowed" }, 403);
+        await env.DB.prepare(
+          "DELETE FROM docs WHERE owner_uid = ? AND doc_key = ?"
+        ).bind(uid, key).run();
+        return json({ ok: true, deleted: true });
+      }
       if (request.method === "GET") {
         const row = await env.DB.prepare(
           "SELECT payload, updated_at, revision FROM docs WHERE owner_uid = ? AND doc_key = ?"
