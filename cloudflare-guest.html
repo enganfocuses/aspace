@@ -104,6 +104,8 @@ async function load(force=false){
   if(r.status!==200)throw Error('HTTP '+r.status);
   role=r.data.role;
   $('role').textContent=role==='viewer'?'Доступ: только просмотр':'Доступ: редактирование';
+  for(const id of ['title','text','save','add'])$(id).disabled=role!=='editor';
+  if(role!=='editor')$('remove').disabled=true;
   const incoming=JSON.parse(r.data.j);
   if(dirty&&!force){
    if(revision!==r.data.revision){$('conflict').style.display='block';setStatus('Новая серверная версия. Черновик не перезаписан.')}
