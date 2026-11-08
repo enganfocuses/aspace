@@ -1,0 +1,25 @@
+name: Cloudflare standby regression tests
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/**'
+      - '.github/workflows/cloudflare-standby-tests.yml'
+  push:
+    branches:
+      - feature/cloudflare-fallback-foundation
+    paths:
+      - 'cloudflare/**'
+      - '.github/workflows/cloudflare-standby-tests.yml'
+jobs:
+  standby:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated failover regression tests (no credentials needed)
+        working-directory: cloudflare
+        run: npm test
