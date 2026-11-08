@@ -7,14 +7,14 @@
  *
  * Read: Firebase -> (mirror asynchronously) Cloudflare; on network fault ->
  *       last confirmed Cloudflare mirror, or an explicit unavailable result.
- * Write: Firebase with an ETag precondition. If Firebase is unavailable, only
- *        a local pending draft is returned — never an unsafe blind D1 write.
- * This is deliberate until a durable two-way journal exists. It prevents
- * duplicate updates and silently diverging authoritative copies.
+ * Write: Firebase with an ETag precondition. Optionally writes to Cloudflare
+ *        only when a confirmed mirror and a matching CAS revision exist.
+ *        Durable local drafts and explicit reconciliation protect recovery.
  */
 export function createAspaceStandby({
   firebaseDatabaseURL, getIdToken, cloudflare,
-  fetchImpl = fetch, timeoutMs = 8000, onStatus = () => {}, queue
+  fetchImpl = fetch, timeoutMs = 8000, onStatus = () => {}, queue,
+  allowStandbyWrites = false
 }) {
   const base = String(firebaseDatabaseURL || "").replace(/\/+$/, "");
   if (!base.startsWith("https://") || typeof getIdToken !== "function" ||
@@ -112,6 +112,42 @@ export function createAspaceStandby({
     return true;
   }
 
+  // Restricted write-capable failover. All cloud writes require a *confirmed*
+  // primary base and a matching Cloudflare snapshot; never guess a revision.
+  async function standbyWrite(key, record, previous) {
+    if (!allowStandbyWrites || !record.baseKnown) return false;
+    const expectedValue = previous?.standbyValue ?? record.baseValue;
+    if (expectedValue === null || expectedValue === undefined) return false;
+    const snapshot = await cloudflare.getDoc(key);
+    if (!snapshot || !Number.isSafeInteger(snapshot.revision) || snapshot.revision < 1) return false;
+    const wanted = JSON.stringify(record.value);
+    const before = JSON.stringify(expectedValue);
+    const current = JSON.stringify(snapshot.value);
+    // A timed-out CAS write might already have succeeded. Don't repeat it.
+    if (current !== before && current !== wanted)
+      throw error("Cloudflare standby changed from another participant", 409);
+    if (current === before && current !== wanted) {
+      let result;
+      try {
+        result = await cloudflare.putDoc(key, record.value, snapshot.revision);
+      } catch (e) {
+        // A lost response cannot be treated as a failure or an automatic success:
+        // check the exact content before storing a receipt.
+        const after = await cloudflare.getDoc(key).catch(() => null);
+        if (!after || JSON.stringify(after.value) !== wanted) throw e;
+        result = after;
+      }
+      if (!Number.isSafeInteger(result?.revision)) throw error("Missing standby revision", 502);
+      record.standbyRevision = result.revision;
+    } else {
+      record.standbyRevision = snapshot.revision;
+    }
+    record.standbyValue = clone(record.value);
+    await queue.put(key, record);
+    tell(key, "standby_written", "Cloudflare CAS write confirmed; Firebase recovery remains pending");
+    return true;
+  }
+
   async function read(key) {
     if (!safeKey(key)) throw new Error("Invalid document key");
     // A pending local edit always wins in the UI until conflict-safe reconciliation.
@@ -162,7 +198,17 @@ export function createAspaceStandby({
       // The durable local queue MUST commit before attempting Firebase.
       await queue.put(key, record);
       tell(key, "queued", "Draft persisted locally before network save");
-      if (previous || !known?.etag) return { source: "local", pending: true, reason: "reconciliation_required" };
+      if (previous || !known?.etag) {
+        if (previous?.standbyValue && allowStandbyWrites) {
+          try {
+            if (await standbyWrite(key, record, previous))
+              return { source: "cloudflare", pending: true, reason: "standby_confirmed" };
+          } catch (e) {
+            tell(key, "standby_conflict", e.message);
+          }
+        }
+        return { source: "local", pending: true, reason: "reconciliation_required" };
+      }
       try {
         const saved = await primary("PUT", key, value, known.etag);
         state.set(key, { etag: saved.etag, lastValue: clone(value) });
@@ -178,6 +224,14 @@ export function createAspaceStandby({
           // Keep the local draft for 412, so the user can manually reconcile.
           tell(key, "conflict", "Primary rejected the write; pending draft retained");
           throw e;
+        }
+        if (allowStandbyWrites) {
+          try {
+            if (await standbyWrite(key, record, null))
+              return { source: "cloudflare", pending: true, reason: "primary_unavailable" };
+          } catch (standbyError) {
+            tell(key, "standby_conflict", standbyError.message);
+          }
         }
         tell(key, "queued", "Primary unavailable; durable draft retained");
         return { source: "local", pending: true, reason: "primary_unavailable" };
@@ -212,6 +266,18 @@ export function createAspaceStandby({
         return { key, status: "conflict" };
       }
       if (!live.etag) return { key, status: "no_etag" };
+      if (item.standbyValue) {
+        let verified;
+        try { verified = await cloudflare.getDoc(key); }
+        catch (e) { return { key, status: "standby_unavailable", error: e.message }; }
+        if (!verified || JSON.stringify(verified.value) !== JSON.stringify(item.standbyValue)) {
+          tell(key, "conflict", "Standby changed after last confirmed local write");
+          return { key, status: "standby_conflict" };
+        }
+        // We are the author of the last confirmed standby revision, and the
+        // primary still matches our known original base.
+        lastMirrored.set(key, JSON.stringify(item.standbyValue));
+      }
       try {
         await primary("PUT", key, item.value, live.etag);
       } catch (e) {
