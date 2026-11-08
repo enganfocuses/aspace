@@ -143,3 +143,14 @@ test("missing verified primary base never triggers a blind queued overwrite", as
   assert.equal((await app.replay("boards/sample")).status, "conflict");
   assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
 });
+
+test("standby mirror never overwrites divergent guest edits", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  await (await app.read("boards/sample")).mirrored;
+  env.backup.set("boards/sample", { value: { text: "guest changed standby" }, revision: 2 });
+  const saved = await app.write("boards/sample", { text: "primary changed" });
+  assert.equal(saved.pending, false);
+  assert.equal(await saved.mirrored, false);
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "guest changed standby" });
+});
