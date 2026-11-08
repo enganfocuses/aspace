@@ -16,3 +16,14 @@ Firebase remains the primary data store. The Cloudflare D1 standby router is ava
 - The app's existing full-size media uploads remain available but can consume Firebase quotas; prefer external links where terms and hosting allow. Direct images and embeds are not mirrored to Cloudflare for offline playback.
 - The Cloudflare fallback is opt-in. Recovery verifies provider versions and retains conflicting drafts. Continuous guest grant/role/revocation synchronization and Cloudflare video signaling are still required before enabling automatic fallback for ordinary visitors.
 - The offline course builder requires the browser to open the static HTML file; connected online audio embeds would still require internet (the supplied file does not use external sources).
+
+## Automatic board reserve release
+
+Normal board sessions now use a single transport for the canonical shared or
+private Firebase path and the existing D1 board key. This supersedes the
+opt-in-only limitations above for board content. Durable drafts, provider CAS,
+content ancestry and conservative object merging handle outages and return to
+Firebase. Role checks and revocation are refreshed while the board is open.
+The menu exports a full JSON copy for preserving a conflicting draft. See
+`cloudflare/README.md` for exact scope and limits; media bytes, call signaling
+and fresh owner authentication remain separate dependencies.

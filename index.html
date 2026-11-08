@@ -249,6 +249,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin.home-call-window .tile{max-height:100%;aspect-ratio:16/10}
 .vwin.home-call-window.min{left:auto;right:16px;top:16px;transform:none;width:260px;min-width:220px;min-height:0}
 @media(max-width:600px){.vwin.home-call-window{left:50%;top:50%;right:auto;width:calc(100vw - 16px);height:calc(100dvh - 32px);min-width:0;min-height:0;transform:translate(-50%,-50%)}.vwin.home-call-window.min{left:auto;right:8px;top:8px;width:220px;height:auto;transform:none}}
+.sync-indicator{position:fixed;right:16px;bottom:76px;z-index:26;padding:5px 10px;border-radius:12px;background:#fffef9eb;color:#765279;font-size:12px;pointer-events:none}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -265,73 +266,78 @@ if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWor
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
-// Experimental Firebase-primary single-router. Only an explicit owner lab session enables it.
-let standbyController=null,standbyPhase='disabled',stopStandbyRecovery=null;
-const standbyOptIn=()=>new URLSearchParams(location.search).get('standby')==='lab';
-const standbyKey=p=>/^boards\/[A-Za-z0-9_-]+$/.test(p); // Never mirror raw share-token indexes into D1.
-async function prepareStandby(owner){
- if(stopStandbyRecovery){stopStandbyRecovery();stopStandbyRecovery=null}
- if(!standbyOptIn()||!owner||owner.uid!==CFG.ownerUid){standbyController=null;return}
- const [{createCloudflareFallback},{createIndexedDBStandbyQueue},{createAspaceStandby}]=await Promise.all([
-  import('./cloudflare/adapter.js'),import('./cloudflare/queue.js'),import('./cloudflare/standby.js')
- ]);
- const getIdToken=()=>owner.getIdToken(),queue=createIndexedDBStandbyQueue({scope:owner.uid+'_aspace'});
- const cloudflare=createCloudflareFallback({baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',getIdToken});
- standbyController=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,cloudflare,queue,
-  allowStandbyWrites:new URLSearchParams(location.search).get('standbywrite')==='lab',
-  onStatus:({phase})=>{standbyPhase=phase;const mark=document.getElementById('standbyIndicator');if(mark)mark.textContent='🧪 Резерв: '+phase}
- });
- stopStandbyRecovery=standbyController.startRecovery({onResults:outcomes=>{
-  for(const result of outcomes)if(result.status==='conflict')console.warn('Aspace draft requires reconciliation',result.key);
- }});
- standbyPhase='primary';
-}
-
-const MAX_UPLOAD_BYTES=300*1024*1024;
-// Guest fallback is a transport for the existing board, not a second board UI.
-const guestStandbyEnabled=()=>new URLSearchParams(location.search).get('gueststandby')==='lab';
-let guestStandbyPromise=null;
-const guestPrimaryBases=new Map();
-const guestCloudActiveTokens=new Set();
-const getGuestStandby=()=>guestStandbyPromise||(guestStandbyPromise=import('./cloudflare/guest-standby.js')
-  .then(module=>module.createAspaceGuestStandby({
-    baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',
-    onStatus:info=>console.info('Aspace guest standby:',info.phase,info.source)
+// One automatic transport for the existing owner and student board UI.
+const standbyOptIn=()=>CFG.reserve?.enabled!==false&&new URLSearchParams(location.search).get('standby')!=='off';
+const standbyKey=p=>/^boards\/[A-Za-z0-9_-]+$/.test(p);
+let boardRuntimePromise=null;const syncStates=new Map();
+function getBoardRuntime(){
+ if(!standbyOptIn())return Promise.resolve(null);
+ return boardRuntimePromise||(boardRuntimePromise=import('./cloudflare/runtime.js').then(module=>
+  module.createBoardRuntime({databaseURL:DB(),baseUrl:CFG.reserve?.url||'https://aspace-fallback-api.anncodes001.workers.dev',
+   getOwner:()=>currentUser?.uid===CFG.ownerUid?currentUser:null,
+   local:{get:localGet,put:localPut,all:localAll,remove:localDelete},fetchImpl:rawFetch,
+   onStatus:info=>{syncStates.set(info.key,info);window.dispatchEvent(new CustomEvent('aspace-sync-status',{detail:info}))}
   })));
-// In the opt-in owner standby lab, keep D1 share permissions aligned with
-// the same Firebase token. Never ship the raw token to Cloudflare D1.
-async function syncStandbyShare(boardId,token,role,revoking=false){
-  if(!standbyOptIn()||currentUser?.uid!==CFG.ownerUid||!token)return {skipped:true};
-  if(!/^[a-f0-9]{48}$/.test(token)||!/^[A-Za-z0-9_-]{1,120}$/.test(boardId))
-    throw Error('Неверный ID доски или токен публичной ссылки');
-  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)));
-  const hash=[...digest].map(byte=>byte.toString(16).padStart(2,'0')).join('');
-  const base='https://aspace-fallback-api.anncodes001.workers.dev';
-  const authHeader={Authorization:'Bearer '+await currentUser.getIdToken()};
-  const send=async(path,method='GET',body=null)=>{
-    const res=await fetch(base+path,{method,
-      headers:{...authHeader,...(body?{'Content-Type':'application/json'}:{})},
-      body:body?JSON.stringify(body):undefined,cache:'no-store'});
-    if(!res.ok)throw Error('Cloudflare HTTP '+res.status+' ('+path.split('?')[0]+')');
-    return res.json();
-  };
-  const docKey='boards/'+boardId;
-  const current=await send('/v1/shares?docKey='+encodeURIComponent(docKey));
-  const exists=(current.shares||[]).find(share=>share.tokenHash===hash);
-  if(revoking){
-    if(exists&&!exists.revoked)await send('/v1/shares/'+hash,'DELETE');
-    return {revoked:true};
-  }
-  if(!['viewer','editor'].includes(role))throw Error('Неизвестные права');
-  if(exists?.revoked)throw Error('Отозванную ссылку нельзя повторно включить');
-  if(exists){
-    if(exists.role!==role)await send('/v1/shares/'+hash,'PATCH',{role});
-    return {updated:true};
-  }
-  // Never create a token for a board whose snapshot is not already backed up.
-  await send('/v1/shares','POST',{tokenHash:hash,docKey,role});
-  return {created:true};
 }
+async function boardProvider(id,token=null){const runtime=await getBoardRuntime();
+ if(!runtime)return null;return token?runtime.shared(token):runtime.provider(id)}
+const guestStandbyEnabled=standbyOptIn;
+const MAX_UPLOAD_BYTES=300*1024*1024;
+// Keep D1 share permissions aligned with
+// the same Firebase token. Never ship the raw token to Cloudflare D1.
+const shareOpChains=new Map();
+async function sendStandbyShareOp(op){
+ const previous=shareOpChains.get(op.key)||Promise.resolve();
+ const work=previous.catch(()=>{}).then(()=>{
+  const run=()=>applyStandbyShareOp(op);
+  return navigator.locks?navigator.locks.request('aspace-share:'+op.ownerUid+':'+op.key,run):run();
+ });
+ shareOpChains.set(op.key,work);
+ try{return await work}finally{if(shareOpChains.get(op.key)===work)shareOpChains.delete(op.key)}
+}
+async function applyStandbyShareOp(op){
+ const latest=await localGet('shareOps',op.key);
+ if(latest?.id!==op.id)return;
+
+ if(currentUser?.uid!==op.ownerUid||op.ownerUid!==CFG.ownerUid)throw Error('Нужен вход владельца');
+ const base=CFG.reserve?.url||'https://aspace-fallback-api.anncodes001.workers.dev';
+ const send=async(path,method='GET',body=null)=>{
+  const res=await rawFetch(base+path,{method,headers:{Authorization:'Bearer '+await currentUser.getIdToken(),
+   ...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store',referrerPolicy:'no-referrer'});
+  if(!res.ok)throw Error('Cloudflare HTTP '+res.status);return res.json();
+ };
+ const current=await send('/v1/shares?docKey='+encodeURIComponent('boards/'+op.boardId));
+ const exists=(current.shares||[]).find(x=>x.tokenHash===op.key);
+ if(op.revoking){if(exists&&!exists.revoked)await send('/v1/shares/'+op.key,'DELETE')}
+ else if(exists?.revoked)throw Error('Отозванную ссылку нельзя восстановить');
+ else if(exists){if(exists.role!==op.role)await send('/v1/shares/'+op.key,'PATCH',{role:op.role})}
+ else await send('/v1/shares','POST',{tokenHash:op.key,docKey:'boards/'+op.boardId,role:op.role});
+ const pending=await localGet('shareOps',op.key);
+ if(pending?.id===op.id)await localDelete('shareOps',op.key);
+}
+async function syncStandbyShare(boardId,token,role,revoking=false){
+ if(!standbyOptIn()||currentUser?.uid!==CFG.ownerUid||!token)return {skipped:true};
+ if(!/^[a-f0-9]{48}$/.test(token)||!/^[A-Za-z0-9_-]{1,120}$/.test(boardId)||
+   !revoking&&!['viewer','editor'].includes(role))throw Error('Неверный формат доступа');
+ const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))]
+  .map(x=>x.toString(16).padStart(2,'0')).join('');
+ const op={key:hash,id:crypto.randomUUID(),boardId,role,revoking,ownerUid:currentUser.uid};
+ // Persist intent before network requests; a failed revocation remains visible
+ // and retries after reconnect/reload without storing raw capability tokens.
+ const prior=await localGet('shareOps',hash);
+ if(prior?.revoking&&!revoking)throw Error('Отзыв этой ссылки ещё выполняется');
+ await localPut('shareOps',op);await sendStandbyShareOp(op);return {confirmed:true};
+}
+let retryingShares=false;
+async function retryStandbyShareOps(){
+ if(retryingShares||currentUser?.uid!==CFG.ownerUid||!standbyOptIn())return;
+ retryingShares=true;
+ try{for(const op of await localAll('shareOps'))if(op.ownerUid===currentUser?.uid)
+  try{await sendStandbyShareOp(op)}catch(error){console.warn('Aspace permission sync pending:',error.message)}
+ }finally{retryingShares=false}
+}
+addEventListener('online',()=>{void retryStandbyShareOps()});
+setInterval(()=>{void retryStandbyShareOps()},30000);
 const notifyStandbyGrantError=error=>{
   alert('Firebase обновлён, но резервный доступ Cloudflare НЕ подтверждён: '+
     error.message+'. Ссылку нельзя считать полностью синхронизированной. '+
@@ -339,100 +345,45 @@ const notifyStandbyGrantError=error=>{
 };
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{
-  const canCache=part==='meta'||part==='board';
-  try{
-    const response=await fetch(shareURL(token)+'/'+part+'.json',{cache:'no-store'});
-    if(!response.ok){
-      const detail=(await response.text().catch(()=>'')).slice(0,350);
-      const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(detail);
-      if((response.status===429||response.status>=500||quota)&&canCache){
-        if(guestStandbyEnabled()){
-          // On quota/server failures, prefer the owner-seeded D1 snapshot.
-          // A disabled/revoked Cloudflare grant must not silently fall back to
-          // an editable local copy.
-          const backup=await (await getGuestStandby()).read(token);
-          guestCloudActiveTokens.add(token);
-          return part==='meta'
-            ? {boardId:backup.boardId,name:backup.name,role:backup.role}
-            : backup.board;
-        }
-        const cache=await localGet('shareCache',token+':'+part).catch(()=>null);
-        if(cache?.value!=null)return cache.value;
-      }
-      throw new Error(response.status===401||response.status===403&&!quota||response.status===404
-        ?'Ссылка недействительна или доступ отозван (HTTP '+response.status+')'
-        :'Firebase недоступен (HTTP '+response.status+'); локальная копия не найдена');
-    }
-    const value=await response.json();
-    if(canCache&&value!=null)try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
-    if(part==='board'&&value!=null){
-      guestPrimaryBases.set(token,JSON.stringify(value));
-      guestCloudActiveTokens.delete(token);
-    }
-    return value;
-  }catch(error){
-    // Never bypass explicit authorization/revocation errors. Use cache only if
-    // the network could not be reached and the link had been opened before.
-    if(canCache&&(error instanceof TypeError||error?.name==='AbortError')){
-      if(guestStandbyEnabled()){
-        const backup=await (await getGuestStandby()).read(token);
-        guestCloudActiveTokens.add(token);
-        return part==='meta'
-          ? {boardId:backup.boardId,name:backup.name,role:backup.role}
-          : backup.board;
-      }
-      const cached=await localGet('shareCache',token+':'+part).catch(()=>null);
-      if(cached?.value!=null)return cached.value;
-    }
-    throw error;
-  }
+ const runtime=await getBoardRuntime();
+ if(runtime&&part==='meta')return runtime.shareMeta(token);
+ if(runtime&&part==='board')return (await (await runtime.shared(token)).read()).value;
+ const response=await fetch(shareURL(token)+'/'+part+'.json',{cache:'no-store'});
+ if(!response.ok)throw Object.assign(new Error('Ссылка недоступна (Firebase HTTP '+response.status+')'),{status:response.status});
+ return response.json();
 };
-async function writeGuestStandby(token,board){
- const standby=await getGuestStandby();
- if(!standby.current(token)){
-   const remote=await standby.read(token);
-   const remembered=guestPrimaryBases.get(token);
-   const cache=await localGet('shareCache',token+':board').catch(()=>null);
-   const confirmed=remembered||JSON.stringify(cache?.value??null);
-   if(confirmed==='null'||JSON.stringify(remote.board)!==confirmed)
-     throw Error('Резервная доска отличается от проверенной копии Firebase — запись остановлена');
- }
- const saved=await standby.write(token,board);
- guestCloudActiveTokens.add(token);
- return saved;
-}
 const shareWrite=async(token,part,value,method='PUT',expectedEtag=null)=>{
-  const standby=part==='board'&&method==='PUT'&&guestStandbyEnabled();
-  let response;
-  try{
-    response=await fetch(shareURL(token)+'/'+part+'.json',{method,
-      headers:expectedEtag?{'if-match':expectedEtag}:{},
-      body:value===null?null:JSON.stringify(value)});
-  }catch(error){
-    if(!standby||!(error instanceof TypeError||error?.name==='AbortError'))throw error;
-    return writeGuestStandby(token,value);
-  }
-  if(!response.ok){
-    if(standby&&(response.status===429||response.status>=500)){
-      return writeGuestStandby(token,value);
-    }
-    const body=(await response.text().catch(()=>'')).slice(0,350);
-    const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(body);
-    if(standby&&quota)return writeGuestStandby(token,value);
-    throw new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')');
-  }
-  if((part==='board'||part==='meta')&&value!=null)
-    try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
-  if(part==='board'&&value!=null)guestPrimaryBases.set(token,JSON.stringify(value));
-  if(standby){
-    (await getGuestStandby()).clear(token);
-    guestCloudActiveTokens.delete(token);
-  }
-  return {source:'firebase'};
+ const runtime=await getBoardRuntime();
+ if(runtime&&part==='board'&&method==='PUT')return (await runtime.shared(token)).write(value);
+ const response=await fetch(shareURL(token)+'/'+part+'.json',{method,
+  headers:expectedEtag?{'if-match':expectedEtag}:{},body:value===null?null:JSON.stringify(value)});
+ if(!response.ok)throw Object.assign(new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')'),{status:response.status});
+ return {source:'firebase'};
 };
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
-const revokeShare=async token=>{const board=await shareRead(token,'board').catch(()=>null);for(const it of (board?.items||[])){if(it.u&&it.u.startsWith('img:'))await fetch(shareURL(token)+'/assets/'+encodeURIComponent(it.u.slice(4))+'.json',{method:'DELETE'})}for(const part of ['board','room','meta'])await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})};
-const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
+const revokeShare=async token=>{
+ const meta=await shareRead(token,'meta');
+ await shareWrite(token,'meta',{...meta,role:'viewer'});
+ await syncStandbyShare(meta.boardId,token,null,true);
+ const runtime=await getBoardRuntime();
+ const result=runtime?await (await runtime.shared(token)).read():{value:await shareRead(token,'board')};
+ if(result.conflict)throw Error('Есть конфликт версий. Доски сохранены, но сначала нужно разрешить конфликт.');
+ const path=DB()+'/docs/boards/'+encodeURIComponent(meta.boardId)+'.json';
+ const before=await fetch(path,{headers:{'X-Firebase-ETag':'true'},cache:'no-store'});
+ const etag=before.headers.get('etag');
+ if(!before.ok||!etag)throw Error('Не удалось подтвердить личную копию перед отзывом ссылки');
+ const archived=await fetch(path,{method:'PUT',headers:{'if-match':etag,'Content-Type':'application/json'},
+  body:JSON.stringify({j:JSON.stringify(result.value)})});
+ if(!archived.ok)throw Error('Личная копия изменилась: повтори отзыв ссылки');
+ // The guest is already view-only and the reserve grant is revoked. Keep
+ // meta until cleanup completes because legacy rules require it for room writes.
+ for(const part of ['room','board','meta']){
+  const res=await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'});
+  if(!res.ok)throw Error('Не удалось завершить отзыв ссылки: HTTP '+res.status);
+ }
+};
+
+const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/')||new URL(url).searchParams.has('auth'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
 const rawFetch=window.fetch.bind(window);
 window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
 const eventUrl=async url=>dbUrl(url);
@@ -442,7 +393,7 @@ function localDB(){
  if(!('indexedDB'in window))return Promise.reject(new Error('IndexedDB недоступна'));
  if(localDbPromise)return localDbPromise;
  localDbPromise=new Promise((resolve,reject)=>{
-  const req=indexedDB.open(LOCAL_DB,2);
+  const req=indexedDB.open(LOCAL_DB,3);
   req.onupgradeneeded=()=>{const db=req.result;
    if(!db.objectStoreNames.contains('docs'))db.createObjectStore('docs',{keyPath:'key'});
    if(!db.objectStoreNames.contains('pending'))db.createObjectStore('pending',{keyPath:'key'});
@@ -450,17 +401,21 @@ function localDB(){
    if(!db.objectStoreNames.contains('assetPending'))db.createObjectStore('assetPending',{keyPath:'key'});
    if(!db.objectStoreNames.contains('shareCache'))db.createObjectStore('shareCache',{keyPath:'key'});
    if(!db.objectStoreNames.contains('guestDrafts'))db.createObjectStore('guestDrafts',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('shareOps'))db.createObjectStore('shareOps',{keyPath:'key'});
   };
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Не удалось открыть локальную базу'));
  });
  return localDbPromise;
 }
 async function localGet(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).get(key);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>reject(q.error)})}
-async function localPut(store,value){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).put(value);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
+async function localPut(store,value){const db=await localDB();return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);tx.oncomplete=()=>resolve(true);tx.onabort=tx.onerror=()=>reject(tx.error||new Error('Local transaction failed'))})}
 async function localAll(store){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
-async function localDelete(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).delete(key);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
+async function localDelete(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>resolve(true);tx.onabort=tx.onerror=()=>reject(tx.error||new Error('Local transaction failed'))})}
 async function load(p){
- if(standbyController&&currentUser?.uid===CFG.ownerUid&&standbyKey(p)){const result=await standbyController.read(p);return result.value}
+ if(standbyOptIn()&&currentUser?.uid===CFG.ownerUid&&standbyKey(p)){
+  const provider=await boardProvider(p.slice(7)),result=await provider.read();
+  await localPut('docs',{key:p,value:result.value,updatedAt:Date.now()});return result.value;
+ }
  let cached=null,pending=false;
  try{const c=await localGet('docs',p);cached=c?.value??null;pending=!!(await localGet('pending',p))}catch{}
  if(pending&&cached!==null)return cached;
@@ -468,10 +423,16 @@ async function load(p){
    try{await localPut('docs',{key:p,value:data,updatedAt:Date.now()})}catch{}
    return data;
   }}catch{}
+ if(cached===null&&p==='meta/boards'&&currentUser?.uid===CFG.ownerUid&&standbyOptIn()){
+  try{return await (await getBoardRuntime()).readIndex()}catch{}
+ }
  return cached!==null?cached:ls.g(p,null);
 }
 async function save(p,d){
- if(standbyController&&currentUser?.uid===CFG.ownerUid&&standbyKey(p)){const result=await standbyController.write(p,d);return !result.pending}
+ if(standbyOptIn()&&currentUser?.uid===CFG.ownerUid&&standbyKey(p)){
+  const provider=await boardProvider(p.slice(7)),result=await provider.write(d);
+  await localPut('docs',{key:p,value:result.value,updatedAt:Date.now()});return !result.pending;
+ }
  const record={key:p,value:d,updatedAt:Date.now()};
  ls.s(p,d);
  try{await localPut('docs',record);await localPut('pending',{key:p,updatedAt:record.updatedAt})}
@@ -480,15 +441,16 @@ async function save(p,d){
   const r=await fetch(DB()+'/docs/'+p+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({j:JSON.stringify(d)})});
   if(!r.ok)throw new Error('HTTP '+r.status);
   try{await localDelete('pending',p)}catch{}
+  if(p==='meta/boards'&&standbyOptIn())void getBoardRuntime().then(r=>r.mirrorIndex(d)).catch(e=>console.warn('Index mirror pending:',e.message));
   return true;
  }catch(e){console.warn('Aspace sync queued:',e);return false}
 }
 async function syncLocalChanges(){
- if(standbyController)return;
- if(!navigator.onLine)return;
+ if(!navigator.onLine||currentUser?.uid!==CFG.ownerUid)return;
  try{
   const queue=await localAll('pending');
   for(const item of queue){
+   if(standbyOptIn()&&standbyKey(item.key))continue;
    const doc=await localGet('docs',item.key);if(!doc)continue;
    const r=await fetch(DB()+'/docs/'+encodeURIComponent(item.key)+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({j:JSON.stringify(doc.value)})});
    if(r.ok){const latest=await localGet('pending',item.key);if(latest&&latest.updatedAt===item.updatedAt)await localDelete('pending',item.key)}
@@ -508,7 +470,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 const room0={async join(name,customPath){
   const me=uid()+uid(),handlers={},dead=[],
     base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
-  const preflight=await fetch(base+'.json?shallow=true',{cache:'no-store'});
+  const preflight=await fetch(base+'.json?shallow=true',{cache:'no-store',signal:AbortSignal.timeout(6000)});
   if(!preflight.ok)throw new Error('Нет доступа к каналу видеозвонка (Firebase HTTP '+preflight.status+'). Проверь права гостевого доступа.');
   let closed=false,es=null,gc=null,hideRegistered=false;
   const flush=()=>{
@@ -602,20 +564,13 @@ function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
   try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();auth.onAuthStateChanged(async user=>{
     currentUser=user;
-    if(!user||user.uid!==CFG.ownerUid){
-      if(stopStandbyRecovery){stopStandbyRecovery();stopStandbyRecovery=null}
-      standbyController=null;
-      if(!user)stopPersistentCall();
-    }
-    if(standbyOptIn()&&user?.uid===CFG.ownerUid){
-      try{await prepareStandby(user)}catch(error){
-        console.error('Standby lab init failed:',error);
-        $('#root').replaceChildren(E('div',{className:'warn',
-          textContent:'Резервный эксперимент не подключился; открой сайт без ?standby=lab. '+error.message}));
-        return;
+    if(!user){stopPersistentCall();if(boardRuntimePromise){(await boardRuntimePromise).close();boardRuntimePromise=null}}
+    if(standbyOptIn()){
+      try{await getBoardRuntime()}catch(error){
+        $('#root').replaceChildren(E('div',{className:'warn',textContent:'Не удалось загрузить сохранение доски: '+error.message}));return;
       }
     }
-    if(!standbyController)syncLocalChanges();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){if(/^#c-[a-zA-Z0-9_-]{1,120}$/.test(location.hash)){shell(true);return}loginView();return}
+    syncLocalChanges();void retryStandbyShareOps();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){if(/^#c-[a-zA-Z0-9_-]{1,120}$/.test(location.hash)){shell(true);return}loginView();return}
     if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
     const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
   })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
@@ -630,7 +585,6 @@ function goHome(){
 }
 function shell(guest){
   const hd=E('header',{},E('b',{textContent:'Aspace'}),B(themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема',toggleTheme,'theme-toggle'),B('⌂ Домой',goHome));
-  if(standbyController&&!guest)hd.append(E('span',{id:'standbyIndicator',className:'mut',textContent:'🧪 Резерв: '+standbyPhase}));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
@@ -1048,11 +1002,12 @@ async function openBoard(m,id,guest,shareToken=null){
   activeShareToken=shareToken;
   if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
+  if(isOwner)guest=false;
   const cloneBoard=value=>JSON.parse(JSON.stringify(value));
   const boardShareToken=activeShareToken;
   let lastConfirmedShared=boardShareToken&&d0?cloneBoard(d0):null;
-  const localGuestDraft=boardShareToken
-    ?await localGet('guestDrafts',boardShareToken).catch(()=>null):null;
+  const boardTransport=await boardProvider(id,boardShareToken);
+  const localGuestDraft=boardTransport?await boardTransport.pending():null;
   if(localGuestDraft?.value&&!guest){
     lastConfirmedShared=localGuestDraft.base??lastConfirmedShared;
     d0=cloneBoard(localGuestDraft.value);
@@ -1102,107 +1057,62 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;applyViewport(p.v);r.emit('followack',{to:p.from,name:myName});say('Следуешь за '+(p.name||'участником'))}});
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},8000);
-  let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null;
-  let unsyncedShareDraft=Boolean(localGuestDraft?.pending);
-  const saveSharedDraft=async(data)=>{
-    const token=boardShareToken;
-    if(!token)return;
-    const previous=await localGet('guestDrafts',token).catch(()=>null);
-    const base=previous?.base??lastConfirmedShared;
-    const draft={key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
-      cloudRevision:previous?.cloudRevision??null,
-      cloudValue:previous?.cloudValue??null,pending:true,updatedAt:Date.now()};
-    // The latest draft is committed locally before contacting either provider.
-    await localPut('guestDrafts',draft);
-    unsyncedShareDraft=true;
+  let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null,disposed=false,editEpoch=0,savedEpoch=0;
+  let unsyncedShareDraft=Boolean(localGuestDraft),displayedBase=cloneBoard(d0);
+  const snapshot=()=>({name:d.name,strokes:cloneBoard(strokes),items:cloneBoard(items),bg,siteUrl:d.siteUrl||'',upd:Date.now()});
+  const applySnapshot=value=>{
+    if(!value||disposed)return;
+    const known=new Map(items.map(item=>[item.id,item]));
+    const incoming=new Set((value.items||[]).map(item=>item.id));
+    for(const old of items)if(!incoming.has(old.id))rmEl(old);
+    items=(value.items||[]).map(next=>{
+      const old=known.get(next.id);
+      if(old){if(JSON.stringify(old)!==JSON.stringify(next)){Object.assign(old,next);upsert(old)}return old}
+      const item=cloneBoard(next);upsert(item);return item;
+    });
+    strokes=cloneBoard(value.strokes||[]);bg=value.bg||'dots';d.name=value.name||d.name;
+    const siteChanged=(d.siteUrl||'')!==(value.siteUrl||'');d.siteUrl=value.siteUrl||'';
+    sc.className='bscroll '+bg;wrap.className='wrap '+bg;redraw();fit();
+    if(siteChanged)renderSite();
+  };
+  const saveSharedDraft=async(data,epoch=editEpoch)=>{
+    if(disposed||guest)return;
     try{
-      let result=null;
-      let live=null;
-      let primaryEtag=null;
-      let firebaseUnreachable=false;
-      if(previous?.pending){
-        try{
-          const response=await fetch(shareURL(token)+'/board.json',{
-            cache:'no-store',headers:{'X-Firebase-ETag':'true'}});
-          if(response.ok){
-            primaryEtag=response.headers.get('etag');
-            live=await response.json();
-          }else{
-            const errorText=(await response.text().catch(()=>'')).slice(0,350);
-            const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(errorText);
-            if(!guestStandbyEnabled()||!(response.status===429||response.status>=500||quota))
-              throw Error('Firebase HTTP '+response.status+' во время сверки общей доски');
-            firebaseUnreachable=true;
-          }
-        }catch(error){
-          if(!guestStandbyEnabled()||!(error instanceof TypeError||error?.name==='AbortError'))
-            throw error;
-          firebaseUnreachable=true;
+      const result=boardTransport?await boardTransport.write(data,{base:displayedBase}):
+        boardShareToken?await shareWrite(boardShareToken,'board',data):{pending:!await save('boards/'+id,data),value:data};
+      if(disposed)return;
+      if(!result.value)result.value=data;
+      unsyncedShareDraft=Boolean(result.pending||result.conflict);
+      if(result.value&&!result.conflict){
+        if(editEpoch===epoch){applySnapshot(result.value);savedEpoch=epoch}
+        else{
+          const {mergeBoard}=await import('./cloudflare/merge-board.js');
+          const merged=mergeBoard(data,snapshot(),result.value);
+          if(merged.ok)applySnapshot(merged.value);
+          else{say('Есть конфликт изменений. Твоя версия сохранена на устройстве.');unsyncedShareDraft=true;return}
         }
-        if(firebaseUnreachable){
-          result=await shareWrite(token,'board',data);
-        }else{
-          const identical=JSON.stringify(live)===JSON.stringify(data);
-          if(!identical&&JSON.stringify(live)!==JSON.stringify(base)){
-            say('Конфликт Firebase: другой участник изменил доску. Черновик сохранён.');
-            return;
-          }
-          if(previous.cloudRevision&&guestStandbyEnabled()){
-            const confirmed=await (await getGuestStandby()).read(token);
-            if(confirmed.revision!==previous.cloudRevision||
-              JSON.stringify(confirmed.board)!==JSON.stringify(previous.cloudValue??previous.value)){
-              say('Конфликт Cloudflare: другая версия резервной доски. Черновик сохранён.');
-              return;
-            }
-          }
-          if(!identical&&!primaryEtag){
-            say('Firebase не подтвердил версию: черновик сохранён, автоматическая перезапись остановлена.');
-            return;
-          }
-          result=identical?{source:'firebase'}:await shareWrite(token,'board',data,'PUT',primaryEtag);
-        }
-      }else{
-        result=await shareWrite(token,'board',data);
+        displayedBase=cloneBoard(result.value);
       }
-      const current=await localGet('guestDrafts',token).catch(()=>null);
-      if(result?.source==='cloudflare'){
-        // D1 is not the primary. Keep the local draft until Firebase recovers.
-        if(current&&JSON.stringify(current.value)===JSON.stringify(data))
-          await localPut('guestDrafts',{...current,cloudRevision:result.revision,cloudValue:cloneBoard(data),
-            pending:true,updatedAt:Date.now()});
-        say('Cloudflare сохранил изменения. Ожидаем безопасного возврата в Firebase.');
-        return;
-      }
-      lastConfirmedShared=cloneBoard(data);
-      if(current&&JSON.stringify(current.value)===JSON.stringify(data)){
-        await localDelete('guestDrafts',token);
-        unsyncedShareDraft=false;
-      }
-    }catch(error){
-      say('Изменения сохранены на устройстве: '+error.message);
-    }
+      if(result.conflict)say('Конфликт сохранения: обе версии сохранены. Скачай JSON-копию из меню доски.');
+      else if(result.pending)say('Изменения сохранены в резерве; ожидаем восстановления Firebase.');
+      else if(roomWarning)say('Доска сохранена. Канал видеосвязи пока недоступен.');
+      else say('');
+    }catch(error){unsyncedShareDraft=true;say('Черновик сохранён на устройстве: '+error.message)}
   };
   const queueSharedDraft=data=>{
-    shareSyncChain=shareSyncChain.then(()=>saveSharedDraft(data))
-      .catch(error=>say('Ошибка локального сохранения: '+error.message));
+    const epoch=editEpoch;
+    shareSyncChain=shareSyncChain.then(()=>saveSharedDraft(data,epoch))
+      .catch(error=>say('Ошибка сохранения: '+error.message));
     return shareSyncChain;
   };
   const retrySharedDraft=()=>{
-    if(guest||!boardShareToken||navigator.onLine===false)return;
-    void localGet('guestDrafts',boardShareToken).then(item=>{
-      if(item?.pending&&item.value)queueSharedDraft(item.value);
-    }).catch(()=>{});
+    if(disposed||guest||navigator.onLine===false)return;
+    if(unsyncedShareDraft||editEpoch!==savedEpoch)void queueSharedDraft(snapshot());
   };
-  if(boardShareToken&&!guest){
-    window.addEventListener('online',retrySharedDraft);
-    shareRecoveryTimer=setInterval(retrySharedDraft,45000);
-    if(localGuestDraft?.pending)setTimeout(retrySharedDraft,2000);
-  }
-  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{
-    const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};
-    if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на устройстве; ожидание облака')}
-    if(boardShareToken)void queueSharedDraft(data);
-  },1200)};
+  window.addEventListener('online',retrySharedDraft);
+  const persist=()=>{if(guest||disposed)return;editEpoch++;clearTimeout(tm);
+    tm=setTimeout(()=>{void queueSharedDraft(snapshot())},1200);
+  };
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},90);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
@@ -1485,6 +1395,21 @@ async function openBoard(m,id,guest,shareToken=null){
   mp.append(followPanel);refreshPeers();
   mi('⌂ Домой',goHome);
   if(isOwner)mi('← Список досок',()=>go(boardsView));
+  if(boardTransport)mi('Скачать все версии JSON',async()=>{
+    try{const versions=await boardTransport.inspect(),url=URL.createObjectURL(new Blob([JSON.stringify(versions,null,2)],{type:'application/json'}));
+      E('a',{href:url,download:(d.name||'board')+'.versions.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+    }catch(error){alert(error.message)}
+  });
+  if(boardTransport&&!guest)mi('Разобрать конфликт сохранения',async()=>{
+    try{
+      const versions=await boardTransport.inspect();
+      const choice=prompt('Выбери общую версию доски. Она заменит другие версии после проверки, что они не изменились. При необходимости сначала скачай все версии JSON.\n1 — моя локальная версия\n2 — Firebase\n3 — резерв Cloudflare','');
+      if(!['1','2','3'].includes(choice))return;
+      const result=await boardTransport.resolve({'1':'local','2':'primary','3':'reserve'}[choice],versions);
+      applySnapshot(result.value);displayedBase=cloneBoard(result.value);unsyncedShareDraft=false;savedEpoch=editEpoch;say('Конфликт разрешён, версия сохранена.');
+    }catch(error){say('Версии сохранены. '+error.message)}
+  });
+  mi('⬇ Сохранить JSON-копию доски',()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);E('a',{href:url,download:(d.name||'board')+'.aspace.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000)});
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   if(isOwner)mi('📹 Видеозвонок на доске',openVideo);
   if(isOwner)mi('🖥 Экран: доска + сайт / Yonote',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;applySiteUrl(raw)});
@@ -1501,37 +1426,50 @@ async function openBoard(m,id,guest,shareToken=null){
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
-  // When Firebase signaling is unavailable, poll the same Cloudflare document
-  // instead of creating another board/call. Never replace unsynced local edits.
-  if(roomWarning&&guestStandbyEnabled()&&boardShareToken&&guestCloudActiveTokens.has(boardShareToken)){
-    say('Firebase-синхронизация недоступна; резерв Cloudflare проверяется каждые 12 секунд.');
-    let lastSnapshot=null;
-    cloudPollTimer=setInterval(async()=>{
-      if(unsyncedShareDraft)return;
-      try{
-        const snap=await (await getGuestStandby()).read(boardShareToken);
-        if(!snap.board||JSON.stringify(snap.board)===lastSnapshot)return;
-        lastSnapshot=JSON.stringify(snap.board);
-        if(!unsyncedShareDraft){
-          strokes=cloneBoard(snap.board.strokes);
-          items=cloneBoard(snap.board.items);
-          bg=snap.board.bg||bg;d.siteUrl=snap.board.siteUrl||'';
-          sc.className='bscroll '+bg;wrap.className='wrap '+bg;
-          redraw();renderAll();renderSite();
-          say('Доска обновлена из резерва Cloudflare.');
-        }
-      }catch(error){
-        // Revoked links stop polling rather than showing cached restricted data.
-        if(error?.status===403||error?.status===404){
-          clearInterval(cloudPollTimer);cloudPollTimer=null;
-          say('Резервная ссылка отозвана или недействительна.');
-        }
+  let polling=false;
+  const pollBoard=async()=>{
+    if(disposed||polling||document.visibilityState==='hidden')return;
+    polling=true;const epoch=editEpoch;
+    try{
+      if(boardShareToken){
+        const meta=await shareRead(boardShareToken,'meta');
+        if(!isOwner){guest=meta.role!=='editor';root.classList.toggle('readonly',guest)}
       }
-    },12000);
-  }
+      if(!boardTransport||!guest&&editEpoch!==savedEpoch)return;
+      const result=await boardTransport.read();
+      if(!disposed&&editEpoch===epoch&&result.value){
+        if(!result.conflict){applySnapshot(result.value);displayedBase=cloneBoard(result.value)}
+        unsyncedShareDraft=Boolean(result.pending);
+        if(result.conflict)say('Firebase и резерв содержат разные правки. Обе версии сохранены.');
+      }
+    }catch(error){
+      if(!isOwner&&[401,403,404].includes(error.status)){
+        guest=true;clearInterval(cloudPollTimer);r.close();call?.stop();callRoom?.close();
+        root.replaceChildren(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доступ к доске закрыт'}))));
+      }else if(!disposed)say('Доска сохранена на устройстве. Повторяем подключение…');
+    }finally{polling=false}
+  };
+  cloudPollTimer=setInterval(()=>{void pollBoard()},12000);
+  shareRecoveryTimer=setInterval(retrySharedDraft,15000);
+  const onSyncStatus=event=>{
+    if(event.detail.key!=='boards/'+id||disposed)return;
+    const labels={firebase:'Firebase',cloudflare:'Резерв Cloudflare',local:'На устройстве'};
+    syncIndicator.textContent=event.detail.phase==='conflict'?'⚠ Конфликт — копии сохранены':labels[event.detail.source]||'Сохранение…';
+  };
+  const syncIndicator=E('span',{className:'sync-indicator',ariaLive:'polite',textContent:'Сохранение подключено'});
+  root.append(syncIndicator);window.addEventListener('aspace-sync-status',onSyncStatus);
+  if(syncStates.has('boards/'+id))onSyncStatus({detail:syncStates.get('boards/'+id)});
+  if(localGuestDraft)setTimeout(retrySharedDraft,500);
   if(roomWarning)setTimeout(()=>say('Режим без Firebase-сигналинга: '+roomWarning),500);
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(boardShareToken)void queueSharedDraft(data)}activeShareToken=null};
+  cleanup=()=>{
+    if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
+    disposed=true;document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
+    call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
+    r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
+    window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;
+  };
+
 }
 
 /* ---------- образование ---------- */

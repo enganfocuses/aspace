@@ -78,7 +78,7 @@ test('no local join-call variable shadows the global navigation function',()=>{
   assert.match(code,/void \(isOwner\s*\?/);
 });
 test('shared drafts persist without replacing pending local edits',()=>{
-  assert.match(html,/indexedDB.open\(LOCAL_DB,2\)/);
+  assert.match(html,/indexedDB.open\(LOCAL_DB,3\)/);
   assert.match(html,/createObjectStore\('guestDrafts'/);
   assert.match(html,/if\(got\|\|!x.data\|\|unsyncedShareDraft\)return/);
   assert.match(html,/shareSyncChain=shareSyncChain.then/);

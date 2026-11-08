@@ -1,5 +1,5 @@
-const CACHE_NAME='aspace-shell-v3';
-const CORE=['./','./index.html','./config.js','./vendor/pdf.min.js','./vendor/pdf.worker.min.js','./education/speakout-b1plus-builder.html'];
+const CACHE_NAME='aspace-shell-v4';
+const CORE=['./','./index.html','./config.js','./vendor/pdf.min.js','./vendor/pdf.worker.min.js','./education/speakout-b1plus-builder.html','./cloudflare/runtime.js','./cloudflare/live-board.js','./cloudflare/merge-board.js','./cloudflare/adapter.js','./cloudflare/guest-standby.js','./cloudflare/queue.js'];
 self.addEventListener('install',event=>{
  event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);
