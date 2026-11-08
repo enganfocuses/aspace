@@ -2,10 +2,15 @@
   "name": "aspace-cloudflare-fallback",
   "private": true,
   "type": "module",
-  "dependencies": { "jose": "^5.9.6" },
-  "devDependencies": { "wrangler": "^4.0.0" },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
   "scripts": {
     "deploy": "wrangler deploy",
-    "db:init": "wrangler d1 execute aspace-fallback --remote --file=schema.sql"
+    "db:init": "wrangler d1 execute aspace-fallback --remote --file=schema.sql",
+    "test": "node --test tests/*.test.mjs"
   }
 }
