@@ -19,7 +19,7 @@ function json(data, status = 200) {
   });
 }
 async function requireOwner(request, env) {
-  const match = (request.headers.get("Authorization") || "").match(/^Bearer\\s+(.+)$/i);
+  const match = (request.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
   if (!match) return null;
   try {
     const { payload } = await jwtVerify(match[1], FIREBASE_JWKS, {
@@ -45,7 +45,7 @@ export default {
     const uid = await requireOwner(request, env);
     if (!uid) return json({ error: "unauthorized" }, 401);
 
-    const docMatch = url.pathname.match(/^\\/v1\\/docs\\/([^/]+)$/);
+    const docMatch = url.pathname.match(/^\/v1\/docs\/([^/]+)$/);
     if (docMatch) {
       const key = decodeURIComponent(docMatch[1]);
       if (!safeKey(key)) return json({ error: "invalid_key" }, 400);
@@ -71,7 +71,7 @@ export default {
       return json({ error: "method_not_allowed" }, 405);
     }
 
-    const assetMatch = url.pathname.match(/^\\/v1\\/assets\\/([^/]+)$/);
+    const assetMatch = url.pathname.match(/^\/v1\/assets\/([^/]+)$/);
     if (assetMatch) {
       const id = decodeURIComponent(assetMatch[1]);
       if (!safeKey(id)) return json({ error: "invalid_asset_id" }, 400);
