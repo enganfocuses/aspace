@@ -46,3 +46,13 @@ users/devices, EventSource traffic, WebRTC media and protocol overhead; missing
 response lengths are explicitly unmeasured. Free-plan quotas are reference
 values checked on 2026-11-08, not confirmation of the account's billing plan.
 Backblaze B2, Open Relay and independent owner login remain unconnected.
+
+## Owner action metrics and screenshot readings
+
+The owner limits screen accepts an optional `#usage?reading=YYYY-MM,storageMB,downloadsMB,connections` fragment. Values are strictly parsed and shown for explicit import before changing local readings. The fragment is removed from history on entering the screen and is not sent as a request parameter. No account usage measurements are embedded in the published source. Screenshot imports retain their source and import time, without inventing a verified capture timestamp or treating the values as live console metrics. Cloudflare “No data” stays unknown.
+
+Own local calls to board persistence count as activity bursts, grouped by a 1.2-second idle gap. Remote signaling handlers explicitly opt out. Per-board local observations attribute Firebase requests for canonical board paths, registered shared paths, board signals and material requests while that board is open. Registered share-token paths exist only in memory. Successful board PUT/PATCH operations are distinct from failed attempts and reserve writes. These are operation/burst counts, not individual mouse-event or student action totals.
+
+Received board SSE payloads are counted as UTF-8 bytes in a one-second buffer, flushed on snapshots, board exit and page hide. No message contents are stored and no extra service requests are made for analytics. These decoded SSE bytes and known HTTP Content-Length values are estimates rather than billed wire bytes. Other devices, video, unmeasured HTTP responses, compression effects and protocol overhead are excluded.
+
+When a monthly download reading is entered/imported, the current local receive counters are captured as its baseline. A separate labelled local estimate adds only subsequent observed incoming bytes; uploads never increase the download estimate, and re-entering a console value rebases it to avoid counting the same local traffic twice. The estimate expires across UTC months and does not replace the provider reading or promise an actual remaining quota. Storage is not incremented by the size of each save: board versions overwrite existing data.

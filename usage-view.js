@@ -2,7 +2,7 @@
 // Browser observations are local lower bounds, never billing totals.
 export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importReading=null}){
  if(!getOwner()){m.append(E('p',{textContent:'Этот раздел доступен только владельцу.'}));return ()=>{}}
- const {LIMITS,quotaStatus,utcDay,parseSnapshot}=window.AspaceUsage;
+ const {LIMITS,quotaStatus,utcDay,parseSnapshot,downloadEstimate}=window.AspaceUsage;
  let pendingImport=parseSnapshot(importReading);
  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
  const size=n=>{if(!Number.isFinite(n))return 'Нет данных';const units=['Б','кБ','МБ','ГБ'];let i=0;while(n>=1000&&i<3){n/=1000;i++}return fmt.format(n)+' '+units[i]};
@@ -67,6 +67,10 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
     item.append(E('p',{textContent:'По скриншоту: использовано '+display(record.value)+' · остаток по снимку '+display(historic.remaining)}),
      E('p',{className:'mut',textContent:'Источник: скриншот пользователя'+(row.period==='month'?' · период '+record.period:'')+'. Внесено '+date(record.updatedAt)+'. Время измерения не указано; текущий остаток неизвестен.'}));
    }else item.append(E('p',{className:'usage-unknown',textContent:record?'Показание устарело — обнови его в консоли':'Использовано: нет данных · остаток неизвестен'}));
+   if(row.id==='firebaseDownloads'){
+    const estimate=downloadEstimate(state);
+    if(estimate)item.append(E('p',{className:'usage-notice',textContent:'Локальный ориентир: '+display(estimate.value)+' · расчётный остаток '+display(Math.max(0,row.limit-estimate.value))+'. К показанию добавлено '+size(estimate.extra)+' наблюдаемого входящего трафика после ввода. Это оценка, не показания Firebase.'}));
+   }
    inputFor(row,state,item);grid.append(item);
   }
   section.append(E('div',{className:'row usage-links'},
@@ -90,7 +94,7 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
    for(const name of Object.keys(totals[provider]))totals[provider][name]+=data[provider]?.[name]||0;
   const section=E('section',{},E('h3',{textContent:'Наблюдения этого браузера'}),
    E('p',{className:'mut',textContent:(state.startedAt?'Сбор включён '+date(state.startedAt)+'. ':'Пока нет наблюдений. ')+
-    'Это только вкладки владельца на этом устройстве. Ученические устройства, SSE-потоки, видео и сетевые накладные расходы сюда не входят. Размер части ответов сервер не сообщает. Эти числа не показывают остаток общей квоты.'}));
+    'Это только вкладки владельца на этом устройстве. Ученические устройства, видео и сетевые накладные расходы сюда не входят. SSE-сообщения доски учтены отдельно в метрике действий. Размер части HTTP-ответов сервер не сообщает. Эти числа не показывают остаток общей квоты.'}));
   const table=E('table',{className:'usage-table'},E('thead',{},E('tr',{},...['Сервис','Запросов сегодня UTC','Запросов за месяц UTC','Известно отправленных байт','Известный размер ответов','Ответов без размера','Ошибок за месяц'].map(text=>E('th',{textContent:text})))));
   const body=E('tbody');
   for(const [provider,title] of [['firebase','Firebase'],['cloudflare','Cloudflare']]){
@@ -99,6 +103,29 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
    ].map(text=>E('td',{textContent:text}))));
   }
   table.append(body);section.append(E('div',{className:'usage-table-wrap'},table));return section;
+ }
+ function actionMetrics(state){
+  const day=utcDay(Date.now()),entries=Object.entries(state.days[day]?.boardActivity||{});
+  const names=new Map((index.items||[]).map(b=>['boards/'+b.id,b.name||'Доска']));
+  const totals=entries.reduce((sum,[,row])=>{
+   const f=row.firebase||{};sum.changes+=row.changes||0;sum.saved+=f.savedBoards||0;
+   sum.sent+=f.uploadBytes||0;sum.received+=(f.knownResponseBytes||0)+(f.sseBytes||0);return sum;
+  },{changes:0,saved:0,sent:0,received:0});
+  const section=E('section',{},E('h3',{textContent:'Мои действия → трафик Firebase'}),
+   E('p',{className:'mut',textContent:'Сегодня по UTC. Серия правок — свои изменения без паузы дольше 1,2 секунды: набор текста и движение объекта объединяются. Полученные правки ученика не считаются твоими действиями. Записи, фоновые обновления, сообщения синхронизации и материалы считаются по фактическим запросам этого браузера.'}),
+   E('div',{className:'usage-grid'},
+    card('Серий моих правок',number(totals.changes),'Только локальное редактирование: рисунки, текст, объекты, настройки доски.'),
+    card('Записей доски в Firebase',number(totals.saved),'Успешные PUT/PATCH. Одна серия может породить несколько запросов или остаться локально.'),
+    card('Известно получено из Firebase',size(totals.received),'HTTP Content-Length плюс UTF-8 данные полученных SSE-сообщений доски. Часть ответов и протокольный трафик не измерены.'),
+    card('Отправлено на серию · среднее',totals.changes?size(totals.sent/totals.changes):'Нет серий правок','Грубое среднее: включает фоновые сообщения и материалы этой доски. Это не цена отдельного действия.')));
+  const table=E('table',{className:'usage-table'},E('thead',{},E('tr',{},...['Доска','Серий правок','Записей доски','Отправлено','HTTP-ответы известного размера','SSE данные','HTTP-ответов без размера'].map(text=>E('th',{textContent:text}))))),body=E('tbody');
+  for(const [key,row] of entries){const f=row.firebase||{};
+   body.append(E('tr',{},...[names.get(key)||'Доска '+key.slice(7),number(row.changes||0),number(f.savedBoards||0),size(f.uploadBytes||0),size(f.knownResponseBytes||0),size(f.sseBytes||0),number(f.unknownResponses||0)].map(text=>E('td',{textContent:text}))));
+  }
+  if(!entries.length)body.append(E('tr',{},E('td',{colSpan:7,textContent:'Открой доску и внеси изменения — метрика начнёт собираться с этого момента.'})));
+  table.append(body);section.append(E('div',{className:'usage-table-wrap'},table),
+   E('p',{className:'usage-notice',textContent:'Отправленные данные не прибавляются к квоте скачивания. Повторное сохранение доски не означает прибавление всего её размера к хранилищу: версия перезаписывается. Оценка скачивания выше складывает введённое показание и наблюдаемые входящие байты после его ввода. Она не учитывает другие устройства, ответы без размера, сжатие и сетевые накладные расходы; реальный остаток проверяй в Firebase.'}));
+  return section;
  }
  async function refresh(reloadIndex=false){
   if(disposed||busy)return;
@@ -142,7 +169,7 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
     E('p',{textContent:'Хранение '+size(pendingImport.storage)+', скачивание '+size(pendingImport.downloads)+' за '+pendingImport.month+', соединения '+number(pendingImport.connections)+'.'}),
     E('p',{className:'mut',textContent:'Заменит три сохранённых показания Firebase в этом браузере. Время измерения на снимке не указано: показания будут отмечены как снимок, а не текущие данные. Cloudflare останется без изменений.'}),
     B('Импортировать 3 показания',()=>{if(!getOwner())return;tracker.importSnapshot(importReading);pendingImport=null;void refresh(false)})):null;
-   body.replaceChildren(...(importPanel?[importPanel]:[]),grid,quotaCards(state),browserCounters(state),boardSection,disconnected);
+   body.replaceChildren(...(importPanel?[importPanel]:[]),grid,quotaCards(state),actionMetrics(state),browserCounters(state),boardSection,disconnected);
    stamp.textContent='Локальные данные обновлены '+date(Date.now())+' · автообновление каждые 15 секунд';
   }catch(error){if(!disposed)stamp.textContent='Не удалось обновить: '+error.message}
   finally{busy=false;refreshButton.disabled=false}

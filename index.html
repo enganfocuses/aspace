@@ -469,11 +469,12 @@ async function syncLocalChanges(){
  }catch(e){console.warn('Aspace background sync:',e)}
 }
 addEventListener('online',()=>syncLocalChanges());
+addEventListener('pagehide',()=>usageTracker.flush());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncLocalChanges()});
 
 // Lightweight Firebase signaling. Read and write permissions are both verified
 // before offering a call; a timer must never report a successful SSE connection.
-const room0={async join(name,customPath){
+const room0={async join(name,customPath,onData=()=>{}){
   const me=uid()+uid(),handlers={},dead=[],
     base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
   const preflight=await fetch(base+'.json?shallow=true',{cache:'no-store',signal:AbortSignal.timeout(6000)});
@@ -518,6 +519,7 @@ const room0={async join(name,customPath){
   try{
     es=new EventSource(await eventUrl(base+'.json'));
     es.addEventListener('put',event=>{
+      try{onData(event.data)}catch{}
       try{
         const message=JSON.parse(event.data);
         if(message.data==null)return;
@@ -1027,6 +1029,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)guest=false;
   const cloneBoard=value=>JSON.parse(JSON.stringify(value));
   const boardShareToken=activeShareToken;
+  const stopUsage=isOwner?usageTracker.trackBoard('boards/'+id,boardShareToken):()=>{};
   let lastConfirmedShared=boardShareToken&&d0?cloneBoard(d0):null;
   const boardTransport=await boardProvider(id,boardShareToken);
   const localGuestDraft=boardTransport?await boardTransport.pending():null;
@@ -1043,7 +1046,8 @@ async function openBoard(m,id,guest,shareToken=null){
   wrap.style.width=W+'px';wrap.style.height=H+'px';
   let roomWarning='',r,cloudPollTimer=null;
   try{
-    r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
+    r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null,
+      isOwner?data=>usageTracker.recordStream('boards/'+id,data):undefined);
   }catch(error){
     roomWarning=String(error.message||error);
     // Missing signaling permission must not hide a board that was already
@@ -1132,7 +1136,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if(unsyncedShareDraft||editEpoch!==savedEpoch)void queueSharedDraft(snapshot());
   };
   window.addEventListener('online',retrySharedDraft);
-  const persist=()=>{if(guest||disposed)return;editEpoch++;clearTimeout(tm);
+  const persist=(remote=false)=>{if(guest||disposed)return;if(isOwner&&!remote)usageTracker.recordAction('boards/'+id);editEpoch++;clearTimeout(tm);
     tm=setTimeout(()=>{void queueSharedDraft(snapshot())},1200);
   };
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},90);persist()};
@@ -1247,13 +1251,13 @@ async function openBoard(m,id,guest,shareToken=null){
   sc.addEventListener('touchmove',e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),nz=Math.min(2.5,Math.max(.25,pinch.z*dist/pinch.dist));const x=pinch.x/pinch.z,y=pinch.y/pinch.z;z=nz;applyZ();sc.scrollLeft=x*z-(a.clientX+b.clientX)/2+sc.getBoundingClientRect().left;sc.scrollTop=y*z-(a.clientY+b.clientY)/2+sc.getBoundingClientRect().top},{passive:false});
   sc.addEventListener('touchend',e=>{if(e.touches.length<2){pinch=null;queueViewport()}});
   /* синхронизация */
-  r.on('sp',x=>{const o=x.data;if(!o)return;let s=strokes.find(q=>q.id===o.id);const had=!!s;if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a);persist()});
-  r.on('ds',x=>{strokes=strokes.filter(q=>q.id!==x.data.id);redraw();persist()});
-  r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);persist()});
-  r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n);persist()}});
-  r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist()});
-  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist()});
-  r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
+  r.on('sp',x=>{const o=x.data;if(!o)return;let s=strokes.find(q=>q.id===o.id);const had=!!s;if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a);persist(true)});
+  r.on('ds',x=>{strokes=strokes.filter(q=>q.id!==x.data.id);redraw();persist(true)});
+  r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);persist(true)});
+  r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n);persist(true)}});
+  r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist(true)});
+  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist(true)});
+  r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist(true)});
   // Small owner-only catch-up. The saved board is the primary source.
   let lastStateReply=0;
   r.on('req',x=>{
@@ -1487,7 +1491,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
-    disposed=true;document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
+    disposed=true;stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
     call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
     r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
     window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;

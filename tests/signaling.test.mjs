@@ -69,6 +69,14 @@ test('room navigation handler can receive peer messages',async()=>{
   assert.deepEqual(result,{boardId:'demo',token:'123'});
   room.close();
 });
+test('stream observations do not interrupt message delivery and contain only incoming payloads',async()=>{
+  const app=createHarness(),received=[];
+  const room=await app.room0.join('b-test',null,data=>{received.push(data);throw Error('observer unavailable')});
+  let result=null;room.on('i',message=>{result=message.data});
+  const data=JSON.stringify({path:'/k3',data:{t:'i',s:'peer',d:'{"n":{"id":"example"}}'}});
+  app.streams[0].dispatch('put',{data});
+  assert.deepEqual(received,[data]);assert.equal(result.n.id,'example');room.close();
+});
 test('no local join-call variable shadows the global navigation function',()=>{
   const start=html.indexOf('async function roomUI(');
   const end=html.indexOf('async function callView(',start);
