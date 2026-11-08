@@ -693,8 +693,8 @@ async function openBoard(m,id,guest,shareToken=null){
   mi('⌂ Домой',goHome);
   if(isOwner)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
-  if(!guest)mi('📹 Видеозвонок на доске',openVideo);
-  if(!guest)mi('🖥 Совместный просмотр · добавить сайт',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}d.siteUrl=url;renderSite();persist();r.emit('site',{url})});
+  if(isOwner)mi('📹 Видеозвонок на доске',openVideo);
+  if(isOwner)mi('🖥 Совместный просмотр · добавить сайт',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}d.siteUrl=url;renderSite();persist();r.emit('site',{url})});
   if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
