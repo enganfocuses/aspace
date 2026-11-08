@@ -140,7 +140,9 @@ export default {
           "SELECT payload, updated_at, revision FROM docs WHERE owner_uid = ? AND doc_key = ?"
         ).bind(share.owner_uid, share.doc_key).first();
         if (!row) return json({ error: "not_found" }, 404);
-        return json({ j: row.payload, revision: row.revision, updatedAt: row.updated_at, role: share.role });
+        return json({ j: row.payload, revision: row.revision, updatedAt: row.updated_at,
+          role: share.role, boardId: isLiveBoardDoc(share.doc_key) ?
+            share.doc_key.slice("boards/".length) : null });
       }
       if (share.role !== "editor") return json({ error: "read_only" }, 403);
       const input = await readBody(request);
