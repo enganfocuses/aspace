@@ -203,6 +203,40 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .site-frame{border:0;width:100%;height:100%;flex:1;background:#fff}
 .bfull.with-site .bscroll{right:50%;width:50%}
 @media(max-width:760px){.site-panel{top:50%;left:0;right:0;bottom:0;width:100%;border-left:0;border-top:1px solid var(--line)}.bfull.with-site .bscroll{top:0;left:0;right:0;bottom:50%;width:100%}}
+
+/* Dark mode: сохраняется между посещениями */
+:root[data-theme="dark"]{
+ --bg:#17131d;--card:#211b29;--ink:#eee8f3;--mut:#b6aabd;
+ --btn:#59466b;--line:#493b55;--pink:#c58aa8;
+ --lav:#59466b;--lav-deep:#c4a5dc;--wine:#d6a0bb;--wine-dark:#a87594;
+ --soft:#302638;--shadow:0 5px 22px #0005;color-scheme:dark
+}
+:root[data-theme="dark"] body,:root[data-theme="dark"] html{background:var(--bg);color:var(--ink)}
+:root[data-theme="dark"] header{background:#211b29;border-color:var(--line);box-shadow:4px 0 24px #0003}
+:root[data-theme="dark"] header b,:root[data-theme="dark"] h1,:root[data-theme="dark"] h2,:root[data-theme="dark"] h3{color:#f0e6f4}
+:root[data-theme="dark"] header button{color:#e4d9eb!important}
+:root[data-theme="dark"] header button:first-of-type{background:#382b43!important;color:#f2e8f5!important}
+:root[data-theme="dark"] header button:hover{background:#382b43!important;color:#fff!important}
+:root[data-theme="dark"] #main{background:var(--bg)}
+:root[data-theme="dark"] .card,:root[data-theme="dark"] .box,:root[data-theme="dark"] pre,:root[data-theme="dark"] .bar,:root[data-theme="dark"] .menu .mp,:root[data-theme="dark"] .pop,:root[data-theme="dark"] .tbar{background:var(--card);color:var(--ink);border-color:var(--line);box-shadow:0 8px 28px #0004}
+:root[data-theme="dark"] .card.new{background:#292132;border-color:#80658e;color:#e8c9df}
+:root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{background:#2a2232;color:var(--ink);border-color:#594965}
+:root[data-theme="dark"] button{color:#f3eaf6}
+:root[data-theme="dark"] button:hover{background:#705a82}
+:root[data-theme="dark"] button.on,:root[data-theme="dark"] .tbtn.on{background:var(--wine-dark)!important;color:#fff!important}
+:root[data-theme="dark"] .bfull{background:var(--bg)}
+:root[data-theme="dark"] .wrap{background-color:#211b29}
+:root[data-theme="dark"] .wrap.dots{background-image:radial-gradient(#51445c 1.2px,transparent 1.2px)}
+:root[data-theme="dark"] .site-panel,:root[data-theme="dark"] .site-head{background:#211b29;border-color:var(--line);color:var(--ink)}
+:root[data-theme="dark"] .site-head b{color:#e5c5d8}
+:root[data-theme="dark"] .site-frame{background:#211b29}
+:root[data-theme="dark"] .li{border-color:var(--line)}
+:root[data-theme="dark"] .gate{background:var(--bg)}
+:root[data-theme="dark"] .toast{background:#80516b;color:#fff}
+:root[data-theme="dark"] .note{color:#eee8f3}
+:root[data-theme="dark"] .device-select{background:#2a2232;color:var(--ink);border-color:var(--line)}
+:root[data-theme="dark"] .sp{background:#302638;border-color:#b49bc5}
+
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -211,6 +245,10 @@ const E=(t,p={},...k)=>{const e=document.createElement(t);Object.assign(e,p);e.a
 const B=(t,f,c='')=>E('button',{textContent:t,onclick:f,className:c});
 const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const themeIsDark=()=>ls.g('aspace-theme','light')==='dark';
+function applyTheme(){document.documentElement.dataset.theme=themeIsDark()?'dark':'light';const b=document.querySelector('.theme-toggle');if(b)b.textContent=themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема'}
+function toggleTheme(){ls.s('aspace-theme',themeIsDark()?'light':'dark');applyTheme()}
+applyTheme();
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
@@ -273,7 +311,7 @@ function goHome(){
   }else go(boardsView);
 }
 function shell(guest){
-  const hd=E('header',{},E('b',{textContent:'Aspace'}),B('⌂ Домой',goHome));
+  const hd=E('header',{},E('b',{textContent:'Aspace'}),B(themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема',toggleTheme,'theme-toggle'),B('⌂ Домой',goHome));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
