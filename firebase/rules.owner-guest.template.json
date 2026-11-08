@@ -41,7 +41,8 @@
           ".read": "$token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists()",
           "$msg": {
             ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists() && (!newData.exists() || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000)))"
-          }
+          },
+          ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'"
         },
         "assets": {
           "$assetId": {
