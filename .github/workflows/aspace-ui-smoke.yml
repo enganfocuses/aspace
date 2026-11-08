@@ -1,0 +1,25 @@
+name: Aspace UI static regression checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'education/**'
+      - 'tests/ui.test.mjs'
+      - '.github/workflows/aspace-ui-smoke.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'education/**'
+      - 'tests/ui.test.mjs'
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs
