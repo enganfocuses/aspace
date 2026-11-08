@@ -1,0 +1,61 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "docs": {
+      ".read": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'",
+      ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'"
+    },
+    "img": {
+      ".read": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'",
+      ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'"
+    },
+    "media": {
+      ".read": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'",
+      ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'"
+    },
+    "shares": {
+      "$token": {
+        "meta": {
+          ".read": "$token.matches(/^[a-f0-9]{48}$/) && data.exists()",
+          ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'",
+          ".validate": "newData.hasChildren(['boardId','role']) && newData.child('boardId').isString() && newData.child('boardId').val().matches(/^[A-Za-z0-9_-]{1,120}$/) && newData.child('role').isString() && (newData.child('role').val() === 'viewer' || newData.child('role').val() === 'editor')"
+        },
+        "board": {
+          ".read": "$token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists()",
+          ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta/role').val() === 'editor')",
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 250",
+          "items": {
+            "$itemId": {
+              ".validate": "$itemId.matches(/^[A-Za-z0-9_-]{1,120}$/) && newData.hasChildren(['id','k','x','y','w','h']) && newData.child('id').val() === $itemId && newData.child('k').isString() && newData.child('k').val().length <= 24 && newData.child('w').isNumber() && newData.child('h').isNumber() && newData.child('w').val() > 0 && newData.child('h').val() > 0"
+            }
+          }
+        },
+        "room": {
+          ".read": "$token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists()",
+          "$msg": {
+            ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists() && (!newData.exists() || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000)))"
+          }
+        },
+        "assets": {
+          "$assetId": {
+            ".read": "$token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists()",
+            ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'"
+          }
+        }
+      }
+    },
+    "rooms": {
+      ".read": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'",
+      ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'",
+      "$room": {
+        "call": {
+          ".read": "$room.matches(/^c-[A-Za-z0-9_-]{1,120}$/)",
+          "$signal": {
+            ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($room.matches(/^c-[A-Za-z0-9_-]{1,120}$/) && (!newData.exists() || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000)))"
+          }
+        }
+      }
+    }
+  }
+}
