@@ -22,7 +22,7 @@ p{line-height:1.5}small,.muted{color:#6e6575}a{color:#71518a}#status{white-space
 <button id="run" disabled>Проверить переключение и восстановление</button>
 <p id="status" role="status">Ожидание.</p>
 <table><thead><tr><th>Проверка</th><th>Результат</th></tr></thead><tbody id="results"></tbody></table>
-<p><small>Тест проверяет квоту, сеть, безопасный возврат к Firebase и конкурирующие изменения на синтетической доске. Сбой имитируется программно, без отключения реального сервиса. По окончании тестовые записи удаляются. Рабочие данные не отправляются в Cloudflare.</small></p>
+<p><small>Тест проверяет квоту, сеть, запись в Cloudflare, возврат к Firebase и конкурирующие изменения на синтетической доске. Сбой имитируется программно, без отключения реального сервиса. По окончании тестовые записи удаляются. Рабочие данные не отправляются в Cloudflare.</small></p>
 </section>
 <section class="panel">
 <h2>Совместимость с настоящим форматом</h2>
@@ -115,7 +115,7 @@ async function check(){
     return fetch(url,opts);
   };
   const provider=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,
-   cloudflare,queue,fetchImpl:routeFetch,timeoutMs:6000});
+   cloudflare,queue,fetchImpl:routeFetch,timeoutMs:6000,allowStandbyWrites:true});
   status.textContent='Читаю основную базу и создаю резервную копию…';
   const start=await provider.read(key);
   if(start.source!=='firebase')fail('Данные не были прочитаны из Firebase');
@@ -137,11 +137,21 @@ async function check(){
   add('Автоматическое чтение Cloudflare при имитации сбоя',true);
   const changed={...fixture,items:[...fixture.items,{id:'new-note',k:'note',x:220,y:60,w:170,h:110,t:'Создано при сбое',c:'#ead2f4'}],upd:Date.now()};
   const saved=await provider.write(key,changed);
-  if(!saved.pending||!await provider.pending(key))fail('Черновик не попал в очередь');
+  if(saved.source!=='cloudflare'||!saved.pending||!await provider.pending(key))
+    fail('Изменения не были подтверждены Cloudflare с локальной очередью');
+  add('Сохранение в Cloudflare при недоступности Firebase',true);
+  const cloudStored=await cloudflare.getDoc(key);
+  if(cloudStored.value.items?.length!==2)fail('Cloudflare не сохранил второй объект');
+  add('Объекты записаны в резервную базу',true);
   add('Изменения сохраняются в IndexedDB при сбое',true);
   const returned=await provider.read(key);
   if(returned.source!=='local'||returned.value.items.length!==2)fail('Локальный черновик потерян');
   add('Локальный черновик имеет приоритет над старой копией',true);
+  const second={...changed,items:[...changed.items,{id:'standby-two',k:'note',x:42,y:70,w:130,h:80,t:'Вторая правка'}]};
+  const secondWrite=await provider.write(key,second);
+  if(secondWrite.source!=='cloudflare')fail('Повторная резервная запись не сработала');
+  if((await cloudflare.getDoc(key)).value.items.length!==3)fail('Вторая резервная запись пропала');
+  add('Повторные изменения сохраняются в той же базе',true);
   faultMode='none';
   const outcome=await provider.replay(key);
   if(outcome.status!=='replayed')fail('Восстановление: '+outcome.status);
@@ -150,17 +160,18 @@ async function check(){
   const final=await ownerFirebase('GET',key);
   const raw=await final.json();
   const doc=typeof raw?.j==='string'?JSON.parse(raw.j):raw;
-  if(doc.items?.length!==2)fail('На Firebase нет второго объекта');
+  if(doc.items?.length!==3)fail('На Firebase нет восстановленных объектов');
   add('Восстановленные объекты прочитаны из Firebase',true);
   // An external Firebase write after an offline draft must not be erased by replay.
   const current=await provider.read(key);
   if(current.source!=='firebase')fail('Firebase не вернулся в основной режим');
   add('Автоматический возврат чтения к Firebase',true);
   faultMode='network';
-  const competing={...changed,items:[...changed.items,{id:'local-conflict',k:'note',x:10,y:90,w:140,h:90,t:'Локальная правка'}]};
-  await provider.write(key,competing);
+  const competing={...second,items:[...second.items,{id:'local-conflict',k:'note',x:10,y:90,w:140,h:90,t:'Локальная правка'}]};
+  const cloudCompeting=await provider.write(key,competing);
+  if(cloudCompeting.source!=='cloudflare')fail('Повторное резервное редактирование не включилось');
   faultMode='none';
-  const external={...changed,items:[...changed.items,{id:'external-change',k:'note',x:20,y:110,w:140,h:90,t:'Правка другого устройства'}]};
+  const external={...second,items:[...second.items,{id:'external-change',k:'note',x:20,y:110,w:140,h:90,t:'Правка другого устройства'}]};
   await ownerFirebase('PUT',key,external);
   const conflict=await provider.replay(key);
   if(conflict.status!=='conflict')fail('Конфликт не обнаружен: '+conflict.status);
@@ -171,6 +182,8 @@ async function check(){
   add('Конфликт двух устройств блокирует перезапись',true);
   if(!await provider.pending(key))fail('Конфликтующий черновик потерян');
   add('Конфликтующий черновик остаётся локально',true);
+  if(!(await cloudflare.getDoc(key)).value.items.some(x=>x.id==='local-conflict'))fail('Не сохранилась резервная версия изменений');
+  add('Резервные изменения сохранены при конфликте основной базы',true);
   done=true;
  }catch(error){
   status.textContent='Проверка остановлена: '+(error?.message||String(error));
