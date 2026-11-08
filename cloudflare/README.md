@@ -13,7 +13,7 @@
 
 ### Staged standby implementation
 
-`cloudflare/standby.js` is the isolated initial controller, **not loaded by the production site**. It supports Firebase-first reads, Cloudflare reads on transient errors, mirroring confirmed writes, conditional Firebase ETag writes and **in-memory pending drafts**. It does **not** yet provide durable offline replay or full Cloudflare writes during outages. Never present it as completed active automatic failover. The live site still uses Firebase.
+`cloudflare/standby.js` is an isolated Firebase-first controller, **not loaded by the production site**. It supports Firebase-first reads, confirmed Cloudflare snapshots on transient read failures, conditional Firebase ETag writes and an injected **durable IndexedDB queue** from `cloudflare/queue.js`. Pending drafts survive browser reloads and can be explicitly replayed after Firebase recovers, but replay only proceeds when the server's current document still equals the draft's known base. A previously accepted write with a lost response is detected and not repeated. Unknown bases and divergent content stop with a conflict rather than silently overwriting. The controller's mirror refuses to overwrite a Cloudflare document whose content has diverged. Full Cloudflare writes during outages, journaled bidirectional reconciliation, and production integration are **not yet active**. The live site still uses Firebase.
 
 The owner-only `cloudflare-migration-audit.html` page is a read-only readiness audit despite its historical filename: it does not migrate or replace data.
 
@@ -106,4 +106,15 @@ After both Cloudflare Builds and GitHub Pages publish the latest changes:
 4. Make independent changes from two browsers to different fields/objects and observe auto merge after a stale-save conflict. Edit the *same* object from both browsers and confirm saving is blocked.
 5. Revoke both links in the owner screen; verify guest requests no longer return board contents.
 6. Only when this whole sequence passes, consider integrating a gated adapter into the main app. Never silently delete or overwrite existing Firebase data.
+
+
+## Latest standby test package
+
+- `queue.js`: an owner-scoped IndexedDB queue (injection required; no fallback to memory).
+- `standby.js`: primary ETag updates, transient read failover to Cloudflare, durable queue writes before network attempts, explicit conflict-safe replay, and divergent standby snapshot checks.
+- `tests/standby.test.mjs`: eight independent no-network tests for normal operation, outage reads, auth isolation, reload recovery, conflicts, ambiguous success, unknown base, and divergent mirrors.
+- `npm test` inside `cloudflare/` executes them using Node 22.
+- GitHub Actions runs the same tests for this draft branch.
+
+**Limitations:** Sync is not enabled in production, and no browser integration has been tested with the real Firebase board yet. Replay must be invoked explicitly; merely reconnecting doesn't auto-replay. The prototype Cloudflare guest-board functionality is separate and does not grant failover for existing Firebase student links. The IndexedDB queue is scoped to one owner, but browser-local storage is not encrypted and can be cleared by the user. Never claim that the product is protected against all service outages or billing-limit errors until failover is fully integrated and end-to-end tested.
 
