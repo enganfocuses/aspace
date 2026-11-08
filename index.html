@@ -867,7 +867,7 @@ async function callView(m){
 async function boardsView(m){
   const idx=(await load('meta/boards'))||{items:[]};
   const g=E('div',{className:'grid'});
-  const nw=E('div',{className:'card new',onclick:async()=>{const n=prompt('Название доски','Новая доска');if(n==null)return;const id=uid();idx.items.push({id,name:n||'Доска'});await save('meta/boards',idx);await save('boards/'+id,{name:n,strokes:[],notes:[]});go(mm=>openBoard(mm,id,false))}},'＋ Новая доска');
+  const nw=E('div',{className:'card new',onclick:async()=>{const n=prompt('Название доски','Новая доска');if(n==null)return;const id=uid();idx.items.push({id,name:n||'Доска'});await save('meta/boards',idx);await save('boards/'+id,{name:n||'Доска',strokes:[],items:[],bg:'dots',siteUrl:'',upd:Date.now()});go(mm=>openBoard(mm,id,false))}},'＋ Новая доска');
   g.append(nw);
   idx.items.forEach(b=>{
     const card=E('div',{className:'card'},E('b',{textContent:b.name}));
