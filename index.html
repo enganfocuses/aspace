@@ -388,26 +388,43 @@ async function boardsView(m){
   const g=E('div',{className:'grid'});
   const nw=E('div',{className:'card new',onclick:async()=>{const n=prompt('Название доски','Новая доска');if(n==null)return;const id=uid();idx.items.push({id,name:n||'Доска'});await save('meta/boards',idx);await save('boards/'+id,{name:n,strokes:[],notes:[]});go(mm=>openBoard(mm,id,false))}},'＋ Новая доска');
   g.append(nw);
-  idx.items.forEach(b=>g.append(E('div',{className:'card'},E('b',{textContent:b.name}),E('div',{className:'row'},
-    B('Открыть',()=>go(mm=>openBoard(mm,b.id,false))),
-    B(b.shareToken?'🔗 Ссылка':'🔗 Создать ссылку',async()=>{
-      try{
-        if(!b.shareToken){
+  idx.items.forEach(b=>{
+    const card=E('div',{className:'card'},E('b',{textContent:b.name}));
+    const actions=E('div',{className:'row'});
+    actions.append(B('Открыть',()=>go(mm=>openBoard(mm,b.id,false))));
+    const publicUrl=()=>location.origin+location.pathname+'#s-'+b.shareToken;
+    if(b.shareToken){
+      actions.append(B('🔗 Скопировать публичную ссылку',()=>copyLink(publicUrl())));
+      actions.append(B('⚙️ Доступ',async()=>{
+        const choice=prompt('Настройки публичной ссылки:\n1 — изменить права\n2 — отозвать ссылку','1');
+        if(choice==='1'){
+          const role=confirm('ОК — ученик сможет редактировать доску.\nОтмена — только просмотр.')?'editor':'viewer';
+          try{await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()});say2('Права доступа обновлены')}
+          catch(e){alert('Не удалось изменить права: '+e.message)}
+        }else if(choice==='2'){
+          if(!confirm('Отозвать публичную ссылку? Ученик больше не сможет открыть доску.'))return;
+          try{await revokeShare(b.shareToken);delete b.shareToken;await save('meta/boards',idx);go(boardsView)}
+          catch(e){alert('Не удалось отозвать ссылку: '+e.message)}
+        }
+      }));
+    }else{
+      actions.append(B('🌐 Создать публичную ссылку',async()=>{
+        try{
           const board=await load('boards/'+b.id);if(!board)throw new Error('Сначала открой и сохрани доску');
-          const token=newShareToken(),role=confirm('Создать ссылку для РЕДАКТОРА?\n\nОК — редактор, Отмена — только просмотр.')?'editor':'viewer';
+          const role=confirm('Разрешить ученику редактировать доску?\n\nОК — редактирование, Отмена — только просмотр.')?'editor':'viewer';
+          const token=newShareToken();
           await shareWrite(token,'meta',{boardId:b.id,name:b.name,role,createdAt:Date.now()});
           await shareWrite(token,'board',board);
           for(const it of (board.items||[])){if(it.u&&it.u.startsWith('img:')){const aid=it.u.slice(4),ar=await fetch(DB()+'/img/'+aid+'.json');if(ar.ok)await shareWrite(token,'assets/'+aid,await ar.json())}}
           b.shareToken=token;await save('meta/boards',idx);activeShareToken=null;
-        }else{
-          const choice=prompt('Управление ссылкой:\n1 — скопировать\n2 — изменить права\n3 — отозвать','1');
-          if(choice==='2'){const role=confirm('ОК — редактор, Отмена — только просмотр.')?'editor':'viewer';await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()})}
-          else if(choice==='3'){if(!confirm('Отозвать ссылку? Она сразу перестанет открываться.'))return;await revokeShare(b.shareToken);delete b.shareToken;await save('meta/boards',idx);return}
-        }
-        if(b.shareToken)copyLink(location.origin+location.pathname+'#s-'+b.shareToken);
-      }catch(e){alert('Не удалось создать ссылку: '+e.message)}
-    }),
-    B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);if(b.shareToken)await revokeShare(b.shareToken);await save('meta/boards',idx);go(boardsView)})))));
+          await copyLink(publicUrl());
+          go(boardsView);
+        }catch(e){alert('Не удалось создать ссылку: '+e.message)}
+      }));
+    }
+    actions.append(B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);if(b.shareToken)await revokeShare(b.shareToken);await save('meta/boards',idx);go(boardsView)}));
+    card.append(actions);g.append(card);
+  });
   m.append(E('h2',{textContent:'Доски'}),g);
 }
 const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src,onload:ok,onerror:no}))});
