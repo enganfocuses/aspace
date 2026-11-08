@@ -199,15 +199,18 @@ export function createAspaceStandby({
       await queue.put(key, record);
       tell(key, "queued", "Draft persisted locally before network save");
       if (previous || !known?.etag) {
+        let standbyError = null;
         if (previous?.standbyValue && allowStandbyWrites) {
           try {
             if (await standbyWrite(key, record, previous))
               return { source: "cloudflare", pending: true, reason: "standby_confirmed" };
           } catch (e) {
+            standbyError = e;
             tell(key, "standby_conflict", e.message);
           }
         }
-        return { source: "local", pending: true, reason: "reconciliation_required" };
+        return { source: "local", pending: true, reason: "reconciliation_required",
+          standbyError: standbyError?.message || null };
       }
       try {
         const saved = await primary("PUT", key, value, known.etag);
@@ -225,16 +228,19 @@ export function createAspaceStandby({
           tell(key, "conflict", "Primary rejected the write; pending draft retained");
           throw e;
         }
+        let standbyError = null;
         if (allowStandbyWrites) {
           try {
             if (await standbyWrite(key, record, null))
               return { source: "cloudflare", pending: true, reason: "primary_unavailable" };
-          } catch (standbyError) {
-            tell(key, "standby_conflict", standbyError.message);
+          } catch (error) {
+            standbyError = error;
+            tell(key, "standby_conflict", error.message);
           }
         }
         tell(key, "queued", "Primary unavailable; durable draft retained");
-        return { source: "local", pending: true, reason: "primary_unavailable" };
+        return { source: "local", pending: true, reason: "primary_unavailable",
+          standbyError: standbyError?.message || null };
       }
     } finally {
       busy.delete(key);
