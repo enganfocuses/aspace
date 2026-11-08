@@ -174,7 +174,7 @@ export function createAspaceStandby({
         tell(key, "primary", "Firebase save confirmed");
         return { source: "firebase", pending: false, mirrored };
       } catch (e) {
-        if (!transient(e)) {
+        if (!standbyEligible(e)) {
           // Keep the local draft for 412, so the user can manually reconcile.
           tell(key, "conflict", "Primary rejected the write; pending draft retained");
           throw e;
@@ -199,7 +199,7 @@ export function createAspaceStandby({
       let live;
       try { live = await primary("GET", key); }
       catch (e) {
-        return { key, status: transient(e) ? "primary_unavailable" : "error", error: e.message };
+        return { key, status: standbyEligible(e) ? "primary_unavailable" : "error", error: e.message };
       }
       if (JSON.stringify(live.value) === JSON.stringify(item.value)) {
         // The previous PUT may have succeeded before its response was lost.
@@ -216,7 +216,7 @@ export function createAspaceStandby({
         await primary("PUT", key, item.value, live.etag);
       } catch (e) {
         return { key, status: e.status === 412 ? "conflict" :
-          transient(e) ? "primary_unavailable" : "error", error: e.message };
+          standbyEligible(e) ? "primary_unavailable" : "error", error: e.message };
       }
       await queue.remove(key);
       // Don't re-use an unknown PUT response ETag; the next write requires a fresh read.
