@@ -645,7 +645,7 @@ const SHAPES=['rr','rect','pill','oval','diamond','triangle','star','hex'],FILLK
 const SHL={rr:'Скруглённый',rect:'Прямоугольник',pill:'Таблетка',oval:'Овал',diamond:'Ромб',triangle:'Треугольник',star:'Звезда',hex:'Шестиугольник'};
 const INK=['#1f1f2b','#4f86b3','#2f7d5b','#d9738f','#e57f2d','#c9a227','#7a5cc4','#a67c52','#8a8a93','#e5484d'];
 const FILLS=['#B7D1EA','#f8d3dc','#f6e7b8','#dfeccf','#e4d7f5','#fbd9c0','#d5eef0','#ffffff','#e9e9ee','#ffe3e3'];
-const SIZES={embed:[460,285],note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
+const SIZES={aud:[380,100],vid:[460,285],embed:[460,285],note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
 // Only allow external media from expected HTTPS providers. URLs are loaded by
 // the student's browser, not uploaded through Firebase or Cloudflare.
 function externalMedia(raw){
@@ -1046,32 +1046,21 @@ function build(text,topic,N=18){
 }
 /*EDU-END*/
 async function eduView(m){
-  const mat=(await load('edu/materials'))||{items:[]},les=(await load('edu/lessons'))||{items:[]};
-  const list=E('div'),out=E('pre',{textContent:'Загрузите материалы (PDF или текст), введите тему и нажмите «Собрать».'}),hist=E('div'),stt=E('div',{className:'mut'});let curTxt='';
-  const draw=()=>{list.replaceChildren(...mat.items.map(x=>E('div',{className:'li'},E('span',{textContent:`${x.name} · ${x.text.length} симв.`}),B('✕',async()=>{mat.items=mat.items.filter(y=>y.id!==x.id);await save('edu/materials',mat);draw()}))));
-    hist.replaceChildren(...les.items.slice().reverse().map(x=>E('div',{className:'li'},E('span',{textContent:x.title}),B('Открыть',()=>{curTxt=x.text;out.textContent=x.text}))))};
-  const fi=E('input',{type:'file',multiple:true,accept:'.pdf,.txt,.md,.csv,.json,.html',onchange:async()=>{
-    for(const f of fi.files){try{stt.textContent='Читаю '+f.name+'…';let t;
-      if(/\.pdf$/i.test(f.name)){const lib=await pdfjs(),doc=await lib.getDocument({data:await f.arrayBuffer()}).promise;t='';
-        for(let i=1;i<=doc.numPages;i++){const c=await(await doc.getPage(i)).getTextContent();t+=c.items.map(x=>x.str+(x.hasEOL?'\n':' ')).join('')+'\n'}}
-      else t=await f.text();
-      if(t.trim().length<100)alert(`В «${f.name}» почти нет текста (возможно, это скан). Распознавание сканов пока не поддерживается.`);
-      else mat.items.push({id:uid(),name:f.name,text:t.slice(0,400000)})}catch{alert('Не удалось прочитать '+f.name)}}
-    stt.textContent='';await save('edu/materials',mat);fi.value='';draw()}});
-  const topic=E('input',{placeholder:'Тема / ключевые слова (можно пусто)',size:32}),len=E('select',{},...[['Короткий',10],['Средний',18],['Подробный',30]].map(([l,v])=>E('option',{value:v,textContent:l,selected:v===18})));
-  const gen=async k=>{
-    if(!mat.items.length){out.textContent='Сначала загрузите материалы.';return}
-    const r=build(mat.items.map(x=>x.text).join('\n\n'),topic.value.trim(),+len.value);
-    if(!r){out.textContent='Слишком мало текста для построения урока.';return}
-    curTxt=k==='l'?r.lesson:k==='h'?r.hw:r.lesson+'\n\n'+r.hw;out.textContent=curTxt;
-    les.items.push({title:r.title+' · '+new Date().toLocaleDateString('ru'),text:curTxt});await save('edu/lessons',les);draw()};
-  const dl=()=>{const a=E('a',{href:URL.createObjectURL(new Blob([curTxt],{type:'text/markdown'})),download:'урок.md'});a.click()};
-  m.append(E('h2',{textContent:'Образование'}),
-    E('div',{className:'card noprint'},E('b',{textContent:'1. Материалы'}),fi,E('div',{className:'mut',textContent:'PDF читается прямо в браузере, без ИИ и без интернета. Сканы (картинки в PDF) пока не распознаются.'}),stt,list),
-    E('div',{className:'card noprint',style:'margin-top:12px'},E('b',{textContent:'2. Собрать'}),E('div',{className:'row'},topic,len),
-      E('div',{className:'row'},B('Урок',()=>gen('l')),B('Домашнее задание',()=>gen('h')),B('Урок + ДЗ',()=>gen('a')),B('⬇ Скачать .md',dl),B('🖨 Печать / PDF',()=>print()))),
-    E('div',{style:'margin:12px 0'},out),E('div',{className:'noprint'},E('b',{textContent:'История'}),hist));
-  draw();
+  // This section is a static local HTML course builder, without load(), save(),
+  // Firebase, Worker APIs, shared storage, or server-side processing.
+  const courseUrl='./education/speakout-b1plus-builder.html';
+  const title=E('h2',{textContent:'Образование · HTML-сборщик Speakout B1+'});
+  const info=E('div',{className:'card',style:'padding:16px'},
+    E('b',{textContent:'8 юнитов · 32 урока · EN/RU · индивидуальная практика'}),
+    E('p',{textContent:'Преподавательский сборщик работает в браузере без наших баз данных. Можно пользоваться материалами, выбирать упражнения и собирать рабочие листы для печати или PDF.'}),
+    E('p',{className:'mut',textContent:'Для полностью автономной работы открой HTML-файл напрямую на устройстве. На сайте требуется только разовая загрузка самой страницы.'}));
+  const open=B('↗ Открыть сборщик на весь экран',()=>window.open(courseUrl,'_blank','noopener,noreferrer'));
+  const download=E('a',{href:courseUrl,download:'Speakout-B1plus-Course-Builder.html',textContent:'⬇ Скачать локальный HTML-сборщик',style:'display:inline-block;padding:12px;color:#795779'});
+  const frame=E('iframe',{src:courseUrl,title:'Speakout B1+ — локальный HTML-сборщик',
+    loading:'lazy',referrerPolicy:'no-referrer',sandbox:'allow-scripts allow-forms allow-modals allow-popups allow-downloads',
+    style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
+  m.append(title,info,E('div',{className:'row',style:'margin:12px 0'},open,download),frame);
 }
+
 start();
 </script></body></html>
