@@ -4,12 +4,16 @@ on:
     branches: [main]
     paths:
       - 'index.html'
+      - 'usage-*.js'
+      - 'usage.css'
       - 'education/**'
       - 'tests/ui.test.mjs'
       - '.github/workflows/aspace-ui-smoke.yml'
   pull_request:
     paths:
       - 'index.html'
+      - 'usage-*.js'
+      - 'usage.css'
       - 'education/**'
       - 'tests/ui.test.mjs'
 jobs:

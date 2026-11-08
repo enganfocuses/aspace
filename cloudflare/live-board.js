@@ -94,6 +94,8 @@ export function createLiveBoard({key,firebaseDatabaseURL,primaryPath='/docs/'+ke
  }
  async function remember(value,source,meta={}){
   last={value:clone(value),source,...meta};
+  if(value){const raw=JSON.stringify(value);notify(source,meta.conflict?'conflict':'snapshot',{...meta,
+   bytes:new TextEncoder().encode(raw).byteLength,embedded:/data:(?:image|audio|video)\/|data:application\/pdf/i.test(raw)})}
   return {value:clone(value),source,...meta};
  }
  async function save(value,existing,options={}){

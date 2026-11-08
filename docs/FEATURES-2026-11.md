@@ -27,3 +27,22 @@ Firebase. Role checks and revocation are refreshed while the board is open.
 The menu exports a full JSON copy for preserving a conflicting draft. See
 `cloudflare/README.md` for exact scope and limits; media bytes, call signaling
 and fresh owner authentication remain separate dependencies.
+
+
+## Owner limits dashboard
+
+`#usage` is owner-only and available from Home and the board menu. It shows the
+actual 6 MiB upload and 700,000-byte reserve limits, per-board UTF-8 snapshots
+measured during normal reads/saves, browser storage estimates, and local daily
+request/body-size observations. Raw URLs, tokens and lesson bodies are not
+stored by the observer or sent to an analytics service. Dashboard refresh does
+not download lessons or media to measure them.
+
+Provider-wide consumption remains unknown without provider management metrics.
+Optional manually entered console readings show their timestamp and period;
+expired readings become unknown, never zero. Remaining quota and 80% warnings
+are calculated only from valid manual readings. Browser counters exclude other
+users/devices, EventSource traffic, WebRTC media and protocol overhead; missing
+response lengths are explicitly unmeasured. Free-plan quotas are reference
+values checked on 2026-11-08, not confirmation of the account's billing plan.
+Backblaze B2, Open Relay and independent owner login remain unconnected.
