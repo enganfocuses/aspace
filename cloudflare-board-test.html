@@ -26,6 +26,9 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 <header><h1>Aspace · Тестовая доска Cloudflare</h1><a href="./">← Главная</a></header>
 <p class="muted">Изолированный прототип для владельца: заметки сохраняются на этом планшете и в Cloudflare D1. Это ещё не полноценная совместная доска Aspace. Firebase используется только для входа.</p>
 <section class="panel">
+<label for="boardSlot">Тестовая доска</label>
+<select id="boardSlot" style="padding:12px;border-radius:12px;width:100%"><option value="1">Тестовая доска №1</option><option value="2">Тестовая доска №2</option><option value="3">Тестовая доска №3</option></select>
+<p class="muted">Три отдельные тестовые доски, не связанные с реальными учениками.</p>
 <div id="authStatus" role="status">Проверка входа…</div>
 <label for="boardTitle">Название тестовой доски</label>
 <input id="boardTitle" maxlength="120" placeholder="Моя тестовая доска" disabled>
@@ -42,7 +45,14 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 <div class="actions"><button id="penMode" class="secondary" disabled>✏️ Рисовать пальцем</button><button id="undoStroke" class="secondary" disabled>Отменить линию</button><button id="redoStroke" class="secondary" disabled>Вернуть линию</button><label for="penColor" style="margin:0">Цвет <input id="penColor" type="color" value="#7444a0" style="width:56px;height:45px;padding:3px"></label></div>
 <div id="objectStage" aria-label="Тестовые объекты доски"><canvas id="drawingLayer"></canvas></div>
 <p class="muted">Локальный черновик сохраняется после каждого изменения. Автосохранение в облако с задержкой; при конфликтах нужна ручная проверка.</p>
-<p class="muted">Ключ тестовой доски: <code>prototype-board-v1</code> · Ревизия сервера: <b id="revision">не загружена</b></p>
+<p class="muted">Ключ тестовой доски: <code id="boardKey">prototype-board-v1</code> · Ревизия сервера: <b id="revision">не загружена</b></p>
+</section>
+<section class="panel">
+<h2>Тестовые ссылки для учеников</h2>
+<p class="muted">Ссылки работают без аккаунта ученика. Просмотр и редактирование разделены. Сначала сохрани доску в Cloudflare. Ссылки содержат секрет — пересылай только нужному ученику.</p>
+<div class="actions"><button id="viewerLink" class="secondary" disabled>Создать ссылку просмотра</button><button id="editorLink" class="secondary" disabled>Создать ссылку редактирования</button></div>
+<p id="shareStatus" role="status"></p>
+<div id="shareList"></div>
 </section>
 <section class="panel" id="conflict" aria-live="polite">
 <h2>Обнаружены изменения в другой вкладке или на другом устройстве</h2>
@@ -53,7 +63,12 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 </div><script>
 (()=>{
 'use strict';
-const BASE='https://aspace-fallback-api.anncodes001.workers.dev', KEY='prototype-board-v1', CACHE='aspace:cf:prototype:v1';
+const BASE='https://aspace-fallback-api.anncodes001.workers.dev';
+const slot=['1','2','3'].includes(new URLSearchParams(location.search).get('board'))?new URLSearchParams(location.search).get('board'):'1';
+const KEY='prototype-board-v'+slot, CACHE='aspace:cf:prototype:v'+slot;
+document.getElementById('boardSlot').value=slot;
+document.getElementById('boardKey').textContent=KEY;
+document.getElementById('boardSlot').addEventListener('change',e=>{const url=new URL(location.href);url.searchParams.set('board',e.target.value);location.assign(url.toString())});
 const $=id=>document.getElementById(id);
 const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$('revision');
 let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null, strokes=[], drawing=false, activeStroke=null, undoneStrokes=[], autoTimer=null, lastWrite=0, baseSnapshot=null;
@@ -309,6 +324,66 @@ setInterval(()=>{if(account&&!document.hidden&&!writing&&!reading)load(false,tru
 window.addEventListener('online',()=>{if(dirty)queueAutoSave();else load(false,true)});
 $('autoSave').addEventListener('change',()=>{if($('autoSave').checked)queueAutoSave();else clearTimeout(autoTimer)});
 document.addEventListener('visibilitychange',()=>{if(account&&!document.hidden&&!writing){if(dirty)queueAutoSave();else load(false,true)}});
+// Share secret never enters the server-side database or the request URL.
+const hex = bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+const linkStorage='aspace:cf:shares:'+KEY;
+function knownLinks(){try{return JSON.parse(localStorage.getItem(linkStorage)||'[]')}catch{return []}}
+function rememberLinks(links){localStorage.setItem(linkStorage,JSON.stringify(links.slice(-40)))}
+function renderLinks(){
+ const root=$('shareList');root.replaceChildren();
+ const links=knownLinks().filter(x=>x&&x.token&&x.hash&&!x.revoked);
+ if(!links.length){root.textContent='Пока нет созданных на этом устройстве ссылок.';return}
+ for(const entry of links){
+  const row=document.createElement('div');row.className='actions';row.style.margin='8px 0';
+  const label=document.createElement('span');label.textContent=entry.role==='viewer'?'Просмотр':'Редактирование';
+  const copy=document.createElement('button');copy.className='secondary';copy.textContent='Копировать ссылку';
+  copy.onclick=()=>copyShare(entry.token);
+  const revoke=document.createElement('button');revoke.className='secondary';revoke.textContent='Отозвать';
+  revoke.onclick=()=>revokeShare(entry.hash);
+  row.append(label,copy,revoke);root.append(row);
+ }
+}
+function copyShare(token){
+ const url=new URL('./cloudflare-guest.html',location.href);url.hash=token;
+ // Always use the browser share sheet/copy clipboard; don't print secrets to logs.
+ if(navigator.clipboard?.writeText){
+  navigator.clipboard.writeText(url.toString()).then(()=>$('shareStatus').textContent='Ссылка скопирована.').catch(()=>$('shareStatus').textContent='Не получилось скопировать ссылку автоматически.');
+ }else prompt('Скопируй ссылку ученику',url.toString());
+}
+async function ownerShareRequest(method,path,data){
+ if(!account)throw Error('Вход владельца не найден');
+ const options={method,headers:{Authorization:'Bearer '+await account.getIdToken()}};
+ if(data){options.headers['Content-Type']='application/json';options.body=JSON.stringify(data)}
+ const response=await fetch(BASE+path,options);
+ return {status:response.status,data:await response.json().catch(()=>({}))};
+}
+async function makeLink(role){
+ const info=$('shareStatus');
+ if(dirty){info.textContent='Сначала сохрани изменения в Cloudflare.';return}
+ const secret=new Uint8Array(32);crypto.getRandomValues(secret);
+ const token=hex(secret);
+ const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)));
+ const hash=hex(digest);
+ try{
+  const response=await ownerShareRequest('POST','/v1/shares',{tokenHash:hash,docKey:KEY,role});
+  if(response.status!==200)throw Error('HTTP '+response.status+' '+String(response.data.error||''));
+  const links=knownLinks();links.push({token,hash,role,at:Date.now()});rememberLinks(links);
+  renderLinks();copyShare(token);info.textContent='Ссылка создана. '+(role==='viewer'?'Только просмотр.':'Можно редактировать.');
+ }catch(e){info.textContent='Ошибка создания ссылки: '+e.message}
+}
+async function revokeShare(hash){
+ if(!confirm('Отключить эту ссылку? Открытая у ученика страница потеряет доступ при следующем запросе.'))return;
+ try{
+  const result=await ownerShareRequest('DELETE','/v1/shares/'+hash);
+  if(result.status!==200||!result.data.revoked)throw Error('Не получилось отозвать ссылку');
+  const links=knownLinks();const item=links.find(x=>x.hash===hash);if(item)item.revoked=true;
+  rememberLinks(links);renderLinks();$('shareStatus').textContent='Ссылка отключена.';
+ }catch(e){$('shareStatus').textContent='Ошибка: '+e.message}
+}
+$('viewerLink').addEventListener('click',()=>makeLink('viewer'));
+$('editorLink').addEventListener('click',()=>makeLink('editor'));
+renderLinks();
+
 // Portable snapshots: never include Firebase credentials or Cloudflare tokens.
 $('exportJson').addEventListener('click',()=>{
  const data={format:'aspace-cloudflare-prototype-backup',version:1,exportedAt:new Date().toISOString(),board:payload()};
@@ -341,7 +416,7 @@ firebase.initializeApp(CFG.firebase);
 firebase.auth().onAuthStateChanged(async user=>{
  account=user&&user.uid===CFG.ownerUid?user:null;
  const enabled=!!account;
- for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','exportJson','importJson'])$(id).disabled=!enabled;
+ for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','exportJson','importJson','viewerLink','editorLink'])$(id).disabled=!enabled;
  $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
  if(!enabled)return;
  const data=stored();
