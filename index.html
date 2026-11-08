@@ -999,7 +999,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
-  let roomWarning='',r;
+  let roomWarning='',r,cloudPollTimer=null;
   try{
     r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
   }catch(error){
@@ -1428,9 +1428,37 @@ async function openBoard(m,id,guest,shareToken=null){
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
-  if(roomWarning)setTimeout(()=>say('Режим без синхронизации: '+roomWarning),500);
+  // When Firebase signaling is unavailable, poll the same Cloudflare document
+  // instead of creating another board/call. Never replace unsynced local edits.
+  if(roomWarning&&guestStandbyEnabled()&&boardShareToken){
+    say('Firebase-синхронизация недоступна; резерв Cloudflare проверяется каждые 12 секунд.');
+    let lastSnapshot=null;
+    cloudPollTimer=setInterval(async()=>{
+      if(unsyncedShareDraft)return;
+      try{
+        const snap=await (await getGuestStandby()).read(boardShareToken);
+        if(!snap.board||JSON.stringify(snap.board)===lastSnapshot)return;
+        lastSnapshot=JSON.stringify(snap.board);
+        if(!unsyncedShareDraft){
+          strokes=cloneBoard(snap.board.strokes);
+          items=cloneBoard(snap.board.items);
+          bg=snap.board.bg||bg;d.siteUrl=snap.board.siteUrl||'';
+          sc.className='bscroll '+bg;wrap.className='wrap '+bg;
+          redraw();renderAll();renderSite();
+          say('Доска обновлена из резерва Cloudflare.');
+        }
+      }catch(error){
+        // Revoked links stop polling rather than showing cached restricted data.
+        if(error?.status===403||error?.status===404){
+          clearInterval(cloudPollTimer);cloudPollTimer=null;
+          say('Резервная ссылка отозвана или недействительна.');
+        }
+      }
+    },12000);
+  }
+  if(roomWarning)setTimeout(()=>say('Режим без Firebase-сигналинга: '+roomWarning),500);
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(boardShareToken)void queueSharedDraft(data)}activeShareToken=null};
+  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(boardShareToken)void queueSharedDraft(data)}activeShareToken=null};
 }
 
 /* ---------- образование ---------- */
