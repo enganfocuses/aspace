@@ -43,11 +43,10 @@ test('Education serves a standalone local HTML builder',()=>{
  assert.doesNotMatch(course,/fetch\(|firebase|indexedDB|localStorage|XMLHttpRequest/i);
 });
 
-test('guest cached data never bypasses an explicit revoked-link response',()=>{
- assert.match(index,/if\(\(response\.status===429\|\|response\.status>=500\|\|quota\)\&\&canCache\)/);
- assert.match(index,/if\(canCache\&\&\(error instanceof TypeError/);
- assert.match(index,/shareCache/);
- assert.match(index,/guestDrafts/);
+test('guest access uses the canonical checked transport, not an unverified cached share',()=>{
+ assert.match(index,/runtime.shareMeta\(token\)/);
+ assert.match(index,/runtime.shared\(token\)/);
+ assert.match(index,/\[401,403,404\].includes\(error.status\)/);
  assert.match(index,/unsyncedShareDraft/);
 });
 test('anonymous student video access is checked before opening the call',()=>{

@@ -1,0 +1,35 @@
+name: Cloudflare standby regression tests
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/**'
+      - 'index.html'
+      - 'tests/**'
+      - 'education/**'
+      - '.github/workflows/cloudflare-standby-tests.yml'
+  push:
+    branches:
+      - main
+      - feature/cloudflare-fallback-foundation
+    paths:
+      - 'cloudflare/**'
+      - 'standby-lab/**'
+      - 'index.html'
+      - 'cloudflare-failover-check.html'
+      - 'tests/**'
+      - '.github/workflows/cloudflare-standby-tests.yml'
+jobs:
+  standby:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run isolated failover regression tests (no credentials needed)
+        working-directory: cloudflare
+        run: npm test
+      - name: Run Aspace UI, offline cache and guest signaling tests
+        run: node --test tests/*.test.mjs

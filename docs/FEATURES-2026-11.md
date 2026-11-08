@@ -1,6 +1,6 @@
 # Aspace: November 2026 UI release
 
-Firebase remains the primary data store; the Cloudflare D1 standby router is staged separately in PR #5 and is **not** enabled for ordinary visitors. The current static Aspace main page includes:
+Firebase remains the primary data store. The Cloudflare D1 standby router is available only in explicit lab sessions and is **not** enabled for ordinary visitors. Owner sessions use `?standby=lab` (plus `&standbywrite=lab` for D1 writes); guest sessions use `?gueststandby=lab` with the existing share fragment. The current static Aspace main page includes:
 
 1. **Navigation:** Right-click or hold the mouse wheel and drag in the board area to pan without changing the selected drawing tool. Mouse wheel zoom and touch pinch still work.
 2. **Colors:** Each selected fill shape/sticky note has a saved custom color palette, HTML spectrum picker, `+ Цвет` to retain colors, and optional native EyeDropper on supported secure Chromium browsers.
@@ -14,5 +14,16 @@ Firebase remains the primary data store; the Cloudflare D1 standby router is sta
 - Static JavaScript syntax and structural checks do not prove all browser interactions work.
 - The teacher and a guest should verify a single continuous video session while navigating to a chosen shared board and creating a new one. Some VPNs, STUN/TURN configurations and Firebase permissions may prevent media/signaling. Do not claim uninterrupted video under every network condition.
 - The app's existing full-size media uploads remain available but can consume Firebase quotas; prefer external links where terms and hosting allow. Direct images and embeds are not mirrored to Cloudflare for offline playback.
-- The Cloudflare fallback remains a separate staged module. Full real-board guest failover and Cloudflare signaling are not implemented in production.
+- The Cloudflare fallback is opt-in. Recovery verifies provider versions and retains conflicting drafts. Continuous guest grant/role/revocation synchronization and Cloudflare video signaling are still required before enabling automatic fallback for ordinary visitors.
 - The offline course builder requires the browser to open the static HTML file; connected online audio embeds would still require internet (the supplied file does not use external sources).
+
+## Automatic board reserve release
+
+Normal board sessions now use a single transport for the canonical shared or
+private Firebase path and the existing D1 board key. This supersedes the
+opt-in-only limitations above for board content. Durable drafts, provider CAS,
+content ancestry and conservative object merging handle outages and return to
+Firebase. Role checks and revocation are refreshed while the board is open.
+The menu exports a full JSON copy for preserving a conflicting draft. See
+`cloudflare/README.md` for exact scope and limits; media bytes, call signaling
+and fresh owner authentication remain separate dependencies.

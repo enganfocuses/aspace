@@ -15,7 +15,7 @@ table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #eee5f0;
 <table><thead><tr><th>Доска</th><th>Резерв</th><th>Публичная ссылка</th></tr></thead><tbody id="results"></tbody></table>
 </article>
 <article><h2>Условия автоматического переключения</h2>
-<p>Этот экран создаёт начальные копии, а не включает аварийное переключение на рабочем сайте. Для него нужны развёрнутый обновлённый Worker, постоянно актуализируемые версии досок, сверка изменений и корректный доступ учеников. Реальная синхронизация медиа и видеосигналинга — отдельные задачи.</p>
+<p>Автоматический резерв досок подключён к Aspace. Этот экран проверяет начальные копии. Для него нужны развёрнутый обновлённый Worker, постоянно актуализируемые версии досок, сверка изменений и корректный доступ учеников. Реальная синхронизация медиа и видеосигналинга — отдельные задачи.</p>
 <p><b>Для запуска Worker Firebase-плагин в ChatGPT не нужен.</b> В GitHub подготовлено ручное развёртывание с проверками и без изменений Firebase. Оно требует секреты Cloudflare в GitHub и готовую схему D1.</p>
 <p><a href="https://github.com/enganfocuses/aspace/actions/workflows/deploy-aspace-cloudflare-standby.yml" target="_blank" rel="noopener noreferrer">Открыть ручное развёртывание Worker через GitHub Actions</a></p><p><a href="./cloudflare-guest-batch-check.html">🧪 Проверить гостевой резерв, права, конфликты и отзыв ссылок одним тестом</a></p><p><a href="./">← Вернуться к Aspace</a></p></article></main>
 <script>
@@ -70,11 +70,14 @@ async function mirror(key,value){
  const current=await api('/v1/docs/'+encodeURIComponent(key));
  if(current.status!==404&&!current.ok)throw Error('Cloudflare read HTTP '+current.status+': '+current.data.error);
  const old=current.ok?JSON.parse(current.data.j):null;
- if(current.ok&&JSON.stringify(old)===serial)return {ok:true,description:'Актуальная копия',revision:current.data.revision};
- if(current.ok&&current.data.revision!==1)return {ok:false,description:'Конфликт версий Cloudflare — не перезаписываю'};
+ const meta=old?._aspaceSync;const logical=old?{...old}:old;if(logical)delete logical._aspaceSync;
+ if(current.ok&&JSON.stringify(logical)===serial)return {ok:true,description:'Актуальная копия',revision:current.data.revision};
+ if(current.ok&&current.data.revision!==1&&meta?.mode!=='mirror')return {ok:false,description:'Конфликт версий Cloudflare — не перезаписываю'};
  const expected=current.ok?current.data.revision:0;
+ let payload=value;
+ if(key.startsWith('boards/')){const {boardHash}=await import('./cloudflare/merge-board.js');payload={...value,_aspaceSync:{v:1,mode:'mirror',baseHash:await boardHash(value),ancestors:[]}}}
  const saved=await api('/v1/docs/'+encodeURIComponent(key),{
-  method:'PUT',body:JSON.stringify({j:serial,expectedRevision:expected})
+  method:'PUT',body:JSON.stringify({j:JSON.stringify(payload),expectedRevision:expected})
  });
  if(!saved.ok)throw Error('Cloudflare write HTTP '+saved.status+': '+saved.data.error);
  return {ok:true,description:'Резерв подтверждён, версия '+saved.data.revision,revision:saved.data.revision};
@@ -141,7 +144,14 @@ async function prepare(){
   for(const board of index.items){
    $('status').textContent='Подготавливаю '+board.name+'…';
    try{
-    const data=await firebaseRead('boards/'+board.id);
+    let data;
+    if(board.shareToken){
+     const meta=await firebaseShareMeta(board.shareToken);
+     if(meta?.boardId!==board.id)throw Error('Ученическая ссылка в индексе больше не действует');
+     const idToken=await owner.getIdToken();
+     const res=await fetch(CFG.firebase.databaseURL.replace(/\/$/,'')+'/shares/'+encodeURIComponent(board.shareToken)+'/board.json?auth='+encodeURIComponent(idToken),{cache:'no-store',referrerPolicy:'no-referrer'});
+     if(!res.ok)throw Error('Не удалось прочитать общую доску: HTTP '+res.status);data=await res.json();
+    }else data=await firebaseRead('boards/'+board.id);
     if(!data)throw Error('Доска отсутствует');
     const done=await mirror('boards/'+board.id,data);
     if(!done.ok){addRow(board.name,done.description,'Не включено');errors++;continue}
@@ -151,7 +161,7 @@ async function prepare(){
    }catch(e){addRow(board.name,'Ошибка: '+e.message,'Не включено');errors++}
   }
   $('status').textContent='Готово: резерв досок '+copied+'/'+index.items.length+'; ошибок '+errors+
-   '. Автоматическое переключение рабочего сайта этим тестом не включается.';
+   '. Автоматический резерв включён в Aspace; этот экран только проверяет и обновляет копии.';
  }catch(e){$('status').textContent='Остановлено: '+e.message}
  finally{running=false;$('run').disabled=!owner}
 }
