@@ -237,6 +237,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 :root[data-theme="dark"] .device-select{background:#2a2232;color:var(--ink);border-color:var(--line)}
 :root[data-theme="dark"] .sp{background:#302638;border-color:#b49bc5}
 
+.vwin.home-call-window{left:50%;top:50%;right:auto;width:min(920px,calc(100vw - 32px));height:min(700px,calc(100vh - 40px));min-width:min(320px,calc(100vw - 24px));min-height:min(300px,calc(100vh - 24px));transform:translate(-50%,-50%)}
+.vwin.home-call-window .vgrid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;padding:12px}
+.vwin.home-call-window .vbar{opacity:1;bottom:14px;gap:8px}
+.vwin.home-call-window .tile{max-height:100%;aspect-ratio:16/10}
+.vwin.home-call-window.min{left:auto;right:16px;top:16px;transform:none;width:260px;min-width:220px;min-height:0}
+@media(max-width:600px){.vwin.home-call-window{left:50%;top:50%;right:auto;width:calc(100vw - 16px);height:calc(100dvh - 32px);min-width:0;min-height:0;transform:translate(-50%,-50%)}.vwin.home-call-window.min{left:auto;right:8px;top:8px;width:220px;height:auto;transform:none}}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -389,7 +395,7 @@ async function roomUI(m,id,name,back){
   const openVideo=()=>{
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
-    vw=E('div',{className:'vwin'},hd,grid,vbar);
+    vw=E('div',{className:'vwin home-call-window'},hd,grid,vbar);
     const fs=()=>document.fullscreenElement?document.exitFullscreen():vw.requestFullscreen();
     hd.append(E('span',{className:'row'},B('⛶',fs),B('–',()=>vw.classList.toggle('min')),B('✕',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'})));
     const go=B('Включить камеру и войти',async()=>{
@@ -414,15 +420,17 @@ async function roomUI(m,id,name,back){
     hd.onpointerdown=e=>{
       if(e.target.closest('button'))return;
       hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
-      hd.onpointermove=ev=>{vw.style.right='auto';vw.style.left=Math.max(0,ev.clientX-ox)+'px';vw.style.top=Math.max(0,ev.clientY-oy)+'px'};
+      vw.style.transform='none';vw.style.right='auto';vw.style.left=b.left+'px';vw.style.top=b.top+'px';
+      hd.onpointermove=ev=>{vw.style.left=Math.max(0,Math.min(innerWidth-vw.offsetWidth,ev.clientX-ox))+'px';vw.style.top=Math.max(0,Math.min(innerHeight-48,ev.clientY-oy))+'px'};
       hd.onpointerup=()=>{hd.onpointermove=hd.onpointerup=null};
     };
     document.body.append(vw);
   };
   const join=B('Открыть видеозвонок',openVideo);
   const boardBtn=B('▤ Включить доску',async()=>{const tab=window.open('about:blank','_blank');const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=boardLink(bid,'edit');if(tab)tab.location.href=u;else copyLink(u);say2('Совместная доска создана')});
-  const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,boardBtn];
-  bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:url}),E('div',{className:'mut',textContent:'Видеозвонок откроется в отдельном окне поверх страницы. Можно перемещать, сворачивать и разворачивать на весь экран.'}));
+  const copyCallLink=B('🔗 Скопировать ссылку',()=>{copyLink(url);say2('Ссылка на видеозвонок скопирована')});
+  const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,copyCallLink,boardBtn];
+  bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:'Ссылка для ученика: '+url}),E('div',{className:'mut',textContent:'Окно видеозвонка открывается по центру, его можно перемещать, сворачивать и разворачивать на весь экран.'}));
   cleanup=close;
 }
 async function callView(m){
