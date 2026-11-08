@@ -406,7 +406,7 @@ function start(){
         return;
       }
     }
-    if(!standbyController)syncLocalChanges();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
+    if(!standbyController)syncLocalChanges();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){if(/^#c-[a-zA-Z0-9_-]{1,120}$/.test(location.hash)){shell(true);return}loginView();return}
     if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
     const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
   })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
