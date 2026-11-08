@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aspace — тестовая доска Cloudflare</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#33283b;background:#f7f2f8}
+*{box-sizing:border-box}body{margin:0;padding:16px}.shell{max-width:950px;margin:auto}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:1.4rem;margin:12px 0}p{line-height:1.45}a{color:#694a83}
+.panel{background:#fff;border-radius:16px;padding:18px;margin:12px 0;box-shadow:0 4px 24px #33224410}
+.actions{display:flex;flex-wrap:wrap;gap:10px}button{border:0;background:#68477b;color:white;border-radius:12px;padding:12px 16px;font:inherit;min-height:45px}
+button.secondary{background:#e9e2ef;color:#372641}button:disabled{opacity:.5}
+textarea,input{font:inherit;width:100%;border:1px solid #c8bbce;border-radius:12px;padding:12px;background:white;color:#312737}
+textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;margin:12px 0 8px}
+.muted{color:#6a6270;font-size:.92rem}.badge{padding:5px 10px;border-radius:20px;background:#f0e9f5;font-size:.88rem}
+#status{white-space:pre-wrap;font-weight:650}#conflict{display:none;border:1px solid #c28d7d;background:#fff7f1;padding:14px;border-radius:12px}
+#remotePreview{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;background:#f5f1f7;padding:12px;border-radius:10px}
+</style>
+<script src="./config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+</head><body><div class="shell">
+<header><h1>Aspace · Тестовая доска Cloudflare</h1><a href="./">← Главная</a></header>
+<p class="muted">Изолированный прототип для владельца: заметки сохраняются на этом планшете и в Cloudflare D1. Это ещё не полноценная совместная доска Aspace. Firebase используется только для входа.</p>
+<section class="panel">
+<div id="authStatus" role="status">Проверка входа…</div>
+<label for="boardTitle">Название тестовой доски</label>
+<input id="boardTitle" maxlength="120" placeholder="Моя тестовая доска" disabled>
+<label for="boardText">Содержимое доски</label>
+<textarea id="boardText" placeholder="Напиши здесь что-нибудь. Текст сразу сохранится на устройстве." disabled></textarea>
+<div class="actions"><button id="save" disabled>Сохранить в Cloudflare</button><button id="load" class="secondary" disabled>Загрузить из Cloudflare</button></div>
+<p id="status" role="status">Ожидание авторизации.</p>
+<p class="muted">Локальное сохранение после каждого изменения. При отсутствии сети изменения остаются только на этом устройстве. Отправка в Cloudflare — по кнопке.</p>
+<p class="muted">Ключ тестовой доски: <code>prototype-board-v1</code> · Ревизия сервера: <b id="revision">не загружена</b></p>
+</section>
+<section class="panel" id="conflict" aria-live="polite">
+<h2>Обнаружены изменения в другой вкладке или на другом устройстве</h2>
+<p>Сервер отказался перезаписать новую версию. Твой текст сохранён локально. Сравни версии ниже и скопируй нужные изменения вручную.</p>
+<strong>Текст в Cloudflare:</strong><pre id="remotePreview"></pre>
+<div class="actions"><button id="keepLocal" class="secondary">Оставить мой текст</button><button id="useRemote">Заменить мой текст серверной версией</button></div>
+</section>
+</div><script>
+(()=>{
+'use strict';
+const BASE='https://aspace-fallback-api.anncodes001.workers.dev', KEY='prototype-board-v1', CACHE='aspace:cf:prototype:v1';
+const $=id=>document.getElementById(id);
+const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$('revision');
+let rev=null, dirty=false, writing=false, remoteConflict=null, account=null;
+const stored=()=>{try{return JSON.parse(localStorage.getItem(CACHE)||'null')}catch{return null}};
+function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
+function show(text){status.textContent=text;revisionEl.textContent=rev===null?'не загружена':String(rev)}
+function apply(data,newRev,changed){title.value=String(data.title||'');body.value=String(data.text||'');rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
+function localChange(){dirty=true;cache();show('Изменения сохранены на планшете. Нажми «Сохранить в Cloudflare».')}
+title.addEventListener('input',localChange);body.addEventListener('input',localChange);
+function payload(){return {title:title.value,text:body.value,kind:'aspace-prototype',schema:1}}
+async function api(method,data){
+ if(!account)throw Error('Требуется вход владельца');
+ const opts={method,headers:{Authorization:'Bearer '+await account.getIdToken()}};
+ if(data){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}
+ const response=await fetch(BASE+'/v1/docs/'+KEY,opts);
+ const json=await response.json().catch(()=>({}));
+ return {status:response.status,data:json};
+}
+async function load(force=false){
+ try{
+  if(dirty&&!force){show('Есть несохранённый текст на планшете. Сначала сохрани его или реши конфликт.');return}
+  show('Загружаю данные из Cloudflare…');
+  const r=await api('GET');
+  if(r.status===404){if(!dirty){rev=0;cache()}show('Серверная доска ещё не создана. Можно сохранять первую версию.');return}
+  if(r.status!==200)throw Error('Cloudflare HTTP '+r.status);
+  let data;
+  try{data=JSON.parse(r.data.j)}catch{throw Error('Сервер прислал некорректный документ')}
+  if(!data||data.kind!=='aspace-prototype'||data.schema!==1)throw Error('Неподдерживаемый формат серверного документа');
+  apply(data,r.data.revision,false);
+  $('conflict').style.display='none';remoteConflict=null;
+  show('Данные успешно загружены из Cloudflare.');
+ }catch(e){show('Не удалось загрузить: '+e.message)}
+}
+async function save(){
+ if(writing||!account)return;
+ writing=true;$('save').disabled=true;
+ try{
+  if(rev===null) {
+   const current=await api('GET');
+   if(current.status===404)rev=0;
+   else if(current.status===200) {
+     const parsed=JSON.parse(current.data.j);
+     if(!dirty){apply(parsed,current.data.revision,false);show('Сначала загружена существующая версия.');return}
+     await conflict(current);return;
+   } else throw Error('Не удалось проверить сервер: HTTP '+current.status);
+  }
+  show('Сохраняю в Cloudflare…');
+  const snapshot=payload(),expectedRevision=rev;
+  const r=await api('PUT',{j:JSON.stringify(snapshot),expectedRevision});
+  if(r.status===409){const fresh=await api('GET');if(fresh.status!==200)throw Error('Не удалось получить актуальную версию');await conflict(fresh);return}
+  if(r.status!==200)throw Error('Cloudflare HTTP '+r.status+' '+String(r.data.error||''));
+  rev=r.data.revision;
+  const changedWhileSaving=title.value!==snapshot.title||body.value!==snapshot.text;
+  dirty=changedWhileSaving;
+  cache();$('conflict').style.display='none';remoteConflict=null;
+  show(changedWhileSaving?'Версия сохранена; новые изменения остаются локально.':'Сохранено в Cloudflare. Версия '+rev+'.');
+ }catch(e){cache();show('Не удалось сохранить. Локальная копия осталась на устройстве. '+e.message)}
+ finally{writing=false;$('save').disabled=!account}
+}
+async function conflict(r){
+ const data=JSON.parse(r.data.j);
+ remoteConflict={data,revision:r.data.revision};
+ $('remotePreview').textContent='Название: '+String(data.title||'')+'\n\n'+String(data.text||'');
+ $('conflict').style.display='block';dirty=true;cache();
+ show('Конфликт версий! Сервер не перезаписан, твоя копия сохранена локально.');
+}
+$('keepLocal').addEventListener('click',()=>{ $('conflict').style.display='none';show('Твоя локальная версия сохранена. Для синхронизации нужно вручную объединить изменения.');});
+$('useRemote').addEventListener('click',()=>{if(!remoteConflict)return; if(!confirm('Заменить локальный текст версией Cloudflare? Сначала скопируй несохранённые изменения, если они нужны.'))return;apply(remoteConflict.data,remoteConflict.revision,false);remoteConflict=null;$('conflict').style.display='none';show('Загружена актуальная серверная версия.');});
+$('save').addEventListener('click',save);$('load').addEventListener('click',()=>{if(dirty&&!confirm('На планшете есть несохранённые изменения. Заменить их версией Cloudflare?'))return;dirty=false;load(true)});
+if(!window.CFG?.firebase||!window.firebase){$('authStatus').textContent='Не удалось загрузить Firebase Auth.';return}
+firebase.initializeApp(CFG.firebase);
+firebase.auth().onAuthStateChanged(async user=>{
+ account=user&&user.uid===CFG.ownerUid?user:null;
+ const enabled=!!account;
+ for(const id of ['boardTitle','boardText','save','load'])$(id).disabled=!enabled;
+ $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
+ if(!enabled)return;
+ const data=stored();
+ if(data){title.value=String(data.title||'');body.value=String(data.text||'');rev=Number.isSafeInteger(data.revision)?data.revision:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
+ if(dirty)show('Найдена локальная несинхронизированная версия. Она не будет перезаписана автоматически.');
+ else await load();
+});
+})();
+</script></body></html>
