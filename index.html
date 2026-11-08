@@ -259,6 +259,7 @@ const themeIsDark=()=>ls.g('aspace-theme','light')==='dark';
 function applyTheme(){document.documentElement.dataset.theme=themeIsDark()?'dark':'light';const b=document.querySelector('.theme-toggle');if(b)b.textContent=themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема'}
 function toggleTheme(){ls.s('aspace-theme',themeIsDark()?'light':'dark');applyTheme()}
 applyTheme();
+if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Aspace offline shell:',e)));}
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
