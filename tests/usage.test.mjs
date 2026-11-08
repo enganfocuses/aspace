@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
-const require=createRequire(import.meta.url),{create,LIMITS,boardSummary,quotaStatus,utcDay}=require('../usage-tracker.js');
+const require=createRequire(import.meta.url),{create,LIMITS,boardSummary,quotaStatus,utcDay,parseSnapshot,downloadEstimate}=require('../usage-tracker.js');
 const memory=()=>{const data=new Map();return {getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),data}};
 const cfg={scope:'owner',firebaseURL:'https://db.example',cloudflareURL:'https://worker.example'};
 
@@ -35,7 +35,8 @@ test('observations count own service requests without persisting any token, URL 
  assert.equal(row.requests,1);assert.equal(row.knownResponseBytes,2);
  assert.equal(row.uploadBytes,new TextEncoder().encode('{"j":"PRIVATE_LESSON_TEXT"}').length);
  const stored=[...storage.data.values()].join();
- for(const secret of ['SECRET_TOKEN','secret-board','PRIVATE_LESSON_TEXT','https://db.example'])assert.equal(stored.includes(secret),false);
+ // Board identifiers are retained for attribution, but URLs, tokens and content never are.
+ for(const secret of ['SECRET_TOKEN','secret-board.json','PRIVATE_LESSON_TEXT','https://db.example'])assert.equal(stored.includes(secret),false);
 });
 test('unknown response length stays explicitly unmeasured instead of zero download claims',async()=>{
  const tracker=create({...cfg,storage:memory()});
@@ -82,4 +83,86 @@ test('owner usage screen is guarded and file picker matches the actual six-MiB u
  assert.match(view,/currentUser\?\.uid!==CFG\.ownerUid/);
  assert.match(html,/h==='#usage'&&currentUser\?\.uid===CFG\.ownerUid/);
  assert.doesNotMatch(html,/больше 300 МБ/);
+});
+test('screenshot import uses decimal MB and preserves provenance without inventing capture time',()=>{
+ const raw='2026-11,2.17,34.56,3',clock=Date.parse('2026-11-08T20:45:00Z');
+ assert.deepEqual(parseSnapshot(raw),{month:'2026-11',storage:2170000,downloads:34560000,connections:3});
+ const tracker=create({...cfg,storage:memory(),now:()=>clock});
+ tracker.setManual('workerRequests',20,'2026-11-08');tracker.importSnapshot(raw);
+ const state=tracker.snapshot();
+ assert.deepEqual(state.manual.firebaseDownloads,{value:34560000,period:'2026-11',updatedAt:clock,source:'screenshot',snapshot:true,baseline:{month:'2026-11',bytes:0,unknown:0}});
+ assert.equal(state.manual.firebaseStorage.value,2170000);assert.equal(state.manual.firebaseConnections.value,3);
+ assert.equal(state.manual.workerRequests.value,20);assert.equal(state.manual.d1Reads,undefined);
+ tracker.setManual('firebaseStorage',5,'current');assert.equal(tracker.snapshot().manual.firebaseStorage.snapshot,undefined);
+});
+test('own edits are grouped into separate activity bursts per board and UTC day',()=>{
+ let clock=Date.parse('2026-11-08T23:59:55Z');
+ const tracker=create({...cfg,storage:memory(),now:()=>clock});
+ tracker.recordAction('boards/a');clock+=100;tracker.recordAction('boards/a');
+ tracker.recordAction('boards/b');clock+=1200;tracker.recordAction('boards/a');
+ assert.equal(tracker.snapshot().days['2026-11-08'].boardActivity['boards/a'].changes,2);
+ assert.equal(tracker.snapshot().days['2026-11-08'].boardActivity['boards/b'].changes,1);
+ clock=Date.parse('2026-11-09T00:00:00Z');tracker.recordAction('boards/a');
+ assert.equal(tracker.snapshot().days['2026-11-09'].boardActivity['boards/a'].changes,1);
+});
+test('shared board saves and signals are attributed without retaining the guest credential',async()=>{
+ const storage=memory(),tracker=create({...cfg,storage}),token='b'.repeat(48),stop=tracker.trackBoard('boards/a',token);
+ await tracker.observe(async()=>new Response('{}',{headers:{'Content-Length':'2'}}),'https://db.example/shares/'+token+'/board.json?auth=TOKEN',{method:'PUT',body:'PRIVATE_CONTENT'});
+ await tracker.observe(async()=>new Response('{}'),'https://db.example/shares/'+token+'/room.json',{method:'POST',body:'signal'});
+ const row=tracker.snapshot().days[utcDay(Date.now())].boardActivity['boards/a'].firebase;
+ assert.equal(row.requests,2);assert.equal(row.savedBoards,1);assert.equal(row.writes,2);
+ const stored=[...storage.data.values()].join();for(const secret of [token,'TOKEN','PRIVATE_CONTENT','/shares/'])assert.equal(stored.includes(secret),false);
+ stop();await tracker.observe(async()=>new Response('{}'),'https://db.example/shares/'+token+'/board.json',{method:'PUT',body:'x'});
+ assert.equal(tracker.snapshot().days[utcDay(Date.now())].boardActivity['boards/a'].firebase.requests,2);
+});
+test('failed Firebase writes and successful reserve writes are not successful Firebase saves',async()=>{
+ const tracker=create({...cfg,storage:memory()});
+ await tracker.observe(async()=>new Response('{}',{status:429}),'https://db.example/docs/boards/a.json',{method:'PUT',body:'{}'});
+ await tracker.observe(async()=>new Response('{}'),'https://worker.example/v1/docs/boards%2Fa',{method:'PUT',body:'{}'});
+ const row=tracker.snapshot().days[utcDay(Date.now())].boardActivity['boards/a'];
+ assert.equal(row.firebase.savedBoards,0);assert.equal(row.firebase.failed,1);assert.equal(row.cloudflare.savedBoards,1);
+});
+test('stream payload bytes are batched, use UTF-8, and are never retained',()=>{
+ const storage=memory();let writes=0;const write=storage.setItem;storage.setItem=(...args)=>{writes++;write(...args)};
+ const tracker=create({...cfg,storage}),text='PRIVATE_STREAM_Урок';
+ for(let i=0;i<40;i++)tracker.recordStream('boards/a',text);
+ assert.equal(writes,0);
+ const state=tracker.snapshot(),row=state.days[utcDay(Date.now())];assert.equal(writes,1);
+ assert.equal(row.firebase.sseBytes,new TextEncoder().encode(text).length*40);
+ assert.equal(row.boardActivity['boards/a'].firebase.sseEvents,40);
+ assert.equal(JSON.stringify(state).includes('PRIVATE_STREAM_'),false);
+});
+test('download estimate adds only observed inbound bytes after a baseline, never outbound bytes twice',async()=>{
+ const clock=Date.parse('2026-11-08T20:00:00Z'),tracker=create({...cfg,storage:memory(),now:()=>clock});
+ await tracker.observe(async()=>new Response('{}',{headers:{'Content-Length':'50'}}),'https://db.example/docs/boards/a.json');
+ tracker.recordStream('boards/a','before');tracker.setManual('firebaseDownloads',1000,'2026-11');
+ assert.equal(downloadEstimate(tracker.snapshot(),clock).value,1000);
+ await tracker.observe(async()=>new Response('{}',{headers:{'Content-Length':'20'}}),'https://db.example/docs/boards/a.json',{method:'PUT',body:'x'.repeat(9000)});
+ tracker.recordStream('boards/a','after');
+ await tracker.observe(async()=>new Response('{}'),'https://db.example/docs/boards/a.json');
+ const estimate=downloadEstimate(tracker.snapshot(),clock);
+ assert.equal(estimate.extra,25);assert.equal(estimate.value,1025);assert.equal(estimate.unknownResponses,1);
+ assert.equal(downloadEstimate(tracker.snapshot(),Date.parse('2026-12-01')),null);
+ tracker.setManual('firebaseDownloads',1100,'2026-11');assert.equal(downloadEstimate(tracker.snapshot(),clock).value,1100);
+});
+test('guest action and stream telemetry remain disabled',()=>{
+ const tracker=create({...cfg,storage:memory(),enabled:()=>false});
+ tracker.recordAction('boards/a');tracker.recordStream('boards/a','private');
+ assert.deepEqual(tracker.snapshot().days,{});
+});
+test('remote persistence does not increase own actions and the room reports only received stream payloads',()=>{
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.match(html,/if\(isOwner&&!remote\)usageTracker.recordAction/);
+ const remote=html.slice(html.indexOf("  r.on('sp',x=>"),html.indexOf('  // Small owner-only catch-up.'));
+ assert.equal((remote.match(/persist\(true\)/g)||[]).length,7);
+ assert.match(html,/onData\(event.data\)/);assert.match(html,/isOwner\?data=>usageTracker.recordStream/);
+});
+test('malformed screenshot imports and guest imports cannot modify readings',()=>{
+ const storage=memory(),tracker=create({...cfg,storage});
+ for(const raw of [null,'','2026-13,1,2,3','2026-11,-1,2,3','2026-11,1,2,3.5','2026-11,Infinity,2,3','2026-11,1,2,3,extra','2026-11,1,2,'+'9'.repeat(200)]){
+  assert.equal(parseSnapshot(raw),null);assert.throws(()=>tracker.importSnapshot(raw));
+ }
+ assert.deepEqual(tracker.snapshot().manual,{});
+ const guest=create({...cfg,storage,enabled:()=>false});guest.importSnapshot('2026-11,2.17,34.56,3');
+ assert.deepEqual(guest.snapshot().manual,{});
 });
