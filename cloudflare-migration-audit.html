@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Aspace — аудит переноса с Firebase</title>
+<title>Aspace — аудит готовности резервного Cloudflare</title>
 <meta name="referrer" content="no-referrer">
 <style>
 :root{font:16px system-ui,-apple-system,sans-serif;color:#34293d;background:#f7f2f8}*{box-sizing:border-box}body{margin:0;padding:20px}main{max-width:950px;margin:auto}h1{font-size:1.5rem}h2{font-size:1.1rem}p{line-height:1.5}section{background:white;border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 4px 25px #30254112}.row{display:flex;flex-wrap:wrap;gap:12px}button{font:inherit;background:#684983;border:0;color:white;padding:12px 18px;border-radius:12px;min-height:45px}button:disabled{opacity:.5}button.secondary{color:#634673;background:#eee7f3}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e8dfed;padding:12px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}small,.muted{color:#766e79}#status{white-space:pre-wrap;font-weight:600}a{color:#71499a}code{overflow-wrap:anywhere}
 </style>
 <script src="./config.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 </head><body><main>
-<h1>Aspace · Подготовка переноса данных</h1>
+<h1>Aspace · Готовность резервного Cloudflare</h1>
 <p class="muted">Безопасный аудит существующих досок Firebase. Не изменяет ни одной доски, медиафайла, публичной ссылки или правила доступа.</p>
 <section>
-<h2>Аудит рабочих досок</h2>
+<h2>Проверка досок для резервирования</h2>
 <div id="auth" role="status">Проверяем вход владельца…</div>
-<p>Программа считывает индекс досок и каждую доску только с правами владельца. Выявляет крупные документы, внешние файлы и несовместимости с ограничением Cloudflare D1.</p>
+<p>Программа считывает индекс досок и каждую доску только с правами владельца. Выявляет крупные документы и медиа, которые нужно учитывать при создании резервных копий в Cloudflare D1.</p>
 <div class="row"><button id="scan" disabled>Проверить реальные доски</button><button id="backup" class="secondary" disabled>Скачать резервную копию досок</button><button id="report" class="secondary" disabled>Скачать отчёт без данных учеников</button></div>
 <p id="status" role="status">Ожидание входа.</p>
 <small>Полная резервная копия содержит содержимое уроков и потенциально действующие токены доступа. Храни файл только в защищённом месте. Он не включает медиафайлы из отдельного раздела Firebase Storage/RTDB и не заменяет полную резервную копию Firebase.</small>
@@ -21,7 +21,7 @@
 <div style="overflow-x:auto"><table><thead><tr><th>Доска</th><th>Размер JSON</th><th>Объекты</th><th>Линии</th><th>Медиа-ссылки</th><th>Статус</th></tr></thead><tbody id="rows"></tbody></table></div>
 </section>
 <section><h2>Дальнейший порядок</h2>
-<p>После аудита резервируем данные. Затем разрабатываем отдельный перенос с сохранением ID и ревизий, проверкой прав и явным подтверждением. В этом экране нет функции загрузки в Cloudflare: случайно переключить рабочие уроки нельзя.</p>
+<p>Firebase остаётся основным хранилищем. Cloudflare будет резервом на случай сбоя. Прежде чем включить автоматическое переключение, настроим актуальное зеркало данных, очередь изменений и безопасную сверку версий при возвращении Firebase. Этот экран ничего не переключает.</p>
 <a href="./">← Вернуться в Aspace</a>
 </section>
 </main><script>
@@ -71,7 +71,7 @@ async function audit(){
  setBusy(true);snapshot=null;report=null;$('rows').replaceChildren();$('summary').textContent='';$('status').textContent='Читаю индекс досок…';
  try{
   const index=await readDoc('meta/boards');
-  if(!index||!Array.isArray(index.items))throw Error('Индекс досок не найден или имеет необычный формат. Не выполняем перенос.');
+  if(!index||!Array.isArray(index.items))throw Error('Индекс досок не найден или имеет необычный формат. Ничего не перезаписываем.');
   if(index.items.length>100)throw Error('Слишком много досок для безопасного автоматического анализа.');
   const safeIds=index.items.map(x=>x?.id);
   if(safeIds.some(x=>!validId(x))||new Set(safeIds).size!==safeIds.length){
@@ -103,15 +103,15 @@ async function audit(){
    $('rows').append(tr);
   }
   snapshot={format:'aspace-firebase-owner-backup',version:1,exportedAt:new Date().toISOString(),source:'firebase-realtime-database',warning:'Sensitive lesson content and possibly live sharing identifiers. Separate media files are not included.',documents:[{key:'meta/boards',data:index},...docs]};
-  report={format:'aspace-migration-audit',version:1,createdAt:new Date().toISOString(),boardCount:index.items.length,readCount:docs.length,totalBytes:docs.reduce((sum,d)=>sum+bytes(d.data),0),boards:summaries};
-  $('summary').textContent='Досок: '+report.boardCount+' · Прочитано: '+report.readCount+' · Размер данных досок: '+(report.totalBytes/1024).toFixed(1)+' КБ. Данные не переносились.';
+  report={format:'aspace-failover-readiness-audit',version:1,createdAt:new Date().toISOString(),boardCount:index.items.length,readCount:docs.length,totalBytes:docs.reduce((sum,d)=>sum+bytes(d.data),0),boards:summaries};
+  $('summary').textContent='Досок: '+report.boardCount+' · Прочитано: '+report.readCount+' · Размер данных досок: '+(report.totalBytes/1024).toFixed(1)+' КБ. Данные не переключались и не отправлялись в Cloudflare.';
   $('status').textContent=docs.length===index.items.length?'Аудит завершён. Можно сохранить резервную копию.':'Аудит частично завершён. Есть доски с ошибками чтения; резервную копию нельзя считать полной.';
  }catch(e){$('status').textContent='Аудит остановлен: '+e.message}
  finally{setBusy(false)}
 }
 $('scan').addEventListener('click',audit);
 $('backup').addEventListener('click',()=>{if(!snapshot)return;if(!confirm('Скачать файл с реальными уроками и идентификаторами доступа? Храни его в защищённом месте.'))return;download(snapshot,'aspace-firebase-boards-backup-'+new Date().toISOString().slice(0,10)+'.json')});
-$('report').addEventListener('click',()=>{if(report)download(report,'aspace-migration-report-'+new Date().toISOString().slice(0,10)+'.json')});
+$('report').addEventListener('click',()=>{if(report)download(report,'aspace-failover-readiness-report-'+new Date().toISOString().slice(0,10)+'.json')});
 if(!window.firebase||!window.CFG?.firebase){$('auth').textContent='Конфигурация недоступна.';return}
 firebase.initializeApp(CFG.firebase);
 firebase.auth().onAuthStateChanged(u=>{
