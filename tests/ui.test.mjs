@@ -42,3 +42,22 @@ test('Education serves a standalone local HTML builder',()=>{
  assert.match(course,/Speakout 3rd Edition/);
  assert.doesNotMatch(course,/fetch\(|firebase|indexedDB|localStorage|XMLHttpRequest/i);
 });
+
+test('guest cached data never bypasses an explicit revoked-link response',()=>{
+ assert.match(index,/if\(\(response\.status===429\|\|response\.status>=500\|\|quota\)\&\&canCache\)/);
+ assert.match(index,/if\(canCache\&\&\(error instanceof TypeError/);
+ assert.match(index,/shareCache/);
+ assert.match(index,/guestDrafts/);
+ assert.match(index,/unsyncedShareDraft/);
+});
+test('anonymous student video access is checked before opening the call',()=>{
+ assert.match(index,/testGuestCallAccess\(id\)/);
+ assert.match(index,/const read=await rawFetch\(base\+'\.json\?shallow=true'/);
+ assert.match(index,/const probe=await fetch\(base\+'\.json'/);
+ assert.match(index,/await new Promise\(\(resolve,reject\)=>/);
+});
+test('quota-safe board sync does not post oversized catch-up snapshots',()=>{
+ assert.match(index,/if\(size>120000\)return/);
+ assert.match(index,/if\(!isOwner\|\|x\.data\?\.from===r\.id/);
+ assert.match(index,/Date\.now\(\)-lastStateReply<6000/);
+});
