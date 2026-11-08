@@ -6,7 +6,7 @@ function fakeEnvironment() {
   const docs = new Map([["boards/sample", { value: { text: "original" }, revision: 1 }]]);
   const backup = new Map();
   const pending = new Map();
-  let offline = false, auth = true, putThenThrow = false, reads = 0, cloudReads = 0, firebaseError = null;
+  let offline = false, auth = true, putThenThrow = false, reads = 0, cloudReads = 0, firebaseError = null, exposeEtag = true;
   const queue = {
     async put(key, value) { pending.set(key, structuredClone(value)); },
     async get(key) { return structuredClone(pending.get(key) ?? null); },
@@ -38,7 +38,7 @@ function fakeEnvironment() {
     if (init.method === "GET") {
       reads++;
       return new Response(JSON.stringify(current ? { j: JSON.stringify(current.value) } : null), {
-        status: 200, headers: { ETag: `"${current?.revision ?? 0}"` }
+        status: 200, headers: exposeEtag ? { ETag: `"${current?.revision ?? 0}"` } : {}
       });
     }
     if (init.headers["if-match"] !== `"${current?.revision ?? 0}"`)
@@ -60,6 +60,7 @@ function fakeEnvironment() {
     setOffline(value) { offline = value; },
     setAuth(value) { auth = value; },
     setFirebaseError(value) { firebaseError = value; },
+    setExposeEtag(value) { exposeEtag = value; },
     loseNextWriteResponse() { putThenThrow = true; },
     stats() { return { reads, cloudReads }; }
   };
@@ -287,4 +288,30 @@ test("standby replay refuses subsequent edits from a second Cloudflare writer", 
   env.setOffline(false);
   assert.equal((await app.replay("boards/sample")).status, "standby_conflict");
   assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
+});
+
+test("missing browser-visible ETag permits CAS standby write only after outage probe", async () => {
+  const env = fakeEnvironment();
+  env.setExposeEtag(false);
+  const app = env.create({ allowStandbyWrites: true });
+  const baseline = await app.read("boards/sample");
+  assert.equal(await baseline.mirrored, true);
+  env.setOffline(true);
+  const saved = await app.write("boards/sample", { text: "standby no etag" });
+  assert.equal(saved.source, "cloudflare");
+  assert.equal(saved.pending, true);
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "standby no etag" });
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
+});
+
+test("missing ETag with healthy Firebase must not silently switch to standby", async () => {
+  const env = fakeEnvironment();
+  env.setExposeEtag(false);
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  const saved = await app.write("boards/sample", { text: "needs etag" });
+  assert.equal(saved.source, "local");
+  assert.equal(saved.reason, "missing_primary_etag");
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "original" });
 });
