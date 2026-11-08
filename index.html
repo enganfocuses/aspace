@@ -773,6 +773,14 @@ async function boardsView(m){
     card.append(actions);g.append(card);
   });
   m.append(E('h2',{textContent:'Доски'}),g);
+  if(currentUser?.uid===CFG.ownerUid)m.append(
+    E('div',{className:'row',style:'margin-top:16px;align-items:center'},
+      B('☁ Резерв Cloudflare · подготовка',()=>{
+        window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer');
+      }),
+      E('span',{className:'mut',textContent:'Не переключает рабочие доски. Только резервирование с подтверждением.'})
+    )
+  );
 }
 const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src,onload:ok,onerror:no}))});
 const PDFCDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
