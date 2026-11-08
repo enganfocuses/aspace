@@ -4,6 +4,8 @@ on:
     paths:
       - 'cloudflare/**'
       - 'index.html'
+      - 'usage-*.js'
+      - 'usage.css'
       - 'tests/**'
       - 'education/**'
       - '.github/workflows/cloudflare-standby-tests.yml'
@@ -15,6 +17,8 @@ on:
       - 'cloudflare/**'
       - 'standby-lab/**'
       - 'index.html'
+      - 'usage-*.js'
+      - 'usage.css'
       - 'cloudflare-failover-check.html'
       - 'tests/**'
       - '.github/workflows/cloudflare-standby-tests.yml'
