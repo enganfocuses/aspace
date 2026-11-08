@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aspace — проверка Cloudflare</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,sans-serif;color:#372b46;background:#f8f4fa}
+body{margin:0;padding:22px}main{max-width:640px;margin:3rem auto;padding:26px;background:white;border-radius:20px;box-shadow:0 8px 30px #33224415}
+h1{font-size:1.35rem}p{line-height:1.5}button{font:inherit;background:#654579;color:white;border:0;border-radius:12px;padding:14px 22px;cursor:pointer;width:100%;min-height:48px}
+button:disabled{opacity:.6}#status{margin:20px 0;white-space:pre-wrap;word-break:break-word}table{border-collapse:collapse;width:100%}td,th{padding:10px;border-bottom:1px solid #eee;text-align:left}a{color:#654579}.muted{color:#666;font-size:.92rem}
+</style>
+<script src="./config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+</head>
+<body><main>
+<h1>Диагностика Cloudflare Aspace</h1>
+<p>Эта страница проверяет создание, обновление, конфликт версий и чтение <b>отдельного тестового документа</b>. Учебные доски не изменяются.</p>
+<p class="muted">Войди в Aspace в этом же браузере, затем вернись сюда. Токен входа используется только для запроса к настроенному Worker и нигде не отображается.</p>
+<button id="run" disabled>Проверить соединение и сохранение</button>
+<div id="status" role="status" aria-live="polite">Проверка входа…</div>
+<div id="results"></div>
+<p><a href="./">← Вернуться в Aspace</a></p>
+</main>
+<script>
+(() => {
+'use strict';
+const button=document.getElementById('run'),status=document.getElementById('status'),results=document.getElementById('results');
+const base='https://aspace-fallback-api.anncodes001.workers.dev';
+if (!window.CFG?.firebase || !window.firebase) {status.textContent='Не загружена конфигурация Aspace.';return}
+firebase.initializeApp(CFG.firebase);
+const auth=firebase.auth();
+auth.onAuthStateChanged(user=>{
+ const allowed=Boolean(user && user.uid===CFG.ownerUid);
+ button.disabled=!allowed;
+ status.textContent=allowed?'Вход владельца подтверждён. Можно начать проверку.': 'Нет активного входа владельца. Открой Aspace, войди и вернись сюда.';
+});
+button.addEventListener('click',async()=>{
+ button.disabled=true;results.replaceChildren();status.textContent='Проверяю…';
+ try{
+  const user=auth.currentUser;
+  if(!user || user.uid!==CFG.ownerUid)throw new Error('Необходимо войти как владелец Aspace');
+  const token=await user.getIdToken();
+  const key='diag-'+crypto.randomUUID();
+  const url=base+'/v1/docs/'+encodeURIComponent(key);
+  const request=async(method,data)=>{
+   const opts={method,headers:{Authorization:'Bearer '+token}};
+   if(data!==undefined){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}
+   const response=await fetch(url,opts);
+   const json=await response.json().catch(()=>({}));
+   return {status:response.status,data:json};
+  };
+  const create=await request('PUT',{j:JSON.stringify({test:'one'}),expectedRevision:0});
+  if(create.status!==200)throw new Error('Создание: HTTP '+create.status+' '+String(create.data.error||''));
+  const update=await request('PUT',{j:JSON.stringify({test:'two'}),expectedRevision:1});
+  if(update.status!==200)throw new Error('Обновление: HTTP '+update.status+' '+String(update.data.error||''));
+  const stale=await request('PUT',{j:JSON.stringify({test:'outdated'}),expectedRevision:1});
+  const read=await request('GET');
+  const cleanup=await request('DELETE');
+  const values=[['Создание',create.status,200],['Обновление',update.status,200],['Устаревшая запись',stale.status,409],['Чтение',read.status,200],['Итоговая версия',read.data.revision,2],['Очистка теста',cleanup.status,200]];
+  const table=document.createElement('table');const head=document.createElement('tr');
+  for(const t of ['Проверка','Результат']){const th=document.createElement('th');th.textContent=t;head.append(th)}table.append(head);
+  for(const [name,actual,expected] of values){const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td');a.textContent=name;b.textContent=String(actual)+(actual===expected?' ✓':' (ожидалось '+expected+')');tr.append(a,b);table.append(tr)}
+  results.append(table);
+  status.textContent=values.every(([,a,b])=>a===b)?'Все шесть проверок пройдены.':'Не все проверки пройдены. Покажи только таблицу результатов.';
+  const note=document.createElement('p');note.className='muted';note.textContent='Тестовый документ автоматически удалён, если проверка очистки прошла.';results.append(note);
+ }catch(e){status.textContent='Не удалось завершить проверку: '+(e&&e.message?e.message:'Неизвестная ошибка')}finally{
+   button.disabled=!(auth.currentUser && auth.currentUser.uid===CFG.ownerUid);
+ }
+});
+})();
+</script></body></html>

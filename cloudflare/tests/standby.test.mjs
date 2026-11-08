@@ -2,6 +2,64 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createAspaceStandby } from "../standby.js";
 
+test("a failed second offline save preserves the first D1 receipt across reload", async () => {
+  const env = fakeEnvironment();
+  let app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  assert.equal((await app.write("boards/sample", { text: "first draft" })).source, "cloudflare");
+  env.backup.set("boards/sample", { value: { text: "student change" }, revision: 3 });
+  assert.equal((await app.write("boards/sample", { text: "second draft" })).source, "local");
+  const record = await env.queue.get("boards/sample");
+  assert.deepEqual(record.standbyValue, { text: "first draft" });
+  assert.equal(record.standbyRevision, 2);
+  app = env.create({ allowStandbyWrites: true });
+  env.setOffline(false);
+  assert.equal((await app.replay("boards/sample")).status, "standby_conflict");
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
+  assert.deepEqual(await app.draft("boards/sample"), { text: "second draft" });
+});
+
+test("queued standby writes stop when Firebase rejects access after an outage", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  await app.write("boards/sample", { text: "first draft" });
+  env.setOffline(false);
+  env.setFirebaseError({ status: 403, message: "Permission denied" });
+  const result = await app.write("boards/sample", { text: "blocked draft" });
+  assert.equal(result.source, "local");
+  assert.equal(result.reason, "primary_rejected");
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "first draft" });
+  assert.deepEqual(await app.draft("boards/sample"), { text: "blocked draft" });
+});
+
+test("an identical Firebase value cannot discard a draft when D1 has newer guest changes", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  await app.write("boards/sample", { text: "offline draft" });
+  env.docs.set("boards/sample", { value: { text: "offline draft" }, revision: 2 });
+  env.backup.set("boards/sample", { value: { text: "student change" }, revision: 3 });
+  env.setOffline(false);
+  assert.equal((await app.replay("boards/sample")).status, "standby_conflict");
+  assert.equal(await app.pending("boards/sample"), true);
+});
+
+test("D1 changes that restore the same content still require reconciliation", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  await app.write("boards/sample", { text: "draft" });
+  env.backup.get("boards/sample").revision += 2;
+  env.setOffline(false);
+  assert.equal((await app.replay("boards/sample")).status, "standby_conflict");
+  assert.equal(await app.pending("boards/sample"), true);
+});
+
 function fakeEnvironment() {
   const docs = new Map([["boards/sample", { value: { text: "original" }, revision: 1 }]]);
   const backup = new Map();

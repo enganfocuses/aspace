@@ -26,6 +26,12 @@ test("valid existing Aspace board schema accepted",()=>{
   u:"https://www.youtube.com/watch?v=AbCdEfGhI12"});
  assert.equal(validLiveBoard(b),true);
 });
+test("published failover diagnostic uses the actual flat stroke format",()=>{
+ const html=readFileSync(new URL("../../cloudflare-failover-check.html",import.meta.url),"utf8");
+ const fixture=html.match(/const fixture=(\{[\s\S]*?\});\n try\{/);
+ assert.ok(fixture);
+ assert.equal(validLiveBoard(new Function('return ('+fixture[1]+')')()),true);
+});
 test("malformed fields and excessively large content rejected",()=>{
  const invalid=[
   {name:"Wrong",items:null,strokes:[]},

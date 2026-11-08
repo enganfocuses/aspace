@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aspace — тестовая доска Cloudflare</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#33283b;background:#f7f2f8}
+*{box-sizing:border-box}body{margin:0;padding:16px}.shell{max-width:950px;margin:auto}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:1.4rem;margin:12px 0}p{line-height:1.45}a{color:#694a83}
+.panel{background:#fff;border-radius:16px;padding:18px;margin:12px 0;box-shadow:0 4px 24px #33224410}
+.actions{display:flex;flex-wrap:wrap;gap:10px}button{border:0;background:#68477b;color:white;border-radius:12px;padding:12px 16px;font:inherit;min-height:45px}
+button.secondary{background:#e9e2ef;color:#372641}button:disabled{opacity:.5}
+textarea,input{font:inherit;width:100%;border:1px solid #c8bbce;border-radius:12px;padding:12px;background:white;color:#312737}
+textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;margin:12px 0 8px}
+.muted{color:#6a6270;font-size:.92rem}.badge{padding:5px 10px;border-radius:20px;background:#f0e9f5;font-size:.88rem}
+#status{white-space:pre-wrap;font-weight:650}#conflict{display:none;border:1px solid #c28d7d;background:#fff7f1;padding:14px;border-radius:12px}
+#remotePreview{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;background:#f5f1f7;padding:12px;border-radius:10px}
+#objectStage{position:relative;min-height:310px;background:radial-gradient(#d8cce0 1px,transparent 1px) 0 0/20px 20px;border:1px solid #dbcde2;border-radius:14px;overflow:hidden;touch-action:none}
+.stageObj{position:absolute;box-sizing:border-box;min-width:100px;min-height:72px;border:2px solid #8f6e9d;border-radius:12px;background:#f3def2;padding:9px;box-shadow:0 3px 10px #0001;touch-action:none;user-select:none;cursor:grab}
+#drawingLayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;touch-action:none}#drawingLayer.draw-mode{pointer-events:auto;cursor:crosshair}.stageObj.rect{background:#e7e1fa;border-radius:5px}.stageObj:focus{outline:3px solid #8a4c91}.stageObj small{display:block;font-size:11px;color:#483849}
+</style>
+<script src="./config.js"></script>
+<script src="./aspace-merge.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+</head><body><div class="shell">
+<header><h1>Aspace · Тестовая доска Cloudflare</h1><a href="./">← Главная</a></header>
+<p class="muted">Изолированный прототип для владельца: заметки сохраняются на этом планшете и в Cloudflare D1. Это ещё не полноценная совместная доска Aspace. Firebase используется только для входа.</p>
+<section class="panel">
+<label for="boardSlot">Тестовая доска</label>
+<select id="boardSlot" style="padding:12px;border-radius:12px;width:100%"><option value="1">Тестовая доска №1</option><option value="2">Тестовая доска №2</option><option value="3">Тестовая доска №3</option></select>
+<p class="muted">Три отдельные тестовые доски, не связанные с реальными учениками.</p>
+<div id="authStatus" role="status">Проверка входа…</div>
+<label for="boardTitle">Название тестовой доски</label>
+<input id="boardTitle" maxlength="120" placeholder="Моя тестовая доска" disabled>
+<label for="boardText">Содержимое доски</label>
+<textarea id="boardText" placeholder="Напиши здесь что-нибудь. Текст сразу сохранится на устройстве." disabled></textarea>
+<div class="actions"><button id="save" disabled>Сохранить в Cloudflare</button><button id="load" class="secondary" disabled>Загрузить из Cloudflare</button><label style="margin:0"><input id="autoSave" type="checkbox" checked style="width:auto"> Автосохранение (не чаще 1 раза в 20 секунд)</label></div>
+<div class="actions"><button id="history" class="secondary" disabled>История локальных копий</button><button id="exportJson" class="secondary" disabled>↓ Скачать копию JSON</button><button id="importJson" class="secondary" disabled>↑ Импорт копии JSON</button><input id="importFile" type="file" accept=".json,application/json" hidden></div>
+<p class="muted">Данные остаются локально, если интернет недоступен. После восстановления сети приложение попробует синхронизировать черновик, но не перезапишет чужую более новую версию.</p>
+<p class="muted">Проверка новых версий каждые 15 секунд, пока вкладка открыта. Черновик на устройстве при этом не перезаписывается.</p>
+<p id="status" role="status">Ожидание авторизации.</p>
+<label>Объекты на доске</label>
+<div class="actions"><button id="addNote" class="secondary" disabled>＋ Стикер</button><button id="addRect" class="secondary" disabled>＋ Прямоугольник</button><button id="duplicateObject" class="secondary" disabled>Дублировать</button><button id="resizeObject" class="secondary" disabled>Размер +</button><button id="removeObject" class="secondary" disabled>Удалить выбранный</button><label style="margin:0">Заливка <input id="objectColor" type="color" value="#f3def2" style="width:56px;height:45px;padding:3px"></label></div>
+<p class="muted">Добавляй объекты и перемещай пальцем. Для изменения текста стикера дважды коснись его.</p>
+<div class="actions"><button id="penMode" class="secondary" disabled>✏️ Рисовать пальцем</button><button id="undoStroke" class="secondary" disabled>Отменить линию</button><button id="redoStroke" class="secondary" disabled>Вернуть линию</button><label for="penColor" style="margin:0">Цвет <input id="penColor" type="color" value="#7444a0" style="width:56px;height:45px;padding:3px"></label></div>
+<div id="objectStage" aria-label="Тестовые объекты доски"><canvas id="drawingLayer"></canvas></div>
+<p class="muted">Локальный черновик сохраняется после каждого изменения. Автосохранение в облако с задержкой; при конфликтах нужна ручная проверка.</p>
+<p class="muted">Ключ тестовой доски: <code id="boardKey">prototype-board-v1</code> · Ревизия сервера: <b id="revision">не загружена</b></p>
+</section>
+<section class="panel">
+<h2>Тестовые ссылки для учеников</h2>
+<p class="muted">Ссылки работают без аккаунта ученика. Просмотр и редактирование разделены. Сначала сохрани доску в Cloudflare. Ссылки содержат секрет — пересылай только нужному ученику.</p>
+<div class="actions"><button id="viewerLink" class="secondary" disabled>Создать ссылку просмотра</button><button id="editorLink" class="secondary" disabled>Создать ссылку редактирования</button></div>
+<p id="shareStatus" role="status"></p>
+<div id="shareList"></div><button id="refreshShares" class="secondary" disabled>Показать все ссылки и права</button><div id="shareAudit"></div>
+</section>
+<section class="panel" id="conflict" aria-live="polite">
+<h2>Обнаружены изменения в другой вкладке или на другом устройстве</h2>
+<p>Сервер защитил более новую версию от перезаписи. Локальная копия не удалена. При необходимости скачай JSON-копию, затем выбери серверную версию. Автоматического объединения изменений пока нет.</p>
+<strong>Текст в Cloudflare:</strong><pre id="remotePreview"></pre>
+<div class="actions"><button id="keepLocal" class="secondary">Оставить мой текст</button><button id="useRemote">Заменить мой текст серверной версией</button></div>
+</section>
+</div><script>
+(()=>{
+'use strict';
+const BASE='https://aspace-fallback-api.anncodes001.workers.dev';
+const slot=['1','2','3'].includes(new URLSearchParams(location.search).get('board'))?new URLSearchParams(location.search).get('board'):'1';
+const KEY='prototype-board-v'+slot, CACHE='aspace:cf:prototype:v'+slot;
+const HISTORY=CACHE+':history';
+document.getElementById('boardSlot').value=slot;
+document.getElementById('boardKey').textContent=KEY;
+document.getElementById('boardSlot').addEventListener('change',e=>{const url=new URL(location.href);url.searchParams.set('board',e.target.value);location.assign(url.toString())});
+const $=id=>document.getElementById(id);
+const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$('revision');
+let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null, strokes=[], drawing=false, activeStroke=null, undoneStrokes=[], autoTimer=null, lastWrite=0, baseSnapshot=null;
+const stored=()=>{try{return JSON.parse(localStorage.getItem(CACHE)||'null')}catch{return null}};
+function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,items,strokes,baseSnapshot,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
+function snapshots(){try{const v=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(v)?v:[]}catch{return []}}
+function captureSnapshot(saved){
+ try{
+  const arr=snapshots();arr.unshift({at:Date.now(),revision:rev,data:saved});
+  localStorage.setItem(HISTORY,JSON.stringify(arr.slice(0,8)));
+ }catch{ /* localStorage may be full; the working draft is more important */ }
+}
+function show(text){status.textContent=text;revisionEl.textContent=rev===null?'не загружена':String(rev)}
+function apply(data,newRev,changed){clearTimeout(autoTimer);undoneStrokes=[];baseSnapshot=JSON.parse(JSON.stringify(data));title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);selected=null;renderItems();renderStrokes();rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
+function localChange(){localEditSerial++;dirty=true;cache();show('Изменения сохранены локально. Облако синхронизируется при наличии сети.');queueAutoSave()}
+function queueAutoSave(){
+ clearTimeout(autoTimer);
+ if(!account||!dirty||!$('autoSave').checked||!navigator.onLine||remoteConflict)return;
+ autoTimer=setTimeout(()=>{
+  if(!document.hidden&&!writing&&!reading&&dirty&&!remoteConflict)save();
+  else if(dirty)queueAutoSave();
+ },Math.max(8000,20000-(Date.now()-lastWrite)));
+}
+title.addEventListener('input',localChange);body.addEventListener('input',localChange);
+function payload(){return {title:title.value,text:body.value,items:cleanItems(items),strokes:cleanStrokes(strokes),kind:'aspace-prototype',schema:1}}
+// The same basic item fields as the current Aspace board: id, k, x, y, w, h, t, c.
+function cleanItems(source){
+ if(!Array.isArray(source))return [];
+ return source.filter(n=>n&&typeof n==='object'&&['note','shape'].includes(n.k))
+  .slice(0,100).map(n=>({
+   id:String(n.id||crypto.randomUUID()).slice(0,80),k:n.k,
+   x:Math.max(0,Math.min(1600,Number(n.x)||0)),y:Math.max(0,Math.min(1200,Number(n.y)||0)),
+   w:Math.max(100,Math.min(480,Number(n.w)||150)),h:Math.max(72,Math.min(300,Number(n.h)||100)),
+   t:String(n.t||'').slice(0,700),c:String(n.c||'#f3def2').slice(0,30),
+   ...(n.k==='shape'?{shape:'rect'}:{})
+  }));
+}
+function renderItems(){
+ const stage=$('objectStage');stage.querySelectorAll('.stageObj').forEach(n=>n.remove());
+ const maxX=Math.max(0,stage.clientWidth-110),maxY=Math.max(0,stage.clientHeight-80);
+ for(const n of items){
+  const el=document.createElement('div');el.className='stageObj'+(n.k==='shape'?' rect':'');
+  el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label','Объект '+(n.t||n.k));
+  el.textContent=n.k==='shape'?'Прямоугольник':n.t||'Стикер';
+  el.style.width=Math.min(n.w,stage.clientWidth-4)+'px';
+  el.style.height=n.h+'px';
+  el.style.left=Math.min(n.x,maxX)+'px';el.style.top=Math.min(n.y,maxY)+'px';
+  el.style.background=/^#[0-9a-fA-F]{6}$/.test(n.c)?n.c:'#f3def2';
+  el.style.borderColor=selected===n.id?'#8f318b':'#8f6e9d';
+  el.addEventListener('pointerdown',e=>{
+   if(!account)return;
+   selected=n.id;updateSelection();
+   const px=e.clientX,py=e.clientY,ox=n.x,oy=n.y;let moved=false;
+   el.setPointerCapture(e.pointerId);
+   const move=ev=>{const dx=ev.clientX-px,dy=ev.clientY-py;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;
+    n.x=Math.max(0,Math.min(maxX,ox+dx));n.y=Math.max(0,Math.min(maxY,oy+dy));el.style.left=n.x+'px';el.style.top=n.y+'px'};
+   const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);
+    if(moved)localChange();renderItems()};
+   el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  });
+  el.addEventListener('dblclick',()=>{if(n.k!=='note')return;const text=prompt('Текст стикера',n.t);if(text===null)return;n.t=text.slice(0,700);localChange();renderItems()});
+  stage.append(el);
+ }
+}
+function addObject(k){
+ if(!account)return;
+ if(items.length>=100){show('Предел прототипа — 100 объектов');return}
+ const n={id:crypto.randomUUID(),k,x:12+items.length%7*18,y:12+items.length%7*18,w:k==='note'?160:180,h:k==='note'?110:100,t:k==='note'?'Новый стикер':'',c:'#f3def2',...(k==='shape'?{shape:'rect'}:{})};
+ items.push(n);selected=n.id;localChange();renderItems();updateSelection();
+}
+$('addNote').addEventListener('click',()=>addObject('note'));
+$('addRect').addEventListener('click',()=>addObject('shape'));
+function updateSelection(){const n=items.find(n=>n.id===selected);for(const id of ['removeObject','duplicateObject','resizeObject'])$(id).disabled=!account||!n;if(n&&/^#[0-9a-fA-F]{6}$/.test(n.c))$('objectColor').value=n.c;}
+$('removeObject').addEventListener('click',()=>{if(!selected)return;items=items.filter(n=>n.id!==selected);selected=null;localChange();renderItems();updateSelection()});
+$('duplicateObject').addEventListener('click',()=>{const n=items.find(n=>n.id===selected);if(!n||items.length>=100)return;const copy={...n,id:crypto.randomUUID(),x:n.x+18,y:n.y+18};items.push(copy);selected=copy.id;localChange();renderItems();updateSelection()});
+$('resizeObject').addEventListener('click',()=>{const n=items.find(n=>n.id===selected);if(!n)return;n.w=n.w>=360?120:n.w+40;n.h=n.h>=210?80:n.h+25;localChange();renderItems()});
+$('objectColor').addEventListener('input',()=>{const n=items.find(n=>n.id===selected);if(!n)return;n.c=$('objectColor').value;localChange();renderItems()});
+
+// Tablet pen, serialized as compact normalized [x, y] points in the test document.
+function cleanStrokes(source){
+ if(!Array.isArray(source))return [];
+ return source.slice(0,250).filter(s=>s&&Array.isArray(s.p)).map(s=>({
+  id:String(s.id||'').slice(0,80),
+  c:/^#[0-9a-fA-F]{6}$/.test(s.c)?s.c:'#7444a0',
+  w:Math.max(1,Math.min(16,Number(s.w)||4)),
+  p:s.p.slice(0,1200).filter(p=>Array.isArray(p)&&p.length===2&&Number.isFinite(p[0])&&Number.isFinite(p[1]))
+    .map(p=>[Math.max(0,Math.min(1,p[0])),Math.max(0,Math.min(1,p[1]))])
+ })).filter(s=>s.p.length);
+}
+const drawCanvas=$('drawingLayer'),drawContext=drawCanvas.getContext('2d');
+function renderStrokes(){
+ const bounds=$('objectStage').getBoundingClientRect();
+ const dpr=Math.min(window.devicePixelRatio||1,2);
+ drawCanvas.width=Math.max(1,Math.round(bounds.width*dpr));
+ drawCanvas.height=Math.max(1,Math.round(bounds.height*dpr));
+ drawContext.setTransform(dpr,0,0,dpr,0,0);drawContext.clearRect(0,0,bounds.width,bounds.height);
+ for(const s of [...strokes,...(activeStroke?[activeStroke]:[])]){
+  if(!s.p.length)continue;
+  drawContext.beginPath();drawContext.strokeStyle=s.c;drawContext.fillStyle=s.c;
+  drawContext.lineWidth=s.w;drawContext.lineCap='round';drawContext.lineJoin='round';
+  for(let i=0;i<s.p.length;i++){
+   const x=s.p[i][0]*bounds.width,y=s.p[i][1]*bounds.height;
+   if(i===0)drawContext.moveTo(x,y);
+   else drawContext.lineTo(x,y);
+  }
+  if(s.p.length===1){drawContext.arc(s.p[0][0]*bounds.width,s.p[0][1]*bounds.height,s.w/2,0,2*Math.PI);drawContext.fill()}
+  else drawContext.stroke();
+ }
+ $('undoStroke').disabled=!account||strokes.length===0;$('redoStroke').disabled=!account||undoneStrokes.length===0;
+}
+function canvasPoint(event){
+ const b=$('objectStage').getBoundingClientRect();
+ return [Math.round(Math.max(0,Math.min(1,(event.clientX-b.left)/b.width))*10000)/10000,
+         Math.round(Math.max(0,Math.min(1,(event.clientY-b.top)/b.height))*10000)/10000];
+}
+drawCanvas.addEventListener('pointerdown',e=>{
+ if(!account||!drawing||activeStroke||strokes.length>=250)return;
+ e.preventDefault();
+ activeStroke={id:crypto.randomUUID(),c:$('penColor').value,w:4,p:[canvasPoint(e)]};
+ drawCanvas.setPointerCapture(e.pointerId);renderStrokes();
+});
+drawCanvas.addEventListener('pointermove',e=>{
+ if(!activeStroke||!drawCanvas.hasPointerCapture(e.pointerId))return;
+ const p=canvasPoint(e),old=activeStroke.p.at(-1);
+ if(activeStroke.p.length<1200&&(Math.abs(p[0]-old[0])+Math.abs(p[1]-old[1])>.002)){
+  activeStroke.p.push(p);renderStrokes();
+ }
+});
+function finishStroke(e){
+ if(!activeStroke)return;
+ if(e&&drawCanvas.hasPointerCapture(e.pointerId))drawCanvas.releasePointerCapture(e.pointerId);
+ if(activeStroke.p.length){strokes.push(activeStroke);undoneStrokes=[];}
+ activeStroke=null;localChange();renderStrokes();
+}
+drawCanvas.addEventListener('pointerup',finishStroke);
+drawCanvas.addEventListener('pointercancel',finishStroke);
+$('penMode').addEventListener('click',()=>{
+ drawing=!drawing;
+ drawCanvas.classList.toggle('draw-mode',drawing);
+ $('penMode').textContent=drawing?'✓ Закончить рисовать':'✏️ Рисовать пальцем';
+});
+$('undoStroke').addEventListener('click',()=>{if(!strokes.length)return;undoneStrokes.push(strokes.pop());localChange();renderStrokes()});
+$('redoStroke').addEventListener('click',()=>{if(!undoneStrokes.length||strokes.length>=250)return;strokes.push(undoneStrokes.pop());localChange();renderStrokes()});
+if('ResizeObserver' in window)new ResizeObserver(renderStrokes).observe($('objectStage'));
+else window.addEventListener('resize',renderStrokes);
+renderStrokes();
+
+async function api(method,data){
+ if(!account)throw Error('Требуется вход владельца');
+ const opts={method,headers:{Authorization:'Bearer '+await account.getIdToken()}};
+ if(data){opts.headers['Content-Type']='application/json';opts.body=JSON.stringify(data)}
+ const response=await fetch(BASE+'/v1/docs/'+KEY,opts);
+ const json=await response.json().catch(()=>({}));
+ return {status:response.status,data:json};
+}
+async function load(force=false,background=false){
+ if(reading||writing||!account||document.hidden)return;
+ if(dirty&&!force&&!background){show('Есть несохранённый текст на планшете. Сначала сохрани его или реши конфликт.');return}
+ reading=true;
+ const editAtStart=localEditSerial, priorDirty=dirty;
+ try{
+  if(!background)show('Загружаю данные из Cloudflare…');
+  const r=await api('GET');
+  if(r.status===404){
+   if(!dirty&&!priorDirty&&editAtStart===localEditSerial){rev=0;baseSnapshot=null;cache()}
+   if(!background)show('Серверная доска ещё не создана. Можно сохранить первую версию.');
+   return;
+  }
+  if(r.status!==200)throw Error('Cloudflare HTTP '+r.status);
+  let data;
+  try{data=JSON.parse(r.data.j)}catch{throw Error('Сервер прислал некорректный документ')}
+  if(!data||data.kind!=='aspace-prototype'||data.schema!==1)throw Error('Неподдерживаемый формат серверного документа');
+  if(!Number.isSafeInteger(r.data.revision)||r.data.revision<1)throw Error('Нет корректной версии документа');
+  if(editAtStart!==localEditSerial || (dirty&&!force)){
+   if(rev!==r.data.revision)await conflict(r);
+   else if(!background)show('Есть локальные изменения; серверная версия не заменила черновик.');
+   return;
+  }
+  if(background&&rev===r.data.revision)return;
+  if(background&&priorDirty){
+   if(rev!==r.data.revision)await conflict(r);
+   return;
+  }
+  apply(data,r.data.revision,false);
+  $('conflict').style.display='none';remoteConflict=null;
+  show(background?'Получена новая версия с другого устройства.':'Данные успешно загружены из Cloudflare.');
+ }catch(e){if(!background)show('Не удалось загрузить: '+e.message)}
+ finally{reading=false}
+}
+async function save(){
+ if(writing||reading||!account)return;
+ writing=true;$('save').disabled=true;
+ try{
+  if(rev===null) {
+   const current=await api('GET');
+   if(current.status===404){rev=0;baseSnapshot=null;}
+   else if(current.status===200) {
+     const parsed=JSON.parse(current.data.j);
+     if(!dirty){apply(parsed,current.data.revision,false);show('Сначала загружена существующая версия.');return}
+     await conflict(current);return;
+   } else throw Error('Не удалось проверить сервер: HTTP '+current.status);
+  }
+  show('Сохраняю в Cloudflare…');
+  let snapshot=payload(),expectedRevision=rev;
+  const startedSerial=localEditSerial;
+  let r=await api('PUT',{j:JSON.stringify(snapshot),expectedRevision});
+  let autoMerged=false;
+  if(r.status===409){
+   const fresh=await api('GET');
+   if(fresh.status!==200)throw Error('Не удалось получить актуальную версию');
+   let server;
+   try{server=JSON.parse(fresh.data.j)}catch{throw Error('Некорректная версия с сервера')}
+   // Only merge when the exact common ancestor is known. Never guess after a lost local cache.
+   if(baseSnapshot && window.AspaceMerge && expectedRevision>0){
+    const result=window.AspaceMerge.mergeBoard(baseSnapshot,snapshot,server);
+    if(result.ok && localEditSerial===startedSerial){
+     const retry=await api('PUT',{j:JSON.stringify(result.value),expectedRevision:fresh.data.revision});
+     if(retry.status===200){r=retry;snapshot=result.value;autoMerged=true}
+     else if(retry.status!==409)throw Error('Ошибка повторного сохранения HTTP '+retry.status);
+    }
+   }
+   if(r.status===409){await conflict(fresh);return}
+  }
+  if(r.status!==200)throw Error('Cloudflare HTTP '+r.status+' '+String(r.data.error||''));
+  rev=r.data.revision;lastWrite=Date.now();
+  const changedWhileSaving=localEditSerial!==startedSerial;
+  if(autoMerged && !changedWhileSaving){
+   // The server may contain independent updates from another browser.
+   title.value=String(snapshot.title||'');body.value=String(snapshot.text||'');
+   items=cleanItems(snapshot.items);strokes=cleanStrokes(snapshot.strokes);
+   renderItems();renderStrokes();
+  }
+  baseSnapshot=JSON.parse(JSON.stringify(snapshot));
+  captureSnapshot(snapshot);
+  dirty=changedWhileSaving;
+  cache();$('conflict').style.display='none';remoteConflict=null;
+  show(autoMerged?'Независимые изменения объединены и сохранены. Версия '+rev+'.':changedWhileSaving?'Версия сохранена; новые изменения остаются локально.':'Сохранено в Cloudflare. Версия '+rev+'.');
+  if(changedWhileSaving)queueAutoSave();
+ }catch(e){cache();show('Не удалось сохранить. Локальная копия осталась на устройстве. '+e.message)}
+ finally{writing=false;$('save').disabled=!account;if(dirty&&!remoteConflict&&navigator.onLine)queueAutoSave()}
+}
+async function conflict(r){
+ const data=JSON.parse(r.data.j);
+ remoteConflict={data,revision:r.data.revision};clearTimeout(autoTimer);
+ $('remotePreview').textContent='Название: '+String(data.title||'')+'\n\n'+String(data.text||'')+'\n\nОбъекты: '+(Array.isArray(data.items)?data.items.length:0)+' · Линии: '+(Array.isArray(data.strokes)?data.strokes.length:0);
+ $('conflict').style.display='block';dirty=true;cache();
+ show('Конфликт версий! Сервер не перезаписан, твоя копия сохранена локально.');
+}
+$('keepLocal').addEventListener('click',()=>{ $('conflict').style.display='none';show('Твоя локальная версия сохранена. Для синхронизации нужно вручную объединить изменения.');});
+$('useRemote').addEventListener('click',()=>{if(!remoteConflict)return; if(!confirm('Заменить локальный текст версией Cloudflare? Сначала скопируй несохранённые изменения, если они нужны.'))return;apply(remoteConflict.data,remoteConflict.revision,false);remoteConflict=null;$('conflict').style.display='none';show('Загружена актуальная серверная версия.');});
+$('save').addEventListener('click',save);
+$('load').addEventListener('click',()=>{
+ if(dirty){
+  show('Черновик на планшете не заменён. Чтобы загрузить серверную версию, сначала сохрани или вручную разреши конфликт.');
+  return;
+ }
+ load(false,false);
+});
+// Polling is intentionally read-only and does not overwrite locally edited drafts.
+setInterval(()=>{if(account&&!document.hidden&&!writing&&!reading)load(false,true)},15000);
+window.addEventListener('online',()=>{if(dirty)queueAutoSave();else load(false,true)});
+$('autoSave').addEventListener('change',()=>{if($('autoSave').checked)queueAutoSave();else clearTimeout(autoTimer)});
+document.addEventListener('visibilitychange',()=>{if(account&&!document.hidden&&!writing){if(dirty)queueAutoSave();else load(false,true)}});
+// Share secret never enters the server-side database or the request URL.
+const hex = bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+const linkStorage='aspace:cf:shares:'+KEY;
+function knownLinks(){try{return JSON.parse(localStorage.getItem(linkStorage)||'[]')}catch{return []}}
+function rememberLinks(links){localStorage.setItem(linkStorage,JSON.stringify(links.slice(-40)))}
+function renderLinks(){
+ const root=$('shareList');root.replaceChildren();
+ const links=knownLinks().filter(x=>x&&x.token&&x.hash&&!x.revoked);
+ if(!links.length){root.textContent='Пока нет созданных на этом устройстве ссылок.';return}
+ for(const entry of links){
+  const row=document.createElement('div');row.className='actions';row.style.margin='8px 0';
+  const label=document.createElement('span');label.textContent=entry.role==='viewer'?'Просмотр':'Редактирование';
+  const copy=document.createElement('button');copy.className='secondary';copy.textContent='Копировать ссылку';
+  copy.onclick=()=>copyShare(entry.token);
+  const revoke=document.createElement('button');revoke.className='secondary';revoke.textContent='Отозвать';
+  revoke.onclick=()=>revokeShare(entry.hash);
+  row.append(label,copy,revoke);root.append(row);
+ }
+}
+function copyShare(token){
+ const url=new URL('./cloudflare-guest.html',location.href);url.hash=token;
+ // Always use the browser share sheet/copy clipboard; don't print secrets to logs.
+ if(navigator.clipboard?.writeText){
+  navigator.clipboard.writeText(url.toString()).then(()=>$('shareStatus').textContent='Ссылка скопирована.').catch(()=>$('shareStatus').textContent='Не получилось скопировать ссылку автоматически.');
+ }else prompt('Скопируй ссылку ученику',url.toString());
+}
+async function ownerShareRequest(method,path,data){
+ if(!account)throw Error('Вход владельца не найден');
+ const options={method,headers:{Authorization:'Bearer '+await account.getIdToken()}};
+ if(data){options.headers['Content-Type']='application/json';options.body=JSON.stringify(data)}
+ const response=await fetch(BASE+path,options);
+ return {status:response.status,data:await response.json().catch(()=>({}))};
+}
+async function makeLink(role){
+ const info=$('shareStatus');
+ if(dirty){info.textContent='Сначала сохрани изменения в Cloudflare.';return}
+ const secret=new Uint8Array(32);crypto.getRandomValues(secret);
+ const token=hex(secret);
+ const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)));
+ const hash=hex(digest);
+ try{
+  const response=await ownerShareRequest('POST','/v1/shares',{tokenHash:hash,docKey:KEY,role});
+  if(response.status!==200)throw Error('HTTP '+response.status+' '+String(response.data.error||''));
+  const links=knownLinks();links.push({token,hash,role,at:Date.now()});rememberLinks(links);
+  renderLinks();refreshShares();copyShare(token);info.textContent='Ссылка создана. '+(role==='viewer'?'Только просмотр.':'Можно редактировать.');
+ }catch(e){info.textContent='Ошибка создания ссылки: '+e.message}
+}
+async function refreshShares(){
+ const root=$('shareAudit');root.replaceChildren();
+ try{
+  const response=await ownerShareRequest('GET','/v1/shares?docKey='+encodeURIComponent(KEY));
+  if(response.status!==200)throw Error('HTTP '+response.status);
+  const shares=response.data.shares||[];
+  if(!shares.length){root.textContent='Ссылок нет.';return}
+  const local=knownLinks();
+  for(const entry of shares){
+   const row=document.createElement('div');row.className='actions';row.style.margin='8px 0';
+   const label=document.createElement('span');
+   label.textContent=(entry.role==='viewer'?'Просмотр':'Редактирование')+
+      (entry.revoked?' · отключена':' · активна')+' · '+entry.tokenHash.slice(0,10);
+   row.append(label);
+   if(!entry.revoked){
+    const localToken=local.find(x=>x.hash===entry.tokenHash&&!x.revoked)?.token;
+    if(localToken){const copy=document.createElement('button');copy.className='secondary';copy.textContent='Копировать';copy.onclick=()=>copyShare(localToken);row.append(copy)}
+    const revoke=document.createElement('button');revoke.className='secondary';revoke.textContent='Отозвать';revoke.onclick=()=>revokeShare(entry.tokenHash);row.append(revoke);
+   }
+   root.append(row);
+  }
+ }catch(e){root.textContent='Не удалось получить ссылки: '+e.message}
+}
+async function revokeShare(hash){
+ if(!confirm('Отключить эту ссылку? Открытая у ученика страница потеряет доступ при следующем запросе.'))return;
+ try{
+  const result=await ownerShareRequest('DELETE','/v1/shares/'+hash);
+  if(result.status!==200||!result.data.revoked)throw Error('Не получилось отозвать ссылку');
+  const links=knownLinks();const item=links.find(x=>x.hash===hash);if(item)item.revoked=true;
+  rememberLinks(links);renderLinks();refreshShares();$('shareStatus').textContent='Ссылка отключена.';
+ }catch(e){$('shareStatus').textContent='Ошибка: '+e.message}
+}
+$('viewerLink').addEventListener('click',()=>makeLink('viewer'));
+$('editorLink').addEventListener('click',()=>makeLink('editor'));
+$('refreshShares').addEventListener('click',refreshShares);
+renderLinks();
+
+$('history').addEventListener('click',()=>{
+ const arr=snapshots();
+ if(!arr.length){show('Локальных копий пока нет. Они появляются после успешного сохранения в Cloudflare.');return}
+ const preview=arr.map((x,i)=>(i+1)+'. '+new Date(x.at).toLocaleString('ru')+' · версия '+x.revision).join('\\n');
+ const choice=prompt('Локальные копии:\\n'+preview+'\\n\\nВведи номер для восстановления на устройство (не в облако).');
+ if(choice===null)return;
+ const i=Number(choice)-1;if(!Number.isSafeInteger(i)||i<0||i>=arr.length){show('Неверный номер копии.');return}
+ if(!confirm('Заменить текущий локальный черновик выбранной копией? На облаке ничего не меняется.'))return;
+ clearTimeout(autoTimer);
+ const saved=arr[i].data;
+ title.value=String(saved.title||'');body.value=String(saved.text||'');
+ items=cleanItems(saved.items);strokes=cleanStrokes(saved.strokes);undoneStrokes=[];
+ selected=null;renderItems();renderStrokes();updateSelection();localChange();
+ show('Локальная копия восстановлена. Серверная версия остаётся прежней до сохранения.');
+});
+// Portable snapshots: never include Firebase credentials or Cloudflare tokens.
+$('exportJson').addEventListener('click',()=>{
+ const data={format:'aspace-cloudflare-prototype-backup',version:1,exportedAt:new Date().toISOString(),board:payload()};
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');
+ a.href=url;a.download='aspace-test-backup-'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+ show('Копия доски скачана на устройство.');
+});
+$('importJson').addEventListener('click',()=>{if(account)$('importFile').click()});
+$('importFile').addEventListener('change',async event=>{
+ const file=event.target.files?.[0];event.target.value='';
+ if(!file||!account)return;
+ if(file.size>3_000_000){show('Файл больше допустимых 3 МБ.');return}
+ try{
+  const raw=JSON.parse(await file.text());
+  if(raw?.format!=='aspace-cloudflare-prototype-backup'||raw.version!==1||raw.board?.kind!=='aspace-prototype'||raw.board.schema!==1)throw Error('Неверный формат копии');
+  if(!confirm('Заменить локальную тестовую доску содержимым файла? Текущий локальный черновик будет заменён.'))return;
+  clearTimeout(autoTimer);
+  // Keep server revision untouched; compare-and-swap still protects concurrent work.
+  title.value=String(raw.board.title||'').slice(0,120);
+  body.value=String(raw.board.text||'').slice(0,100000);
+  items=cleanItems(raw.board.items);strokes=cleanStrokes(raw.board.strokes);undoneStrokes=[];
+  selected=null;renderItems();renderStrokes();updateSelection();localChange();
+  show('Копия загружена локально. Для записи в Cloudflare используйте сохранение (при конфликте запись отклонится).');
+ }catch(error){show('Импорт не выполнен: '+error.message)}
+});
+if(!window.CFG?.firebase||!window.firebase){$('authStatus').textContent='Не удалось загрузить Firebase Auth.';return}
+firebase.initializeApp(CFG.firebase);
+firebase.auth().onAuthStateChanged(async user=>{
+ account=user&&user.uid===CFG.ownerUid?user:null;
+ const enabled=!!account;
+ for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','history','exportJson','importJson','viewerLink','editorLink','refreshShares'])$(id).disabled=!enabled;
+ $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
+ if(!enabled)return;
+ const data=stored();
+ if(data){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);renderItems();renderStrokes();rev=Number.isSafeInteger(data.revision)?data.revision:null;baseSnapshot=data.baseSnapshot&&data.baseSnapshot.kind==='aspace-prototype'?data.baseSnapshot:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
+ refreshShares();
+ if(dirty){show('Найдена локальная несинхронизированная версия. Она не будет перезаписана автоматически.');queueAutoSave();}
+ else await load();
+});
+})();
+</script></body></html>

@@ -401,11 +401,12 @@ async function writeGuestStandby(token,board){
  guestCloudActiveTokens.add(token);
  return saved;
 }
-const shareWrite=async(token,part,value,method='PUT')=>{
+const shareWrite=async(token,part,value,method='PUT',expectedEtag=null)=>{
   const standby=part==='board'&&method==='PUT'&&guestStandbyEnabled();
   let response;
   try{
     response=await fetch(shareURL(token)+'/'+part+'.json',{method,
+      headers:expectedEtag?{'if-match':expectedEtag}:{},
       body:value===null?null:JSON.stringify(value)});
   }catch(error){
     if(!standby||!(error instanceof TypeError||error?.name==='AbortError'))throw error;
@@ -1109,18 +1110,22 @@ async function openBoard(m,id,guest,shareToken=null){
     const previous=await localGet('guestDrafts',token).catch(()=>null);
     const base=previous?.base??lastConfirmedShared;
     const draft={key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
-      cloudRevision:previous?.cloudRevision??null,pending:true,updatedAt:Date.now()};
+      cloudRevision:previous?.cloudRevision??null,
+      cloudValue:previous?.cloudValue??null,pending:true,updatedAt:Date.now()};
     // The latest draft is committed locally before contacting either provider.
     await localPut('guestDrafts',draft);
     unsyncedShareDraft=true;
     try{
       let result=null;
       let live=null;
+      let primaryEtag=null;
       let firebaseUnreachable=false;
       if(previous?.pending){
         try{
-          const response=await fetch(shareURL(token)+'/board.json',{cache:'no-store'});
+          const response=await fetch(shareURL(token)+'/board.json',{
+            cache:'no-store',headers:{'X-Firebase-ETag':'true'}});
           if(response.ok){
+            primaryEtag=response.headers.get('etag');
             live=await response.json();
           }else{
             const errorText=(await response.text().catch(()=>'')).slice(0,350);
@@ -1145,12 +1150,16 @@ async function openBoard(m,id,guest,shareToken=null){
           if(previous.cloudRevision&&guestStandbyEnabled()){
             const confirmed=await (await getGuestStandby()).read(token);
             if(confirmed.revision!==previous.cloudRevision||
-              JSON.stringify(confirmed.board)!==JSON.stringify(previous.value)){
+              JSON.stringify(confirmed.board)!==JSON.stringify(previous.cloudValue??previous.value)){
               say('Конфликт Cloudflare: другая версия резервной доски. Черновик сохранён.');
               return;
             }
           }
-          result=identical?{source:'firebase'}:await shareWrite(token,'board',data);
+          if(!identical&&!primaryEtag){
+            say('Firebase не подтвердил версию: черновик сохранён, автоматическая перезапись остановлена.');
+            return;
+          }
+          result=identical?{source:'firebase'}:await shareWrite(token,'board',data,'PUT',primaryEtag);
         }
       }else{
         result=await shareWrite(token,'board',data);
@@ -1159,7 +1168,7 @@ async function openBoard(m,id,guest,shareToken=null){
       if(result?.source==='cloudflare'){
         // D1 is not the primary. Keep the local draft until Firebase recovers.
         if(current&&JSON.stringify(current.value)===JSON.stringify(data))
-          await localPut('guestDrafts',{...current,cloudRevision:result.revision,
+          await localPut('guestDrafts',{...current,cloudRevision:result.revision,cloudValue:cloneBoard(data),
             pending:true,updatedAt:Date.now()});
         say('Cloudflare сохранил изменения. Ожидаем безопасного возврата в Firebase.');
         return;
@@ -1332,7 +1341,7 @@ async function openBoard(m,id,guest,shareToken=null){
     out.push('</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
   const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
   const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const c=E('canvas',{width:im.naturalWidth,height:im.naturalHeight});c.getContext('2d').drawImage(im,0,0);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
-  const exportPdf=async()=>{const w=window.open('about:blank','_blank');if(!w){alert('Разрешите всплывающие окна для экспорта PDF');return}try{const blob=await makeSvg(),url=URL.createObjectURL(blob);w.document.open();w.document.write('<!doctype html><html><head><title>'+xml(d.name||'Доска')+'</title><style>html,body{margin:0}img{width:100%;height:auto;display:block}@page{margin:10mm}</style></head><body><img src="'+url+'" onload="setTimeout(()=>window.print(),300)"></body></html>');w.document.close()}catch(e){w.close();alert('Не удалось подготовить PDF: '+e.message)}};
+  const exportPdf=async()=>{const w=window.open('about:blank','_blank');if(!w){alert('Разрешите всплывающие окна для экспорта PDF');return}try{const blob=await makeSvg(),url=URL.createObjectURL(blob);w.document.open();w.document.write('<!doctype html><html><head><title>'+xml(d.name||'Доска')+'</title><style>html,body{margin:0}img{width:100%;height:auto;display:block}@page{margin:10mm}</style></head><body><img src="'+url+'" onload="setTimeout(()=>window.print(),300)"><\/body><\/html>');w.document.close()}catch(e){w.close();alert('Не удалось подготовить PDF: '+e.message)}};
   const exportCsv=()=>{const rows=[['type','text','x','y','width','height'],...items.filter(n=>n.t).map(n=>[n.k,n.t,n.x,n.y,n.w,n.h])];const csv='\ufeff'+rows.map(r=>r.map(v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"').join(';')).join('\r\n');const a=E('a',{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:(d.name||'board')+'.csv'});a.click()};
   const fi=E('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:async()=>{
     const[cx,cy]=center();let y=cy-150;try{for(const f of fi.files){say('Загрузка картинки…');const s=await shrink(f);addImg(await upload(s.u),s.w,s.h,cx-200,y);y+=40}persist()}catch{alert('Не удалось загрузить картинку. Проверьте config.js и правила базы (см. инструкцию).')}say('');fi.value=''}});

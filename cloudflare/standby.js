@@ -89,7 +89,7 @@ export function createAspaceStandby({
     if (value === null) return false; // Tombstones require a separate protocol.
     // D1 is not a media store; skip costly embedded media and oversized snapshots.
     const serial = JSON.stringify(value);
-    if (serial.length > 750_000 ||
+    if (new TextEncoder().encode(serial).byteLength > 740_000 ||
         ["data:image/", "data:audio/", "data:video/", "data:application/pdf"].some(part => serial.includes(part))) {
       tell(key, "mirror_skipped", "Large or embedded media requires a separate standby plan");
       return false;
@@ -193,18 +193,23 @@ export function createAspaceStandby({
         value: clone(value),
         baseValue: previous ? previous.baseValue : known?.lastValue ?? null,
         baseKnown: previous ? previous.baseKnown : Boolean(known),
+        // Keep the last confirmed D1 receipt even if the next offline write fails.
+        ...(previous?.standbyValue !== undefined ? {
+          standbyValue: clone(previous.standbyValue),
+          standbyRevision: previous.standbyRevision
+        } : {}),
         createdAt: previous ? previous.createdAt : Date.now()
       };
       // The durable local queue MUST commit before attempting Firebase.
       await queue.put(key, record);
       tell(key, "queued", "Draft persisted locally before network save");
       if (previous || !known?.etag) {
-        let standbyError = null, fallbackConfirmed = Boolean(previous?.standbyValue);
+        let standbyError = null, fallbackConfirmed = false;
         // Some browsers/RTDB configurations don't expose the ETag response header.
         // If we have a verified base but no ETag, probe Firebase first; only a
         // quota/network/server failure allows the CAS-protected standby writer.
         // A successful probe MUST NOT allow a blind Firebase PUT.
-        if (!previous && known?.lastValue !== undefined && !known?.etag && allowStandbyWrites) {
+        if (allowStandbyWrites && record.baseKnown) {
           try {
             await primary("GET", key);
           } catch (e) {
@@ -275,6 +280,17 @@ export function createAspaceStandby({
       catch (e) {
         return { key, status: standbyEligible(e) ? "primary_unavailable" : "error", error: e.message };
       }
+      if (item.standbyValue !== undefined) {
+        let verified;
+        try { verified = await cloudflare.getDoc(key); }
+        catch (e) { return { key, status: "standby_unavailable", error: e.message }; }
+        if (!verified || verified.revision !== item.standbyRevision ||
+            JSON.stringify(verified.value) !== JSON.stringify(item.standbyValue)) {
+          tell(key, "conflict", "Standby changed after last confirmed local write");
+          return { key, status: "standby_conflict" };
+        }
+        lastMirrored.set(key, JSON.stringify(item.standbyValue));
+      }
       if (JSON.stringify(live.value) === JSON.stringify(item.value)) {
         // The previous PUT may have succeeded before its response was lost.
         await queue.remove(key);
@@ -286,18 +302,6 @@ export function createAspaceStandby({
         return { key, status: "conflict" };
       }
       if (!live.etag) return { key, status: "no_etag" };
-      if (item.standbyValue) {
-        let verified;
-        try { verified = await cloudflare.getDoc(key); }
-        catch (e) { return { key, status: "standby_unavailable", error: e.message }; }
-        if (!verified || JSON.stringify(verified.value) !== JSON.stringify(item.standbyValue)) {
-          tell(key, "conflict", "Standby changed after last confirmed local write");
-          return { key, status: "standby_conflict" };
-        }
-        // We are the author of the last confirmed standby revision, and the
-        // primary still matches our known original base.
-        lastMirrored.set(key, JSON.stringify(item.standbyValue));
-      }
       try {
         await primary("PUT", key, item.value, live.etag);
       } catch (e) {

@@ -190,3 +190,13 @@ This is a **one-off preparation mechanism** rather than continuous synchronizati
 4. Only after this succeeds, run the single browser batch check at `https://enganfocuses.github.io/aspace/cloudflare-guest-batch-check.html`, then use `cloudflare-standby-preparation.html` to explicitly stage actual small board copies with hashed link permissions.
 5. Do not activate the opt-in lab for students until anonymous Firebase share permissions are verified and live two-person QA is complete.
 
+
+### Recovery corrections (continuation)
+
+Owner pending records retain the last confirmed D1 value and revision even if a
+subsequent save fails. Recovery checks that receipt before discarding an
+already-applied Firebase draft. Each queued write probes Firebase again, so an
+access denial cannot silently continue D1 writes. Guest recovery uses a Firebase
+ETag precondition and separately retains the last D1-confirmed content instead
+of confusing it with a newer unsent local draft. Missing ETags keep drafts local.
+The published failover diagnostic now uses the board's flat stroke coordinates.

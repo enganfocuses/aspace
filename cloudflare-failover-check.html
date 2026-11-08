@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aspace — комплексная проверка резервного переключения</title>
+<meta name="referrer" content="no-referrer">
+<style>
+:root{font:16px system-ui,-apple-system,sans-serif;color:#34283e;background:#f8f3fa}
+*{box-sizing:border-box}body{margin:0;padding:18px}main{max-width:850px;margin:auto}
+h1{font-size:1.5rem}h2{font-size:1.1rem}.panel{background:white;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 22px #30174511}
+button{background:#705184;color:white;font:inherit;min-height:48px;padding:12px 17px;border:0;border-radius:12px}button:disabled{opacity:.55}
+table{width:100%;border-collapse:collapse}td,th{padding:11px 8px;text-align:left;border-bottom:1px solid #ede4f1}
+p{line-height:1.5}small,.muted{color:#6e6575}a{color:#71518a}#status{white-space:pre-wrap}
+</style>
+<script src="./config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+</head><body><main>
+<h1>Aspace · Проверка резервного переключения</h1>
+<p class="muted">Firebase — основная база. Cloudflare используется при исчерпании квоты или сбое Firebase. Программа создаёт исключительно временный тестовый документ и имитирует исчерпание квоты и сбой Firebase только в этом окне браузера. Реальные доски учеников не меняются.</p>
+<section class="panel">
+<h2>Один комплексный тест</h2>
+<p id="authStatus" role="status">Проверка аккаунта…</p>
+<button id="run" disabled>Проверить переключение и восстановление</button>
+<p id="status" role="status">Ожидание.</p>
+<table><thead><tr><th>Проверка</th><th>Результат</th></tr></thead><tbody id="results"></tbody></table>
+<p><small>Тест проверяет квоту, сеть, запись в Cloudflare, возврат к Firebase и конкурирующие изменения на синтетической доске. Сбой имитируется программно, без отключения реального сервиса. По окончании тестовые записи удаляются. Рабочие данные не отправляются в Cloudflare.</small></p>
+</section>
+<section class="panel">
+<h2>Совместимость с настоящим форматом</h2>
+<p>Дополнительная проверка структуры существующих досок выполняется только чтением: анализируются поля <code>name</code>, <code>items</code>, <code>strokes</code>, <code>bg</code>. Содержимое уроков не показывается и не копируется в Cloudflare.</p>
+<p><small>Тест не доказывает бесперебойную работу видеозвонков, медиа, публичных ссылок или реальных уроков во время сбоя Firebase.</small></p>
+<a href="./">← Вернуться к Aspace</a>
+</section>
+<script type="module">
+import {createAspaceStandby} from './standby-lab/standby.js';
+import {createIndexedDBStandbyQueue} from './standby-lab/queue.js';
+import {createCloudflareFallback} from './standby-lab/adapter.js';
+
+const $=id=>document.getElementById(id);
+const BASE='https://aspace-fallback-api.anncodes001.workers.dev';
+const CFG=window.CFG;
+const run=$('run'),status=$('status'),results=$('results');
+let account=null,running=false;
+function add(label,passed,detail=''){
+ const row=document.createElement('tr'),name=document.createElement('td'),result=document.createElement('td');
+ name.textContent=label;result.textContent=(passed?'✓ Успешно':'✕ Ошибка')+(detail?' · '+detail:'');
+ row.append(name,result);results.append(row);
+}
+function fail(message){throw Error(message)}
+if(!CFG?.firebase||!window.firebase){$('authStatus').textContent='Нет конфигурации Firebase.'}
+else{
+ firebase.initializeApp(CFG.firebase);
+ firebase.auth().onAuthStateChanged(u=>{
+   account=u&&u.uid===CFG.ownerUid?u:null;
+   run.disabled=!account||running;
+   $('authStatus').textContent=account?'Владелец подтверждён. Можно запускать тест.':'Войди в Aspace владельцем и вернись сюда.';
+ });
+}
+function pathFor(key){return CFG.firebase.databaseURL.replace(/\/$/,'')+'/docs/'+key+'.json'}
+async function ownerFirebase(method,key,doc){
+ const token=await account.getIdToken();
+ const options={method,cache:'no-store',referrerPolicy:'no-referrer',headers:{'Content-Type':'application/json'}};
+ if(doc!==undefined)options.body=JSON.stringify({j:JSON.stringify(doc)});
+ const r=await fetch(pathFor(key)+'?auth='+encodeURIComponent(token),options);
+ if(!r.ok)fail('Firebase HTTP '+r.status);
+ return r;
+}
+async function ownerDelete(key){
+ const token=await account.getIdToken();
+ const response=await fetch(pathFor(key)+'?auth='+encodeURIComponent(token),{method:'DELETE',cache:'no-store',referrerPolicy:'no-referrer'});
+ if(!response.ok)fail('Очистка Firebase HTTP '+response.status);
+}
+async function cloudDelete(key){
+ const token=await account.getIdToken();
+ const response=await fetch(BASE+'/v1/docs/'+encodeURIComponent(key),{method:'DELETE',headers:{Authorization:'Bearer '+token}});
+ if(!response.ok)fail('Очистка Cloudflare HTTP '+response.status);
+}
+async function checkRealFormat(){
+ const idxResponse=await ownerFirebase('GET','meta/boards');
+ const raw=await idxResponse.json();
+ const index=typeof raw?.j==='string'?JSON.parse(raw.j):raw;
+ if(!index||!Array.isArray(index.items))return {ok:false,detail:'Нет индекса досок'};
+ if(!index.items.length)return {ok:true,detail:'Индекс пуст — схема подтверждена'};
+ const first=index.items.find(i=>i&&/^[A-Za-z0-9_-]{1,120}$/.test(i.id));
+ if(!first)return {ok:false,detail:'Необычный ID доски'};
+ const resp=await ownerFirebase('GET','boards/'+first.id);
+ const docRaw=await resp.json();
+ const doc=typeof docRaw?.j==='string'?JSON.parse(docRaw.j):docRaw;
+ if(!doc||typeof doc!=='object')return {ok:false,detail:'Доска не найдена'};
+ return {ok:Array.isArray(doc.strokes||[])&&Array.isArray(doc.items||doc.notes||[]),
+    detail:'Досок в индексе: '+index.items.length+'; формат JSON прочитан'};
+}
+async function check(){
+ if(running||!account)return;
+ running=true;run.disabled=true;results.replaceChildren();
+ let key='diag-'+crypto.randomUUID(),queue=null,faultMode='none',created=false,done=false;
+ const fixture={name:'Резервная тестовая доска',bg:'dots',
+   items:[{id:'sample-note',k:'note',x:24,y:42,w:170,h:110,t:'Синтетический стикер',c:'#f3def2'}],
+   strokes:[{id:'sample-line',p:[20,20,80,80],c:'#764d92',w:3}],siteUrl:'',upd:Date.now()};
+ try{
+  status.textContent='Проверяю структуру реальной доски (только чтение)…';
+  const format=await checkRealFormat();
+  add('Совместимость формата Aspace',format.ok,format.detail);
+  if(!format.ok)fail('Обнаружен несовместимый формат, тест остановлен');
+  await ownerFirebase('PUT',key,fixture);created=true;
+  add('Создание отдельной тестовой доски в Firebase',true);
+  const getIdToken=()=>account.getIdToken();
+  queue=createIndexedDBStandbyQueue({scope:account.uid+'_'+key});
+  const cloudflare=createCloudflareFallback({baseUrl:BASE,getIdToken});
+  const routeFetch=async(url,opts)=>{
+    if(String(url).includes(CFG.firebase.databaseURL)){
+      if(faultMode==='network')throw new TypeError('Имитация отключения Firebase');
+      if(faultMode==='quota')return new Response(JSON.stringify({error:{message:'Quota exceeded'}}),{status:403,headers:{'Content-Type':'application/json'}});
+      if(faultMode==='permission')return new Response(JSON.stringify({error:{message:'Permission denied'}}),{status:403,headers:{'Content-Type':'application/json'}});
+    }
+    return fetch(url,opts);
+  };
+  const failoverEvents=[];
+  const provider=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,
+   cloudflare,queue,fetchImpl:routeFetch,timeoutMs:6000,allowStandbyWrites:true,
+   onStatus:info=>{failoverEvents.push(info.phase+(info.note?' · '+info.note:''));if(failoverEvents.length>30)failoverEvents.shift()}
+  });
+  status.textContent='Читаю основную базу и создаю резервную копию…';
+  const start=await provider.read(key);
+  if(start.source!=='firebase')fail('Данные не были прочитаны из Firebase');
+  add('Firebase используется как основная база',true);
+  if(!await start.mirrored)fail('Данные не были скопированы в Cloudflare');
+  add('Подтверждённая копия создана в Cloudflare',true);
+  faultMode='quota';
+  const quotaStandby=await provider.read(key);
+  if(quotaStandby.source!=='cloudflare')fail('Исчерпание квоты не активировало Cloudflare');
+  add('Переключение при исчерпании квоты Firebase',true);
+  faultMode='permission';
+  let permissionBlocked=false;
+  try{await provider.read(key)}catch(e){permissionBlocked=e.status===403}
+  if(!permissionBlocked)fail('Отказ в доступе ошибочно включил резерв');
+  add('Обычная ошибка доступа не включает резерв',true);
+  faultMode='network';
+  const standby=await provider.read(key);
+  if(standby.source!=='cloudflare'||standby.value.items?.length!==1)fail('Cloudflare не вернул резервный документ');
+  add('Автоматическое чтение Cloudflare при имитации сбоя',true);
+  const changed={...fixture,items:[...fixture.items,{id:'new-note',k:'note',x:220,y:60,w:170,h:110,t:'Создано при сбое',c:'#ead2f4'}],upd:Date.now()};
+  const saved=await provider.write(key,changed);
+  if(saved.source!=='cloudflare'||!saved.pending||!await provider.pending(key)){
+    let cloudInfo='';
+    try {
+      const current=await cloudflare.getDoc(key);
+      cloudInfo='Cloudflare revision '+current.revision+', объектов '+(current.value.items?.length??'?');
+    } catch(e) {cloudInfo='Cloudflare: '+String(e.message||e).slice(0,120)}
+    fail('Резервная запись не подтверждена: режим '+saved.source+
+      ', причина '+(saved.reason||'неизвестна')+
+      (saved.standbyError?', ошибка '+saved.standbyError:'')+
+      ', '+cloudInfo+', события: '+failoverEvents.slice(-4).join(' | '));
+  }
+  add('Сохранение в Cloudflare при недоступности Firebase',true);
+  const cloudStored=await cloudflare.getDoc(key);
+  if(cloudStored.value.items?.length!==2)fail('Cloudflare не сохранил второй объект');
+  add('Объекты записаны в резервную базу',true);
+  add('Изменения сохраняются в IndexedDB при сбое',true);
+  const returned=await provider.read(key);
+  if(returned.source!=='local'||returned.value.items.length!==2)fail('Локальный черновик потерян');
+  add('Локальный черновик имеет приоритет над старой копией',true);
+  const second={...changed,items:[...changed.items,{id:'standby-two',k:'note',x:42,y:70,w:130,h:80,t:'Вторая правка'}]};
+  const secondWrite=await provider.write(key,second);
+  if(secondWrite.source!=='cloudflare')fail('Повторная резервная запись не сработала');
+  if((await cloudflare.getDoc(key)).value.items.length!==3)fail('Вторая резервная запись пропала');
+  add('Повторные изменения сохраняются в той же базе',true);
+  faultMode='none';
+  const outcome=await provider.replay(key);
+  if(outcome.status!=='replayed')fail('Восстановление: '+outcome.status);
+  if(outcome.mirrored&&!await outcome.mirrored)fail('Зеркалирование после восстановления не удалось');
+  add('Очередь восстановлена в Firebase без перезаписи',true);
+  const final=await ownerFirebase('GET',key);
+  const raw=await final.json();
+  const doc=typeof raw?.j==='string'?JSON.parse(raw.j):raw;
+  if(doc.items?.length!==3)fail('На Firebase нет восстановленных объектов');
+  add('Восстановленные объекты прочитаны из Firebase',true);
+  // An external Firebase write after an offline draft must not be erased by replay.
+  const current=await provider.read(key);
+  if(current.source!=='firebase')fail('Firebase не вернулся в основной режим');
+  add('Автоматический возврат чтения к Firebase',true);
+  faultMode='network';
+  const competing={...second,items:[...second.items,{id:'local-conflict',k:'note',x:10,y:90,w:140,h:90,t:'Локальная правка'}]};
+  const cloudCompeting=await provider.write(key,competing);
+  if(cloudCompeting.source!=='cloudflare')fail('Повторное резервное редактирование не включилось');
+  faultMode='none';
+  const external={...second,items:[...second.items,{id:'external-change',k:'note',x:20,y:110,w:140,h:90,t:'Правка другого устройства'}]};
+  await ownerFirebase('PUT',key,external);
+  const conflict=await provider.replay(key);
+  if(conflict.status!=='conflict')fail('Конфликт не обнаружен: '+conflict.status);
+  const externalResult=await ownerFirebase('GET',key);
+  const rawExternal=await externalResult.json();
+  const finalExternal=typeof rawExternal?.j==='string'?JSON.parse(rawExternal.j):rawExternal;
+  if(finalExternal.items.some(x=>x.id==='local-conflict')||!finalExternal.items.some(x=>x.id==='external-change'))fail('Конкурирующее изменение было перезаписано');
+  add('Конфликт двух устройств блокирует перезапись',true);
+  if(!await provider.pending(key))fail('Конфликтующий черновик потерян');
+  add('Конфликтующий черновик остаётся локально',true);
+  if(!(await cloudflare.getDoc(key)).value.items.some(x=>x.id==='local-conflict'))fail('Не сохранилась резервная версия изменений');
+  add('Резервные изменения сохранены при конфликте основной базы',true);
+  done=true;
+ }catch(error){
+  status.textContent='Проверка остановлена: '+(error?.message||String(error));
+  add('Итог проверки',false,String(error?.message||error).slice(0,140));
+ }finally{
+  faultMode='none';
+  let cleanedFirebase=false,cleanedCloudflare=false;
+  if(created){
+   try{await ownerDelete(key);cleanedFirebase=true}catch(e){add('Удаление теста из Firebase',false,e.message)}
+   try{await cloudDelete(key);cleanedCloudflare=true}catch(e){add('Удаление теста из Cloudflare',false,e.message)}
+  }
+  if(queue)try{await queue.remove(key)}catch(e){add('Очистка локальной очереди',false,e.message)}
+  if(created&&cleanedFirebase)add('Очистка Firebase',true);
+  if(created&&cleanedCloudflare)add('Очистка Cloudflare',true);
+  status.textContent=done&&(!created||(cleanedFirebase&&cleanedCloudflare))
+    ?'Комплексная проверка пройдена, временные документы удалены.'
+    :status.textContent||'Не все проверки пройдены; смотри таблицу.';
+  running=false;run.disabled=!account;
+ }
+}
+run.addEventListener('click',check);
+</script></main></body></html>

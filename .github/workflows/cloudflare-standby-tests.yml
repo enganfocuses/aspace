@@ -9,9 +9,14 @@ on:
       - '.github/workflows/cloudflare-standby-tests.yml'
   push:
     branches:
+      - main
       - feature/cloudflare-fallback-foundation
     paths:
       - 'cloudflare/**'
+      - 'standby-lab/**'
+      - 'index.html'
+      - 'cloudflare-failover-check.html'
+      - 'tests/**'
       - '.github/workflows/cloudflare-standby-tests.yml'
 jobs:
   standby:

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aspace — пакетная диагностика</title>
+<style>
+body{font:16px system-ui,-apple-system,sans-serif;background:#f8f3fa;color:#352842;margin:0;padding:20px}main{max-width:740px;margin:2rem auto;background:white;padding:24px;border-radius:18px}button{font:inherit;background:#6d4a85;color:white;border:0;border-radius:12px;padding:14px 20px;min-height:48px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{text-align:left;padding:10px;border-bottom:1px solid #eee}small{color:#6c6173}a{color:#6d4a85}
+</style><script src="./aspace-merge.js"></script>
+</head><body><main><h1>Общая диагностика Cloudflare</h1>
+<p>Проверяет алгоритм объединения изменений, защиту от конфликтов и доступность базы D1. Данные настоящих досок не отправляются и не изменяются.</p>
+<button id="run">Запустить проверки</button><p id="status" role="status"></p>
+<table><thead><tr><th>Проверка</th><th>Результат</th></tr></thead><tbody id="results"></tbody></table>
+<p><small>Эта проверка не заменяет тест с двумя настоящими браузерами: права доступа и совместное редактирование нужно проверить отдельно.</small></p>
+<p><a href="./cloudflare-board-test.html">← Тестовая доска</a></p>
+<script>
+(()=>{
+ const $=id=>document.getElementById(id);
+ const orig={kind:'aspace-prototype',schema:1,title:'Sample',text:'Old',items:[{id:'a',k:'note',t:'One'}],strokes:[]};
+ const cp=v=>JSON.parse(JSON.stringify(v));
+ const tests=[
+  ['Независимые поля',()=>{let l=cp(orig),r=cp(orig);l.title='New';r.text='From other';const v=AspaceMerge.mergeBoard(orig,l,r);return v.ok&&v.value.title==='New'&&v.value.text==='From other'}],
+  ['Независимые объекты',()=>{let l=cp(orig),r=cp(orig);l.items.push({id:'b',k:'note'});r.items[0].t='Updated';const v=AspaceMerge.mergeBoard(orig,l,r);return v.ok&&v.value.items.length===2}],
+  ['Сохранение независимых линий',()=>{let l=cp(orig),r=cp(orig);l.strokes.push({id:'s1',p:[[0,0]]});r.strokes.push({id:'s2',p:[[1,1]]});const v=AspaceMerge.mergeBoard(orig,l,r);return v.ok&&v.value.strokes.length===2}],
+  ['Конфликт одного текста',()=>{let l=cp(orig),r=cp(orig);l.text='X';r.text='Y';return !AspaceMerge.mergeBoard(orig,l,r).ok}],
+  ['Конфликт одного объекта',()=>{let l=cp(orig),r=cp(orig);l.items[0].t='X';r.items[0].t='Y';return !AspaceMerge.mergeBoard(orig,l,r).ok}],
+  ['Удаление против редактирования',()=>{let l=cp(orig),r=cp(orig);l.items=[];r.items[0].t='X';return !AspaceMerge.mergeBoard(orig,l,r).ok}],
+  ['Одинаковые параллельные изменения',()=>{let l=cp(orig),r=cp(orig);l.title='Both';r.title='Both';return AspaceMerge.mergeBoard(orig,l,r).ok}],
+  ['Проверка структуры базы',async()=>{const r=await fetch('https://aspace-fallback-api.anncodes001.workers.dev/health/db',{cache:'no-store'});const d=await r.json();return r.ok&&d.ok===true&&d.revisions===true}],
+  ['Закрытый гостевой endpoint без токена',async()=>{const r=await fetch('https://aspace-fallback-api.anncodes001.workers.dev/v1/shared',{cache:'no-store'});return r.status===404}]
+ ];
+ $('run').addEventListener('click',async()=>{
+  $('run').disabled=true;$('results').replaceChildren();let passed=0;
+  for(const [name,check] of tests){
+   let ok=false,detail='';
+   try{ok=Boolean(await check())}catch(e){detail=' ('+String(e.message||e).slice(0,100)+')'}
+   if(ok)passed++;
+   const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td');
+   a.textContent=name;b.textContent=ok?'✓ Пройдено':'✕ Ошибка'+detail;tr.append(a,b);$('results').append(tr);
+  }
+  $('status').textContent=passed+' из '+tests.length+' проверок пройдено.';
+  $('run').disabled=false;
+ });
+})();
+</script></main></body></html>

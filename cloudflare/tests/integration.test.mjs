@@ -6,7 +6,7 @@ const html=readFileSync(new URL("../../index.html",import.meta.url),"utf8");
 test("production main page keeps single board load and save entrypoints",()=>{
  assert.equal((html.match(/async function load\(p\)/g)||[]).length,1);
  assert.equal((html.match(/async function save\(p,d\)/g)||[]).length,1);
- assert.match(html,/if\(standbyController&&standbyKey\(p\)\)/);
+ assert.match(html,/if\(standbyController&&currentUser\?\.uid===CFG\.ownerUid&&standbyKey\(p\)\)/);
 });
 test("standby mode is explicitly opt-in and owner gated",()=>{
  assert.match(html,/get\('standby'\)==='lab'/);
