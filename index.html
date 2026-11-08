@@ -841,9 +841,10 @@ async function openBoard(m,id,guest,shareToken=null){
   if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   const cloneBoard=value=>JSON.parse(JSON.stringify(value));
-  let lastConfirmedShared=activeShareToken&&d0?cloneBoard(d0):null;
-  const localGuestDraft=activeShareToken
-    ?await localGet('guestDrafts',activeShareToken).catch(()=>null):null;
+  const boardShareToken=activeShareToken;
+  let lastConfirmedShared=boardShareToken&&d0?cloneBoard(d0):null;
+  const localGuestDraft=boardShareToken
+    ?await localGet('guestDrafts',boardShareToken).catch(()=>null):null;
   if(localGuestDraft?.value&&!guest){
     lastConfirmedShared=localGuestDraft.base??lastConfirmedShared;
     d0=cloneBoard(localGuestDraft.value);
@@ -894,14 +895,16 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
   let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null;
+  let unsyncedShareDraft=Boolean(localGuestDraft?.pending);
   const saveSharedDraft=async(data)=>{
-    const token=activeShareToken;
+    const token=boardShareToken;
     if(!token)return;
     const previous=await localGet('guestDrafts',token).catch(()=>null);
     const base=previous?.base??lastConfirmedShared;
     // Draft first, network second. Multiple changes are serialized.
     await localPut('guestDrafts',{key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
       pending:true,updatedAt:Date.now()});
+    unsyncedShareDraft=true;
     try{
       if(previous?.pending){
         // Reconnecting after an outage must not overwrite somebody else's
@@ -919,8 +922,10 @@ async function openBoard(m,id,guest,shareToken=null){
       lastConfirmedShared=cloneBoard(data);
       const current=await localGet('guestDrafts',token).catch(()=>null);
       // A newer draft must never be deleted by an older response.
-      if(current&&JSON.stringify(current.value)===JSON.stringify(data))
+      if(current&&JSON.stringify(current.value)===JSON.stringify(data)){
         await localDelete('guestDrafts',token);
+        unsyncedShareDraft=false;
+      }
     }catch(error){
       say('Общая доска сохранена локально; облачная синхронизация: '+error.message);
     }
@@ -931,12 +936,12 @@ async function openBoard(m,id,guest,shareToken=null){
     return shareSyncChain;
   };
   const retrySharedDraft=()=>{
-    if(guest||!activeShareToken||navigator.onLine===false)return;
-    void localGet('guestDrafts',activeShareToken).then(item=>{
+    if(guest||!boardShareToken||navigator.onLine===false)return;
+    void localGet('guestDrafts',boardShareToken).then(item=>{
       if(item?.pending&&item.value)queueSharedDraft(item.value);
     }).catch(()=>{});
   };
-  if(activeShareToken&&!guest){
+  if(boardShareToken&&!guest){
     window.addEventListener('online',retrySharedDraft);
     shareRecoveryTimer=setInterval(retrySharedDraft,45000);
     if(localGuestDraft?.pending)setTimeout(retrySharedDraft,2000);
@@ -944,7 +949,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{
     const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};
     if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на устройстве; ожидание облака')}
-    if(activeShareToken)void queueSharedDraft(data);
+    if(boardShareToken)void queueSharedDraft(data);
   },1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
   /* штрихи */
@@ -1066,7 +1071,7 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
   r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''})});
-  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
+  r.on('state',x=>{if(got||!x.data||unsyncedShareDraft)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
@@ -1238,7 +1243,7 @@ async function openBoard(m,id,guest,shareToken=null){
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
   if(roomWarning)setTimeout(()=>say('Режим без синхронизации: '+roomWarning),500);
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)void queueSharedDraft(data)}activeShareToken=null};
+  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(boardShareToken)void queueSharedDraft(data)}activeShareToken=null};
 }
 
 /* ---------- образование ---------- */
