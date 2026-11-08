@@ -267,7 +267,34 @@ const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
 const MAX_UPLOAD_BYTES=300*1024*1024;
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
-const shareRead=async(token,part)=>{const r=await fetch(shareURL(token)+'/'+part+'.json');if(!r.ok)throw new Error('Ссылка недействительна или доступ отозван');return r.json()};
+const shareRead=async(token,part)=>{
+  const canCache=part==='meta'||part==='board';
+  try{
+    const response=await fetch(shareURL(token)+'/'+part+'.json',{cache:'no-store'});
+    if(!response.ok){
+      const detail=(await response.text().catch(()=>'')).slice(0,350);
+      const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(detail);
+      if((response.status===429||response.status>=500||quota)&&canCache){
+        const cache=await localGet('shareCache',token+':'+part).catch(()=>null);
+        if(cache?.value!=null)return cache.value;
+      }
+      throw new Error(response.status===401||response.status===403&&!quota||response.status===404
+        ?'Ссылка недействительна или доступ отозван (HTTP '+response.status+')'
+        :'Firebase недоступен (HTTP '+response.status+'); локальная копия не найдена');
+    }
+    const value=await response.json();
+    if(canCache&&value!=null)try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
+    return value;
+  }catch(error){
+    // Never bypass explicit authorization/revocation errors. Use cache only if
+    // the network could not be reached and the link had been opened before.
+    if(canCache&&(error instanceof TypeError||error?.name==='AbortError')){
+      const cached=await localGet('shareCache',token+':'+part).catch(()=>null);
+      if(cached?.value!=null)return cached.value;
+    }
+    throw error;
+  }
+};
 const shareWrite=async(token,part,value,method='PUT')=>{const r=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});if(!r.ok)throw new Error('Firebase не разрешил операцию: '+part);return true};
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
 const revokeShare=async token=>{const board=await shareRead(token,'board').catch(()=>null);for(const it of (board?.items||[])){if(it.u&&it.u.startsWith('img:'))await fetch(shareURL(token)+'/assets/'+encodeURIComponent(it.u.slice(4))+'.json',{method:'DELETE'})}for(const part of ['board','room','meta'])await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})};
@@ -281,12 +308,14 @@ function localDB(){
  if(!('indexedDB'in window))return Promise.reject(new Error('IndexedDB недоступна'));
  if(localDbPromise)return localDbPromise;
  localDbPromise=new Promise((resolve,reject)=>{
-  const req=indexedDB.open(LOCAL_DB,1);
+  const req=indexedDB.open(LOCAL_DB,2);
   req.onupgradeneeded=()=>{const db=req.result;
    if(!db.objectStoreNames.contains('docs'))db.createObjectStore('docs',{keyPath:'key'});
    if(!db.objectStoreNames.contains('pending'))db.createObjectStore('pending',{keyPath:'key'});
    if(!db.objectStoreNames.contains('assets'))db.createObjectStore('assets',{keyPath:'key'});
    if(!db.objectStoreNames.contains('assetPending'))db.createObjectStore('assetPending',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('shareCache'))db.createObjectStore('shareCache',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('guestDrafts'))db.createObjectStore('guestDrafts',{keyPath:'key'});
   };
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Не удалось открыть локальную базу'));
  });
