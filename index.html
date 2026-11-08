@@ -58,8 +58,10 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .bfull{position:fixed;inset:0;z-index:20;background:#fffef9}
 .bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y}
 .sizer{position:relative}
-.wrap{position:absolute;left:0;top:0;transform-origin:0 0;background-color:#fffef9;will-change:transform}
-.wrap.dots{background-image:radial-gradient(#ddd5c0 1.4px,transparent 1.4px);background-size:24px 24px}
+.wrap{position:absolute;left:0;top:0;transform-origin:0 0;background:transparent;will-change:transform}
+.bscroll{background-color:#fffef9}
+.bscroll.dots{background-image:radial-gradient(#ddd5c0 1.3px,transparent 1.3px);background-size:24px 24px}
+.bscroll.clean{background-image:none}
 .wrap canvas{position:absolute;left:0;top:0;touch-action:none}.wrap canvas.cm{opacity:.4}.snap-guides{position:absolute;inset:0;z-index:12;pointer-events:none}.snap-guide{position:absolute;background:#b34b78;box-shadow:0 0 0 1px #fff8;opacity:.95}.snap-guide.v{top:0;bottom:0;width:1px}.snap-guide.h{left:0;right:0;height:1px}
 .bar{background:#fffffff2;border:1px solid #7f9bbd77;box-shadow:0 8px 28px #3a3a4624;border-radius:999px}
 .tbar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;align-items:center;padding:6px 10px;z-index:25;max-width:calc(100vw - 16px)}
@@ -263,8 +265,8 @@ if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWor
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
-// Experimental single-router standby mode. Off by default and only present on feature branch.
-let standbyController=null, standbyPhase='disabled';
+// Experimental Firebase-primary single-router. Only an explicit owner lab session enables it.
+let standbyController=null,standbyPhase='disabled';
 const standbyOptIn=()=>new URLSearchParams(location.search).get('standby')==='lab';
 const standbyKey=p=>p==='meta/boards'||/^boards\/[A-Za-z0-9_-]+$/.test(p);
 async function prepareStandby(owner){
@@ -272,16 +274,14 @@ async function prepareStandby(owner){
  const [{createCloudflareFallback},{createIndexedDBStandbyQueue},{createAspaceStandby}]=await Promise.all([
   import('./cloudflare/adapter.js'),import('./cloudflare/queue.js'),import('./cloudflare/standby.js')
  ]);
- const getIdToken=()=>owner.getIdToken();
- const queue=createIndexedDBStandbyQueue({scope:owner.uid+'_aspace'});
+ const getIdToken=()=>owner.getIdToken(),queue=createIndexedDBStandbyQueue({scope:owner.uid+'_aspace'});
  const cloudflare=createCloudflareFallback({baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',getIdToken});
  standbyController=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,cloudflare,queue,
-  // Requires two explicit lab flags; never enabled by normal production URLs.
   allowStandbyWrites:new URLSearchParams(location.search).get('standbywrite')==='lab',
   onStatus:({phase})=>{standbyPhase=phase;const mark=document.getElementById('standbyIndicator');if(mark)mark.textContent='🧪 Резерв: '+phase}
  });
  standbyController.startRecovery({onResults:outcomes=>{
-  for(const result of outcomes)if(result.status==='conflict')console.warn('Aspace: draft requires manual resolution',result.key);
+  for(const result of outcomes)if(result.status==='conflict')console.warn('Aspace draft requires reconciliation',result.key);
  }});
  standbyPhase='primary';
 }
@@ -318,10 +318,7 @@ async function localPut(store,value){const db=await localDB();return new Promise
 async function localAll(store){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
 async function localDelete(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).delete(key);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
 async function load(p){
- if(standbyController&&standbyKey(p)){
-  const result=await standbyController.read(p);
-  return result.value;
- }
+ if(standbyController&&standbyKey(p)){const result=await standbyController.read(p);return result.value}
  let cached=null,pending=false;
  try{const c=await localGet('docs',p);cached=c?.value??null;pending=!!(await localGet('pending',p))}catch{}
  if(pending&&cached!==null)return cached;
@@ -332,10 +329,7 @@ async function load(p){
  return cached!==null?cached:ls.g(p,null);
 }
 async function save(p,d){
- if(standbyController&&standbyKey(p)){
-  const result=await standbyController.write(p,d);
-  return !result.pending;
- }
+ if(standbyController&&standbyKey(p)){const result=await standbyController.write(p,d);return !result.pending}
  const record={key:p,value:d,updatedAt:Date.now()};
  ls.s(p,d);
  try{await localPut('docs',record);await localPut('pending',{key:p,updatedAt:record.updatedAt})}
@@ -348,7 +342,7 @@ async function save(p,d){
  }catch(e){console.warn('Aspace sync queued:',e);return false}
 }
 async function syncLocalChanges(){
- if(standbyController)return; // Standby has one durable queue and one recovery runner; never write twice.
+ if(standbyController)return; // Only one queue/synchronizer when standby is active.
  if(!navigator.onLine)return;
  try{
   const queue=await localAll('pending');
@@ -407,10 +401,8 @@ function start(){
     currentUser=user;
     if(standbyOptIn()&&user?.uid===CFG.ownerUid){
       try{await prepareStandby(user)}catch(e){
-        console.error('Aspace standby initialization refused:',e);
-        // Fail closed: never route experimental mode through the legacy unsafeguarded writer.
-        standbyPhase='initialization_error';
-        root.replaceChildren(E('div',{className:'warn',textContent:'Не удалось безопасно включить резервный тест. Открой Aspace без параметра standby=lab. '+e.message}));
+        console.error('Aspace standby could not initialize:',e);standbyPhase='initialization_error';
+        $('#root').replaceChildren(E('div',{className:'warn',textContent:'Резервный тест не подключился. Открой сайт без ?standby=lab. '+e.message}));
         return;
       }
     }
@@ -501,10 +493,13 @@ function controls(call,onLeave){
   const zc=call.zoomCaps();if(zc)zoom.append(E('span',{className:'mut',textContent:'Zoom'}),E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,oninput:e=>call.zoom(+e.target.value)}));
   return[mic,cam,nz,cams,mics,speakers,zoom,lv];
 }
+// One long-lived WebRTC session can outlive navigation between call and board views.
+let persistentCallSession=null;
 async function roomUI(m,id,name,back){
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
-  const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null};
+  const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
   const openVideo=()=>{
+    if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
     vw=E('div',{className:'vwin home-call-window'},hd,grid,vbar);
@@ -515,6 +510,16 @@ async function roomUI(m,id,name,back){
       try{
         callRoom=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');
         call=Call(callRoom,grid);await call.start();
+        persistentCallSession={id,call,room:callRoom,window:vw};
+        // Board navigation clears only the page content, never the call window.
+        cleanup=()=>{};
+        callRoom.on('boardnav',msg=>{
+          const data=msg.data||{};
+          if(!data.token||!/^[a-f0-9]{48}$/.test(data.token))return;
+          if(!/^[a-z0-9_-]{1,120}$/i.test(data.boardId||''))return;
+          const isOwner=currentUser&&currentUser.uid===CFG.ownerUid;
+          go(mm=>openBoard(mm,isOwner?data.boardId:null,!isOwner,data.token));
+        });
       }catch(e){
         alert(e.message);call?.stop();call=null;callRoom?.close();callRoom=null;
         go.disabled=false;go.textContent='Повторить подключение';return;
@@ -539,11 +544,43 @@ async function roomUI(m,id,name,back){
     document.body.append(vw);
   };
   const join=B('Открыть видеозвонок',openVideo);
-  const boardBtn=B('▤ Включить доску',async()=>{const tab=window.open('about:blank','_blank');const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=boardLink(bid,'edit');if(tab)tab.location.href=u;else copyLink(u);say2('Совместная доска создана')});
+  const boardBtn=B('▤ Перейти на доску вместе',async()=>{
+    if(!currentUser||currentUser.uid!==CFG.ownerUid){alert('Выбор совместной доски доступен владельцу звонка.');return}
+    if(!callRoom||!call){alert('Сначала включи камеру и войди в звонок.');return}
+    const index=(await load('meta/boards'))||{items:[]};
+    const menu=index.items.map((x,i)=>(i+1)+'. '+x.name).join('\n');
+    const answer=prompt('На какую доску перейдём вместе?\n0 — создать новую\n'+menu,'0');
+    if(answer===null)return;
+    const num=Number(answer.trim());
+    let chosen;
+    if(Number.isInteger(num)&&num>0&&num<=index.items.length)chosen=index.items[num-1];
+    else if(answer.trim()==='0'){
+      const title=prompt('Название новой доски','Доска встречи');if(title===null)return;
+      chosen={id:uid()+uid(),name:title||'Доска встречи'};
+      await save('boards/'+chosen.id,{name:chosen.name,strokes:[],items:[],bg:'dots'});
+      index.items.push(chosen);await save('meta/boards',index);
+    }else{alert('Неизвестный номер доски');return}
+    let token=chosen.shareToken;
+    if(!token){
+      if(!confirm('Создать для участников звонка ссылку с правом редактировать эту доску?'))return;
+      const board=await load('boards/'+chosen.id);
+      if(!board){alert('Доска пока недоступна');return}
+      token=newShareToken();
+      try{
+        await shareWrite(token,'meta',{boardId:chosen.id,name:chosen.name,role:'editor',createdAt:Date.now()});
+        await shareWrite(token,'board',board);
+        chosen.shareToken=token;await save('meta/boards',index);
+      }catch(e){alert('Не удалось открыть ученикам доступ: '+e.message);return}
+    }
+    callRoom.emit('boardnav',{boardId:chosen.id,token});
+    await go(mm=>openBoard(mm,chosen.id,false,token));
+    persistentCallSession?.window.classList.remove('min');
+    say2('Вы перешли на доску, видеозвонок продолжается');
+  });
   const copyCallLink=B('🔗 Скопировать ссылку',()=>{copyLink(url);say2('Ссылка на видеозвонок скопирована')});
   const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,copyCallLink,boardBtn];
   bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:'Ссылка для ученика: '+url}),E('div',{className:'mut',textContent:'Окно видеозвонка открывается по центру, его можно перемещать, сворачивать и разворачивать на весь экран.'}));
-  cleanup=close;
+  cleanup=()=>{if(!persistentCallSession||persistentCallSession.id!==id)close()};
 }
 async function callView(m){
   const me={ics:'/calendar.ics'};
@@ -686,7 +723,38 @@ const SHAPES=['rr','rect','pill','oval','diamond','triangle','star','hex'],FILLK
 const SHL={rr:'Скруглённый',rect:'Прямоугольник',pill:'Таблетка',oval:'Овал',diamond:'Ромб',triangle:'Треугольник',star:'Звезда',hex:'Шестиугольник'};
 const INK=['#1f1f2b','#4f86b3','#2f7d5b','#d9738f','#e57f2d','#c9a227','#7a5cc4','#a67c52','#8a8a93','#e5484d'];
 const FILLS=['#B7D1EA','#f8d3dc','#f6e7b8','#dfeccf','#e4d7f5','#fbd9c0','#d5eef0','#ffffff','#e9e9ee','#ffe3e3'];
-const SIZES={note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
+const SIZES={aud:[380,100],vid:[460,285],embed:[460,285],note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
+// Only allow external media from expected HTTPS providers. URLs are loaded by
+// the student's browser, not uploaded through Firebase or Cloudflare.
+function externalMedia(raw){
+  let u;try{u=new URL(String(raw).trim())}catch{return null}
+  if(u.protocol!=='https:'||u.username||u.password)return null;
+  const host=u.hostname.toLowerCase().replace(/^www\./,'');
+  const videoId=/^[A-Za-z0-9_-]{11}$/;
+  let id=null;
+  if(host==='youtube.com'||host==='m.youtube.com'){
+    id=u.pathname==='/watch'?u.searchParams.get('v'):u.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})\/?$/)?.[1];
+    if(id&&videoId.test(id))return{kind:'embed',url:'https://www.youtube-nocookie.com/embed/'+id,host:'YouTube'};
+  }
+  if(host==='youtu.be'){
+    id=u.pathname.slice(1);if(videoId.test(id))return{kind:'embed',url:'https://www.youtube-nocookie.com/embed/'+id,host:'YouTube'};
+  }
+  if(host==='vimeo.com'||host==='player.vimeo.com'){
+    const match=u.pathname.match(/\/(?:video\/)?(\d{5,15})(?:\/|$)/);
+    if(match)return{kind:'embed',url:'https://player.vimeo.com/video/'+match[1],host:'Vimeo'};
+  }
+  if(host==='soundcloud.com'||host==='m.soundcloud.com'){
+    if(u.pathname.split('/').filter(Boolean).length>=2)
+      return{kind:'embed',url:'https://w.soundcloud.com/player/?url='+encodeURIComponent(u.origin+u.pathname),host:'SoundCloud',audio:true};
+  }
+  if(['images.unsplash.com','i.imgur.com','images.pexels.com','upload.wikimedia.org','cdn.pixabay.com'].includes(host)||
+      /\.(?:png|jpe?g|webp|gif|avif)(?:$)/i.test(u.pathname)){
+    return{kind:'img',url:u.href,host:'Изображение'}
+  }
+  if(/\.(?:mp3|ogg|wav|m4a)(?:$)/i.test(u.pathname))return{kind:'aud',url:u.href,host:'Аудио'};
+  if(/\.(?:mp4|webm|mov)(?:$)/i.test(u.pathname))return{kind:'vid',url:u.href,host:'Видео'};
+  return null;
+}
 async function openBoard(m,id,guest,shareToken=null){
   let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
   activeShareToken=shareToken;
@@ -697,7 +765,7 @@ async function openBoard(m,id,guest,shareToken=null){
   let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
-  const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
+  const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
   const r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
@@ -763,6 +831,15 @@ async function openBoard(m,id,guest,shareToken=null){
       el=E('div',{className:'it '+n.k+(FILLK.includes(n.k)?' fill':'')});els[n.id]=el;
       const bgl=E('div',{className:'bgl k-'+n.k});el._bg=bgl;el.append(bgl);let hd=el;
       if(n.k==='img'){const im=E('img',{draggable:false});imgSrc(n.u).then(v=>im.src=v);bgl.append(im)}
+      else if(n.k==='embed'){
+        const src=externalMedia(n.u);
+        if(src?.kind==='embed'){
+          const frame=E('iframe',{src:src.url,title:src.host+' — внешний плеер',loading:'lazy',referrerPolicy:'no-referrer',
+            allow:'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+            allowFullscreen:true,style:'width:100%;height:100%;border:0;border-radius:10px'});
+          bgl.append(frame);hd=E('i');el.append(hd);
+        }else{bgl.textContent='Недопустимая ссылка на плеер';hd=E('i');el.append(hd)}
+      }
       else if(n.k==='aud'||n.k==='vid'){const media=E(n.k==='aud'?'audio':'video',{controls:true,preload:'metadata',src:n.u,style:'width:100%;height:100%;object-fit:contain'});if(n.k==='vid')media.playsInline=true;bgl.append(media);el._media=media;hd=E('i');el.append(hd)}
       else if(n.k==='emo')bgl.textContent=n.t;
       else{hd=E('i');const t=E('div',{className:'t',contentEditable:true,oninput:()=>{n.t=t.innerText;push(n)}});el._t=t;
@@ -802,6 +879,32 @@ async function openBoard(m,id,guest,shareToken=null){
     const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>45)flush()};
   cv.onpointerup=()=>{if(pan){pan=null;setTool(tool);return}if(!cur)return;flush();rec({t:'s',s:cur});cur=null;persist()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
+  // Secondary mouse buttons always pan the viewport regardless of the selected tool.
+  // Capture-phase prevents right click on contenteditable objects from moving them.
+  let mousePan=null;
+  sc.addEventListener('contextmenu',e=>e.preventDefault());
+  sc.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault()});
+  sc.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='mouse'||(e.button!==1&&e.button!==2))return;
+    e.preventDefault();e.stopPropagation();
+    mousePan={id:e.pointerId,x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop};
+    sc.setPointerCapture(e.pointerId);sc.style.cursor='grabbing';
+  },true);
+  sc.addEventListener('pointermove',e=>{
+    if(!mousePan||e.pointerId!==mousePan.id)return;
+    e.preventDefault();
+    sc.scrollLeft=mousePan.l-(e.clientX-mousePan.x);
+    sc.scrollTop=mousePan.t-(e.clientY-mousePan.y);
+    queueViewport();
+  },true);
+  const endMousePan=e=>{
+    if(!mousePan||e.pointerId!==mousePan.id)return;
+    mousePan=null;sc.style.cursor='';
+    if(sc.hasPointerCapture(e.pointerId))sc.releasePointerCapture(e.pointerId);
+    queueViewport();
+  };
+  sc.addEventListener('pointerup',endMousePan,true);
+  sc.addEventListener('pointercancel',endMousePan,true);
   sc.addEventListener('wheel',e=>{e.preventDefault();const factor=Math.exp(-e.deltaY*.0015);const b=sc.getBoundingClientRect(),px=(e.clientX-b.left+sc.scrollLeft)/z,py=(e.clientY-b.top+sc.scrollTop)/z,nz=Math.min(2.5,Math.max(.25,z*factor));z=nz;applyZ();sc.scrollLeft=px*z-(e.clientX-b.left);sc.scrollTop=py*z-(e.clientY-b.top);queueViewport()},{passive:false});
   let pinch=null;sc.addEventListener('touchstart',e=>{if(e.touches.length===2){e.preventDefault();const a=e.touches[0],b=e.touches[1],r0=sc.getBoundingClientRect();pinch={dist:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),z,x:(a.clientX+b.clientX)/2-r0.left+sc.scrollLeft,y:(a.clientY+b.clientY)/2-r0.top+sc.scrollTop}}},{passive:false});
   sc.addEventListener('touchmove',e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),nz=Math.min(2.5,Math.max(.25,pinch.z*dist/pinch.dist));const x=pinch.x/pinch.z,y=pinch.y/pinch.z;z=nz;applyZ();sc.scrollLeft=x*z-(a.clientX+b.clientX)/2+sc.getBoundingClientRect().left;sc.scrollTop=y*z-(a.clientY+b.clientY)/2+sc.getBoundingClientRect().top},{passive:false});
@@ -812,16 +915,16 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);persist()});
   r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n);persist()}});
   r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist()});
-  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;persist()});
+  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
   r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''})});
-  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;renderSite();redraw();renderAll()});
+  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
   const makeSvg=async()=>{const maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
     for(const st of strokes){let p='';for(let i=0;i<st.p.length;i+=2)p+=(i?'L':'M')+st.p[i]+' '+st.p[i+1]+' ';out.push(`<path d=\"${p}\" fill=\"none\" stroke=\"${st.e?'#fff':xml(st.c)}\" stroke-width=\"${st.w}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>`)}
-    for(const n of items){if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}
+    for(const n of items){if(n.k==='embed'){out.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="#f6f1fa" stroke="#a98cac"/><text x="${n.x+12}" y="${n.y+30}" font-size="16" fill="#715385">${xml(n.t||'Внешний плеер')}</text>`);continue}if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}
     out.push('</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
   const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
   const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const c=E('canvas',{width:im.naturalWidth,height:im.naturalHeight});c.getContext('2d').drawImage(im,0,0);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
@@ -835,6 +938,21 @@ async function openBoard(m,id,guest,shareToken=null){
         await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;const u=await upload(c.toDataURL('image/jpeg',.7)),dw=420,dh=dw*v.height/v.width;
         if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
       persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
+  const addExternalLink=()=>{
+    const raw=prompt('Вставь ссылку YouTube, Vimeo, SoundCloud, изображение или прямую ссылку MP3/MP4 (https://):','');
+    if(raw===null)return;
+    const resource=externalMedia(raw);
+    if(!resource){alert('Ссылка не поддерживается. Для видео: YouTube/Vimeo, для аудио: SoundCloud или прямая MP3, для фото: HTTPS-ссылка на картинку.');return}
+    const [cx,cy]=center();
+    if(resource.kind==='img'){addImg(resource.url,640,400,Math.max(0,cx-210),Math.max(0,cy-140))}
+    else{
+      const n=add(resource.kind,cx,cy,{u:resource.kind==='embed'?raw:resource.url,
+        t:resource.host,w:resource.audio?440:460,h:resource.audio?175:280});
+      // Existing board renderer and sync propagate the same item to students.
+      if(n)persist();
+    }
+    persist();say('Добавлено по ссылке, без загрузки в наши базы');
+  };
   const fm=E('input',{type:'file',accept:'audio/*,video/*',multiple:true,hidden:true,onchange:async()=>{
     const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>MAX_UPLOAD_BYTES){alert('Файл «'+f.name+'» больше 300 МБ.');continue}say('Загружаю '+f.name+'…');const u=await uploadBlob(f,f.name,f.type);const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось загрузить медиафайл: '+e.message)}say('');fm.value=''}});
   /* интерфейс */
@@ -880,7 +998,7 @@ async function openBoard(m,id,guest,shareToken=null){
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
     tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
-    tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()));
+    tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()),tb('link','Медиа по ссылке: YouTube, Vimeo, SoundCloud, фото',addExternalLink));
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
   const fsel=E('select',{onchange:()=>fmt('f',fsel.value)},...FONTS.map(f=>{const o=E('option',{value:f,textContent:f});o.style.fontFamily=`'${f}'`;return o})),
@@ -893,7 +1011,23 @@ async function openBoard(m,id,guest,shareToken=null){
   const customColor=E('input',{type:'color',value:'#49372f',title:'Выбрать собственный цвет текста',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
   customColor.onchange=()=>{const c=customColor.value.toLowerCase();if(!textPalette.includes(c)){textPalette.push(c);ls.s('aspace-text-palette',textPalette);drawTextPalette()}fmt('col',c)};
   fontSec.append(customColor);drawTextPalette();
-  FILLS.forEach(c=>{const s=E('button',{className:'sw',title:'Цвет фигуры / заливка',onclick:()=>fmt('c',c)});s.style.background=c;fillSec.append(s)});const shapeColor=E('input',{type:'color',value:'#b7d1ea',title:'Любой цвет фигуры',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});shapeColor.oninput=()=>fmt('c',shapeColor.value);fillSec.append(shapeColor);
+  const defaultShapePalette=[...FILLS];
+  let shapePalette=ls.g('aspace-shape-palette',defaultShapePalette);
+  if(!Array.isArray(shapePalette))shapePalette=[...defaultShapePalette];
+  const shapeSwatches=E('div',{className:'row nw',style:'gap:3px;align-items:center'});
+  const drawShapes=()=>{shapeSwatches.replaceChildren(...shapePalette.map(c=>{
+    const s=E('button',{className:'sw',title:'Цвет фигуры '+c,onclick:()=>fmt('c',c)});s.style.background=c;return s
+  }))};
+  drawShapes();fillSec.append(shapeSwatches);
+  const shapeColor=E('input',{type:'color',value:'#b7d1ea',title:'Спектр: любой цвет фигуры',style:'width:34px;height:34px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
+  shapeColor.oninput=()=>fmt('c',shapeColor.value);
+  const saveShapeColor=()=>{const v=shapeColor.value.toLowerCase();if(!shapePalette.includes(v)){shapePalette.push(v);ls.s('aspace-shape-palette',shapePalette);drawShapes()}fmt('c',v)};
+  const keepColor=B('＋ Цвет',saveShapeColor);
+  const eyeShape=B('◉ Пипетка',async()=>{
+    if(!window.EyeDropper){alert('Пипетка недоступна в этом браузере. Используй цветовой спектр.');return}
+    try{const result=await new EyeDropper().open(),v=result.sRGBHex.toLowerCase();shapeColor.value=v;fmt('c',v);if(!shapePalette.includes(v)){shapePalette.push(v);ls.s('aspace-shape-palette',shapePalette);drawShapes()}}catch(e){if(e.name!=='AbortError')alert(e.message)}
+  });
+  fillSec.append(shapeColor,keepColor,eyeShape);
   fbar.append(fontSec,E('span',{className:'sep'}),fillSec);fbar.onmousedown=e=>{if(e.target.tagName!=='SELECT')e.preventDefault()};
   const fmt=(k,v)=>{if(!sel)return;sel[k]=v;upsert(sel);push(sel);syncBar()};
   const syncBar=()=>{if(!sel)return;fsel.value=sel.f||'Open Sans';ssel.value=sel.fs||16;bB.classList.toggle('on',!!sel.b);bI.classList.toggle('on',!!sel.i);bU.classList.toggle('on',!!sel.ul)};
@@ -904,6 +1038,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const zl=E('span',{className:'zl',textContent:'100%'}),zoom=E('div',{className:'bar zoom'},B('−',()=>setZ(z/1.2)),zl,B('+',()=>setZ(z*1.2)),B('100%',()=>setZ(1)));
   /* видео-окно */
   const openVideo=()=>{
+    if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:'Видеозвонок'}));
     vw=E('div',{className:'vwin'},hd,grid,vbar);
@@ -930,7 +1065,7 @@ async function openBoard(m,id,guest,shareToken=null){
     B('◎ Следовать за ним',()=>{const id0=peerSelect.value,p=peers[id0];if(!id0||!p)return say('Участник не найден. Обнови список и выбери его снова.');if(!p.v)return say('Жду, пока участник передаст своё положение на доске…');followId=id0;applyViewport(p.v);say('Следуешь за '+(p.name||'участником'))}),
     B('↪ Прикрепить ко мне',()=>{const id0=peerSelect.value;if(!id0||!peers[id0])return say('Участник не найден. Обнови список и выбери его снова.');r.emit('followme',{to:id0,from:r.id,name:myName,v:myViewport()});say('Отправляю запрос: участник будет следовать за тобой')}),
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
-  const bgb=k=>{bg=k;wrap.className='wrap '+k;r.emit('bg',{bg:k});persist()};
+  const bgb=k=>{bg=k;wrap.className='wrap '+k;sc.className='bscroll '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
   const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:goHome},ic('home'),E('span',{textContent:'Домой'}));
   const menu=E('div',{className:'menu'},home,mb,mp);
@@ -990,32 +1125,21 @@ function build(text,topic,N=18){
 }
 /*EDU-END*/
 async function eduView(m){
-  const mat=(await load('edu/materials'))||{items:[]},les=(await load('edu/lessons'))||{items:[]};
-  const list=E('div'),out=E('pre',{textContent:'Загрузите материалы (PDF или текст), введите тему и нажмите «Собрать».'}),hist=E('div'),stt=E('div',{className:'mut'});let curTxt='';
-  const draw=()=>{list.replaceChildren(...mat.items.map(x=>E('div',{className:'li'},E('span',{textContent:`${x.name} · ${x.text.length} симв.`}),B('✕',async()=>{mat.items=mat.items.filter(y=>y.id!==x.id);await save('edu/materials',mat);draw()}))));
-    hist.replaceChildren(...les.items.slice().reverse().map(x=>E('div',{className:'li'},E('span',{textContent:x.title}),B('Открыть',()=>{curTxt=x.text;out.textContent=x.text}))))};
-  const fi=E('input',{type:'file',multiple:true,accept:'.pdf,.txt,.md,.csv,.json,.html',onchange:async()=>{
-    for(const f of fi.files){try{stt.textContent='Читаю '+f.name+'…';let t;
-      if(/\.pdf$/i.test(f.name)){const lib=await pdfjs(),doc=await lib.getDocument({data:await f.arrayBuffer()}).promise;t='';
-        for(let i=1;i<=doc.numPages;i++){const c=await(await doc.getPage(i)).getTextContent();t+=c.items.map(x=>x.str+(x.hasEOL?'\n':' ')).join('')+'\n'}}
-      else t=await f.text();
-      if(t.trim().length<100)alert(`В «${f.name}» почти нет текста (возможно, это скан). Распознавание сканов пока не поддерживается.`);
-      else mat.items.push({id:uid(),name:f.name,text:t.slice(0,400000)})}catch{alert('Не удалось прочитать '+f.name)}}
-    stt.textContent='';await save('edu/materials',mat);fi.value='';draw()}});
-  const topic=E('input',{placeholder:'Тема / ключевые слова (можно пусто)',size:32}),len=E('select',{},...[['Короткий',10],['Средний',18],['Подробный',30]].map(([l,v])=>E('option',{value:v,textContent:l,selected:v===18})));
-  const gen=async k=>{
-    if(!mat.items.length){out.textContent='Сначала загрузите материалы.';return}
-    const r=build(mat.items.map(x=>x.text).join('\n\n'),topic.value.trim(),+len.value);
-    if(!r){out.textContent='Слишком мало текста для построения урока.';return}
-    curTxt=k==='l'?r.lesson:k==='h'?r.hw:r.lesson+'\n\n'+r.hw;out.textContent=curTxt;
-    les.items.push({title:r.title+' · '+new Date().toLocaleDateString('ru'),text:curTxt});await save('edu/lessons',les);draw()};
-  const dl=()=>{const a=E('a',{href:URL.createObjectURL(new Blob([curTxt],{type:'text/markdown'})),download:'урок.md'});a.click()};
-  m.append(E('h2',{textContent:'Образование'}),
-    E('div',{className:'card noprint'},E('b',{textContent:'1. Материалы'}),fi,E('div',{className:'mut',textContent:'PDF читается прямо в браузере, без ИИ и без интернета. Сканы (картинки в PDF) пока не распознаются.'}),stt,list),
-    E('div',{className:'card noprint',style:'margin-top:12px'},E('b',{textContent:'2. Собрать'}),E('div',{className:'row'},topic,len),
-      E('div',{className:'row'},B('Урок',()=>gen('l')),B('Домашнее задание',()=>gen('h')),B('Урок + ДЗ',()=>gen('a')),B('⬇ Скачать .md',dl),B('🖨 Печать / PDF',()=>print()))),
-    E('div',{style:'margin:12px 0'},out),E('div',{className:'noprint'},E('b',{textContent:'История'}),hist));
-  draw();
+  // This section is a static local HTML course builder, without load(), save(),
+  // Firebase, Worker APIs, shared storage, or server-side processing.
+  const courseUrl='./education/speakout-b1plus-builder.html';
+  const title=E('h2',{textContent:'Образование · HTML-сборщик Speakout B1+'});
+  const info=E('div',{className:'card',style:'padding:16px'},
+    E('b',{textContent:'8 юнитов · 32 урока · EN/RU · индивидуальная практика'}),
+    E('p',{textContent:'Преподавательский сборщик работает в браузере без наших баз данных. Можно пользоваться материалами, выбирать упражнения и собирать рабочие листы для печати или PDF.'}),
+    E('p',{className:'mut',textContent:'Для полностью автономной работы открой HTML-файл напрямую на устройстве. На сайте требуется только разовая загрузка самой страницы.'}));
+  const open=B('↗ Открыть сборщик на весь экран',()=>window.open(courseUrl,'_blank','noopener,noreferrer'));
+  const download=E('a',{href:courseUrl,download:'Speakout-B1plus-Course-Builder.html',textContent:'⬇ Скачать локальный HTML-сборщик',style:'display:inline-block;padding:12px;color:#795779'});
+  const frame=E('iframe',{src:courseUrl,title:'Speakout B1+ — локальный HTML-сборщик',
+    loading:'lazy',referrerPolicy:'no-referrer',sandbox:'allow-scripts allow-forms allow-modals allow-popups allow-downloads',
+    style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
+  m.append(title,info,E('div',{className:'row',style:'margin:12px 0'},open,download),frame);
 }
+
 start();
 </script></body></html>
