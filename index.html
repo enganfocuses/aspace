@@ -606,6 +606,22 @@ function stopPersistentCall(){
   try{session.room?.close()}catch(error){console.warn('Aspace room shutdown:',error)}
   try{session.window?.remove()}catch{}
 }
+// A true anonymous guest probe bypasses the global owner-token fetch wrapper.
+// One short temporary signal is created and deleted only when access succeeds.
+async function testGuestCallAccess(id){
+  const base=DB()+'/rooms/'+encodeURIComponent('c-'+id)+'/call';
+  const read=await rawFetch(base+'.json?shallow=true',{cache:'no-store'});
+  if(!read.ok)return{ok:false,step:'Чтение звонка',status:read.status};
+  const write=await rawFetch(base+'.json',{
+    method:'POST',
+    body:JSON.stringify({t:'accesscheck',d:'{}',s:'probe-'+uid()+uid()})
+  });
+  if(!write.ok)return{ok:false,step:'Отправка сигналов',status:write.status};
+  const result=await write.json().catch(()=>null);
+  if(!result?.name)return{ok:false,step:'Ответ сервера',status:0};
+  const cleanup=await rawFetch(base+'/'+encodeURIComponent(result.name)+'.json',{method:'DELETE'});
+  return{ok:cleanup.ok,step:cleanup.ok?'Готово':'Удаление тестового сигнала',status:cleanup.status};
+}
 async function roomUI(m,id,name,back){
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
   const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
@@ -697,7 +713,17 @@ async function roomUI(m,id,name,back){
     say2('Вы перешли на доску, видеозвонок продолжается');
   });
   const copyCallLink=B('🔗 Скопировать ссылку',()=>{copyLink(url);say2('Ссылка на видеозвонок скопирована')});
-  const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,copyCallLink,boardBtn];
+  const guestTest=B('🧪 Проверить доступ ученика',async()=>{
+    guestTest.disabled=true;
+    try{
+      const result=await testGuestCallAccess(id);
+      alert(result.ok?'Гостевой доступ подтверждён: чтение и отправка сигналов разрешены без аккаунта.':
+        'Гостевой звонок пока недоступен: '+result.step+' (HTTP '+result.status+'). Проверь Firebase Rules.');
+    }catch(error){alert('Проверка гостевого доступа: '+error.message)}
+    finally{guestTest.disabled=false}
+  });
+  const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),
+    join,copyCallLink,...(currentUser?.uid===CFG.ownerUid?[boardBtn,guestTest]:[])];
   bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:'Ссылка для ученика: '+url}),E('div',{className:'mut',textContent:'Окно видеозвонка открывается по центру, его можно перемещать, сворачивать и разворачивать на весь экран.'}));
   cleanup=()=>{if(!persistentCallSession||persistentCallSession.id!==id)close()};
 }
@@ -742,6 +768,20 @@ async function boardsView(m){
     const publicUrl=()=>location.origin+location.pathname+'#s-'+b.shareToken;
     if(b.shareToken){
       actions.append(B('🔗 Скопировать публичную ссылку',()=>copyLink(publicUrl())));
+      actions.append(B('🧪 Проверить ссылку ученика',async()=>{
+        try{
+          const base=shareURL(b.shareToken);
+          const metaResponse=await rawFetch(base+'/meta.json',{cache:'no-store'});
+          const boardResponse=await rawFetch(base+'/board.json?shallow=true',{cache:'no-store'});
+          if(!metaResponse.ok||!boardResponse.ok)
+            return alert('Гостевой доступ не подтверждён. Meta HTTP '+metaResponse.status+
+              ', board HTTP '+boardResponse.status+'.');
+          const meta=await metaResponse.json();
+          alert('Гостевое чтение работает без входа. Режим: '+
+            (meta?.role==='editor'?'Редактирование':'Просмотр')+
+            '. Запись учеником проверяется отдельно в реальном уроке.');
+        }catch(error){alert('Гостевой доступ не подтверждён: '+error.message)}
+      }));
       actions.append(B('⚙️ Доступ',async()=>{
         const choice=prompt('Настройки публичной ссылки:\n1 — изменить права\n2 — отозвать ссылку','1');
         if(choice==='1'){
