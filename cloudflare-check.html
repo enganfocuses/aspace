@@ -56,13 +56,14 @@ button.addEventListener('click',async()=>{
   if(update.status!==200)throw new Error('Обновление: HTTP '+update.status+' '+String(update.data.error||''));
   const stale=await request('PUT',{j:JSON.stringify({test:'outdated'}),expectedRevision:1});
   const read=await request('GET');
-  const values=[['Создание',create.status,200],['Обновление',update.status,200],['Устаревшая запись',stale.status,409],['Чтение',read.status,200],['Итоговая версия',read.data.revision,2]];
+  const cleanup=await request('DELETE');
+  const values=[['Создание',create.status,200],['Обновление',update.status,200],['Устаревшая запись',stale.status,409],['Чтение',read.status,200],['Итоговая версия',read.data.revision,2],['Очистка теста',cleanup.status,200]];
   const table=document.createElement('table');const head=document.createElement('tr');
   for(const t of ['Проверка','Результат']){const th=document.createElement('th');th.textContent=t;head.append(th)}table.append(head);
   for(const [name,actual,expected] of values){const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td');a.textContent=name;b.textContent=String(actual)+(actual===expected?' ✓':' (ожидалось '+expected+')');tr.append(a,b);table.append(tr)}
   results.append(table);
-  status.textContent=values.every(([,a,b])=>a===b)?'Все пять проверок пройдены.':'Не все проверки пройдены. Покажи только таблицу результатов.';
-  const note=document.createElement('p');note.className='muted';note.textContent='Создан отдельный тестовый документ. Его можно удалить после проверки.';results.append(note);
+  status.textContent=values.every(([,a,b])=>a===b)?'Все шесть проверок пройдены.':'Не все проверки пройдены. Покажи только таблицу результатов.';
+  const note=document.createElement('p');note.className='muted';note.textContent='Тестовый документ автоматически удалён, если проверка очистки прошла.';results.append(note);
  }catch(e){status.textContent='Не удалось завершить проверку: '+(e&&e.message?e.message:'Неизвестная ошибка')}finally{
    button.disabled=!(auth.currentUser && auth.currentUser.uid===CFG.ownerUid);
  }
