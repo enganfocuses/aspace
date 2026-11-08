@@ -346,17 +346,46 @@ function controls(call,onLeave){
   return[mic,cam,nz,cams,mics,speakers,zoom,lv];
 }
 async function roomUI(m,id,name,back){
-  const box=E('div',{className:'vid big'}),bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null;
-  const leave=()=>{call&&call.stop();call=null;callRoom?.close();callRoom=null;bar.replaceChildren(...idle)};
-  const join=B('Войти в звонок',async()=>{
-    join.disabled=true;join.textContent='Подключаю…';
-    try{const r=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');callRoom=r;call=Call(r,box);await call.start()}
-    catch(e){alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;join.disabled=false;join.textContent='Войти в звонок';return}
-    bar.replaceChildren(...controls(call,leave))});
+  const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
+  const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null};
+  const openVideo=()=>{
+    if(vw){vw.classList.remove('min');return}
+    const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
+    vw=E('div',{className:'vwin'},hd,grid,vbar);
+    const fs=()=>document.fullscreenElement?document.exitFullscreen():vw.requestFullscreen();
+    hd.append(E('span',{className:'row'},B('⛶',fs),B('–',()=>vw.classList.toggle('min')),B('✕',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'})));
+    const go=B('Включить камеру и войти',async()=>{
+      go.disabled=true;go.textContent='Подключаю канал звонка…';
+      try{
+        callRoom=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');
+        call=Call(callRoom,grid);await call.start();
+      }catch(e){
+        alert(e.message);call?.stop();call=null;callRoom?.close();callRoom=null;
+        go.disabled=false;go.textContent='Повторить подключение';return;
+      }
+      go.remove();let ns=true;
+      const mic=E('button',{title:'Микрофон',onclick:()=>mic.classList.toggle('off',!call.mic())},ic('mic')),
+        cam=E('button',{title:'Камера',onclick:()=>cam.classList.toggle('off',!call.cam())},ic('video')),
+        nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});
+      nz.classList.add('on');
+      const cams=devicePicker(call,'videoinput','Камера'),mics=devicePicker(call,'audioinput','Микрофон'),speakers=devicePicker(call,'audiooutput','Динамик');
+      const zc=call.zoomCaps();if(zc)vbar.append(E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,title:'Приблизить / отдалить камеру',oninput:e=>call.zoom(+e.target.value)}));
+      vbar.append(mic,cam,nz,cams,mics,speakers,B('⛶',fs),B('Выйти',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'}));
+    });
+    grid.append(go);
+    hd.onpointerdown=e=>{
+      if(e.target.closest('button'))return;
+      hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
+      hd.onpointermove=ev=>{vw.style.right='auto';vw.style.left=Math.max(0,ev.clientX-ox)+'px';vw.style.top=Math.max(0,ev.clientY-oy)+'px'};
+      hd.onpointerup=()=>{hd.onpointermove=hd.onpointerup=null};
+    };
+    document.body.append(vw);
+  };
+  const join=B('Открыть видеозвонок',openVideo);
   const boardBtn=B('▤ Включить доску',async()=>{const tab=window.open('about:blank','_blank');const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=boardLink(bid,'edit');if(tab)tab.location.href=u;else copyLink(u);say2('Совместная доска создана')});
   const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,boardBtn];
-  bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:url}),box);
-  cleanup=()=>{call&&call.stop();call=null;callRoom?.close();callRoom=null};
+  bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:url}),E('div',{className:'mut',textContent:'Видеозвонок откроется в отдельном окне поверх страницы. Можно перемещать, сворачивать и разворачивать на весь экран.'}));
+  cleanup=close;
 }
 async function callView(m){
   const me={ics:'/calendar.ics'};
