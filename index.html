@@ -298,6 +298,45 @@ const getGuestStandby=()=>guestStandbyPromise||(guestStandbyPromise=import('./cl
     baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',
     onStatus:info=>console.info('Aspace guest standby:',info.phase,info.source)
   })));
+// In the opt-in owner standby lab, keep D1 share permissions aligned with
+// the same Firebase token. Never ship the raw token to Cloudflare D1.
+async function syncStandbyShare(boardId,token,role,revoking=false){
+  if(!standbyOptIn()||currentUser?.uid!==CFG.ownerUid||!token)return {skipped:true};
+  if(!/^[a-f0-9]{48}$/.test(token)||!/^[A-Za-z0-9_-]{1,120}$/.test(boardId))
+    throw Error('Неверный ID доски или токен публичной ссылки');
+  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)));
+  const hash=[...digest].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+  const base='https://aspace-fallback-api.anncodes001.workers.dev';
+  const authHeader={Authorization:'Bearer '+await currentUser.getIdToken()};
+  const send=async(path,method='GET',body=null)=>{
+    const res=await fetch(base+path,{method,
+      headers:{...authHeader,...(body?{'Content-Type':'application/json'}:{})},
+      body:body?JSON.stringify(body):undefined,cache:'no-store'});
+    if(!res.ok)throw Error('Cloudflare HTTP '+res.status+' ('+path.split('?')[0]+')');
+    return res.json();
+  };
+  const docKey='boards/'+boardId;
+  const current=await send('/v1/shares?docKey='+encodeURIComponent(docKey));
+  const exists=(current.shares||[]).find(share=>share.tokenHash===hash);
+  if(revoking){
+    if(exists&&!exists.revoked)await send('/v1/shares/'+hash,'DELETE');
+    return {revoked:true};
+  }
+  if(!['viewer','editor'].includes(role))throw Error('Неизвестные права');
+  if(exists?.revoked)throw Error('Отозванную ссылку нельзя повторно включить');
+  if(exists){
+    if(exists.role!==role)await send('/v1/shares/'+hash,'PATCH',{role});
+    return {updated:true};
+  }
+  // Never create a token for a board whose snapshot is not already backed up.
+  await send('/v1/shares','POST',{tokenHash:hash,docKey,role});
+  return {created:true};
+}
+const notifyStandbyGrantError=error=>{
+  alert('Firebase обновлён, но резервный доступ Cloudflare НЕ подтверждён: '+
+    error.message+'. Ссылку нельзя считать полностью синхронизированной. '+
+    'Проверь раздел «Резерв Cloudflare».');
+};
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{
   const canCache=part==='meta'||part==='board';
@@ -770,6 +809,9 @@ async function roomUI(m,id,name,back){
         await shareWrite(token,'meta',{boardId:chosen.id,name:chosen.name,role:'editor',createdAt:Date.now()});
         await shareWrite(token,'board',board);
         chosen.shareToken=token;await save('meta/boards',index);
+        try{await syncStandbyShare(chosen.id,token,'editor')}catch(error){
+          if(standbyOptIn())notifyStandbyGrantError(error)
+        }
       }catch(e){alert('Не удалось открыть ученикам доступ: '+e.message);return}
     }
     const notified=await live.room.emit('boardnav',{boardId:chosen.id,token});
@@ -852,11 +894,15 @@ async function boardsView(m){
         const choice=prompt('Настройки публичной ссылки:\n1 — изменить права\n2 — отозвать ссылку','1');
         if(choice==='1'){
           const role=confirm('ОК — ученик сможет редактировать доску.\nОтмена — только просмотр.')?'editor':'viewer';
-          try{await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()});say2('Права доступа обновлены')}
+          try{await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()});
+            try{await syncStandbyShare(b.id,b.shareToken,role)}catch(error){notifyStandbyGrantError(error)}
+            say2('Права Firebase обновлены')}
           catch(e){alert('Не удалось изменить права: '+e.message)}
         }else if(choice==='2'){
           if(!confirm('Отозвать публичную ссылку? Ученик больше не сможет открыть доску.'))return;
-          try{await revokeShare(b.shareToken);delete b.shareToken;await save('meta/boards',idx);go(boardsView)}
+          try{const oldToken=b.shareToken;await revokeShare(oldToken);delete b.shareToken;await save('meta/boards',idx);
+            try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
+            go(boardsView)}
           catch(e){alert('Не удалось отозвать ссылку: '+e.message)}
         }
       }));
@@ -870,12 +916,19 @@ async function boardsView(m){
           await shareWrite(token,'board',board);
           for(const it of (board.items||[])){if(it.u&&it.u.startsWith('img:')){const aid=it.u.slice(4),ar=await fetch(DB()+'/img/'+aid+'.json');if(ar.ok)await shareWrite(token,'assets/'+aid,await ar.json())}}
           b.shareToken=token;await save('meta/boards',idx);activeShareToken=null;
+          try{await syncStandbyShare(b.id,token,role)}catch(error){
+            if(standbyOptIn())notifyStandbyGrantError(error)
+          }
           await copyLink(publicUrl());
           go(boardsView);
         }catch(e){alert('Не удалось создать ссылку: '+e.message)}
       }));
     }
-    actions.append(B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);if(b.shareToken)await revokeShare(b.shareToken);await save('meta/boards',idx);go(boardsView)}));
+    actions.append(B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);
+      if(b.shareToken){const oldToken=b.shareToken;await revokeShare(oldToken);
+        try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
+      }
+      await save('meta/boards',idx);go(boardsView)}));
     card.append(actions);g.append(card);
   });
   m.append(E('h2',{textContent:'Доски'}),g);
