@@ -16,7 +16,7 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 #remotePreview{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;background:#f5f1f7;padding:12px;border-radius:10px}
 #objectStage{position:relative;min-height:310px;background:radial-gradient(#d8cce0 1px,transparent 1px) 0 0/20px 20px;border:1px solid #dbcde2;border-radius:14px;overflow:hidden;touch-action:none}
 .stageObj{position:absolute;box-sizing:border-box;min-width:100px;min-height:72px;border:2px solid #8f6e9d;border-radius:12px;background:#f3def2;padding:9px;box-shadow:0 3px 10px #0001;touch-action:none;user-select:none;cursor:grab}
-.stageObj.rect{background:#e7e1fa;border-radius:5px}.stageObj:focus{outline:3px solid #8a4c91}.stageObj small{display:block;font-size:11px;color:#483849}
+#drawingLayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;touch-action:none}#drawingLayer.draw-mode{pointer-events:auto;cursor:crosshair}.stageObj.rect{background:#e7e1fa;border-radius:5px}.stageObj:focus{outline:3px solid #8a4c91}.stageObj small{display:block;font-size:11px;color:#483849}
 </style>
 <script src="./config.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -36,7 +36,8 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 <label>Объекты на доске</label>
 <div class="actions"><button id="addNote" class="secondary" disabled>＋ Стикер</button><button id="addRect" class="secondary" disabled>＋ Прямоугольник</button><button id="removeObject" class="secondary" disabled>Удалить выбранный</button></div>
 <p class="muted">Добавляй объекты и перемещай пальцем. Для изменения текста стикера дважды коснись его.</p>
-<div id="objectStage" aria-label="Тестовые объекты доски"></div>
+<div class="actions"><button id="penMode" class="secondary" disabled>✏️ Рисовать пальцем</button><button id="undoStroke" class="secondary" disabled>Отменить линию</button><label for="penColor" style="margin:0">Цвет <input id="penColor" type="color" value="#7444a0" style="width:56px;height:45px;padding:3px"></label></div>
+<div id="objectStage" aria-label="Тестовые объекты доски"><canvas id="drawingLayer"></canvas></div>
 <p class="muted">Локальное сохранение после каждого изменения. При отсутствии сети изменения остаются только на этом устройстве. Отправка в Cloudflare — по кнопке.</p>
 <p class="muted">Ключ тестовой доски: <code>prototype-board-v1</code> · Ревизия сервера: <b id="revision">не загружена</b></p>
 </section>
@@ -52,14 +53,14 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 const BASE='https://aspace-fallback-api.anncodes001.workers.dev', KEY='prototype-board-v1', CACHE='aspace:cf:prototype:v1';
 const $=id=>document.getElementById(id);
 const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$('revision');
-let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null;
+let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null, strokes=[], drawing=false, activeStroke=null;
 const stored=()=>{try{return JSON.parse(localStorage.getItem(CACHE)||'null')}catch{return null}};
-function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,items,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
+function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,items,strokes,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
 function show(text){status.textContent=text;revisionEl.textContent=rev===null?'не загружена':String(rev)}
-function apply(data,newRev,changed){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);selected=null;renderItems();rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
+function apply(data,newRev,changed){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);selected=null;renderItems();renderStrokes();rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
 function localChange(){localEditSerial++;dirty=true;cache();show('Изменения сохранены на планшете. Нажми «Сохранить в Cloudflare».')}
 title.addEventListener('input',localChange);body.addEventListener('input',localChange);
-function payload(){return {title:title.value,text:body.value,items:cleanItems(items),strokes:[],kind:'aspace-prototype',schema:1}}
+function payload(){return {title:title.value,text:body.value,items:cleanItems(items),strokes:cleanStrokes(strokes),kind:'aspace-prototype',schema:1}}
 // The same basic item fields as the current Aspace board: id, k, x, y, w, h, t, c.
 function cleanItems(source){
  if(!Array.isArray(source))return [];
@@ -73,7 +74,7 @@ function cleanItems(source){
   }));
 }
 function renderItems(){
- const stage=$('objectStage');stage.replaceChildren();
+ const stage=$('objectStage');stage.querySelectorAll('.stageObj').forEach(n=>n.remove());
  const maxX=Math.max(0,stage.clientWidth-110),maxY=Math.max(0,stage.clientHeight-80);
  for(const n of items){
   const el=document.createElement('div');el.className='stageObj'+(n.k==='shape'?' rect':'');
@@ -107,6 +108,74 @@ function addObject(k){
 $('addNote').addEventListener('click',()=>addObject('note'));
 $('addRect').addEventListener('click',()=>addObject('shape'));
 $('removeObject').addEventListener('click',()=>{if(!selected)return;items=items.filter(n=>n.id!==selected);selected=null;$('removeObject').disabled=true;localChange();renderItems()});
+
+// Tablet pen, serialized as compact normalized [x, y] points in the test document.
+function cleanStrokes(source){
+ if(!Array.isArray(source))return [];
+ return source.slice(0,250).filter(s=>s&&Array.isArray(s.p)).map(s=>({
+  id:String(s.id||'').slice(0,80),
+  c:/^#[0-9a-fA-F]{6}$/.test(s.c)?s.c:'#7444a0',
+  w:Math.max(1,Math.min(16,Number(s.w)||4)),
+  p:s.p.slice(0,1200).filter(p=>Array.isArray(p)&&p.length===2&&Number.isFinite(p[0])&&Number.isFinite(p[1]))
+    .map(p=>[Math.max(0,Math.min(1,p[0])),Math.max(0,Math.min(1,p[1]))])
+ })).filter(s=>s.p.length);
+}
+const drawCanvas=$('drawingLayer'),drawContext=drawCanvas.getContext('2d');
+function renderStrokes(){
+ const bounds=$('objectStage').getBoundingClientRect();
+ const dpr=Math.min(window.devicePixelRatio||1,2);
+ drawCanvas.width=Math.max(1,Math.round(bounds.width*dpr));
+ drawCanvas.height=Math.max(1,Math.round(bounds.height*dpr));
+ drawContext.setTransform(dpr,0,0,dpr,0,0);drawContext.clearRect(0,0,bounds.width,bounds.height);
+ for(const s of [...strokes,...(activeStroke?[activeStroke]:[])]){
+  if(!s.p.length)continue;
+  drawContext.beginPath();drawContext.strokeStyle=s.c;drawContext.fillStyle=s.c;
+  drawContext.lineWidth=s.w;drawContext.lineCap='round';drawContext.lineJoin='round';
+  for(let i=0;i<s.p.length;i++){
+   const x=s.p[i][0]*bounds.width,y=s.p[i][1]*bounds.height;
+   if(i===0)drawContext.moveTo(x,y);
+   else drawContext.lineTo(x,y);
+  }
+  if(s.p.length===1){drawContext.arc(s.p[0][0]*bounds.width,s.p[0][1]*bounds.height,s.w/2,0,2*Math.PI);drawContext.fill()}
+  else drawContext.stroke();
+ }
+ $('undoStroke').disabled=!account||strokes.length===0;
+}
+function canvasPoint(event){
+ const b=$('objectStage').getBoundingClientRect();
+ return [Math.round(Math.max(0,Math.min(1,(event.clientX-b.left)/b.width))*10000)/10000,
+         Math.round(Math.max(0,Math.min(1,(event.clientY-b.top)/b.height))*10000)/10000];
+}
+drawCanvas.addEventListener('pointerdown',e=>{
+ if(!account||!drawing||activeStroke||strokes.length>=250)return;
+ e.preventDefault();
+ activeStroke={id:crypto.randomUUID(),c:$('penColor').value,w:4,p:[canvasPoint(e)]};
+ drawCanvas.setPointerCapture(e.pointerId);renderStrokes();
+});
+drawCanvas.addEventListener('pointermove',e=>{
+ if(!activeStroke||!drawCanvas.hasPointerCapture(e.pointerId))return;
+ const p=canvasPoint(e),old=activeStroke.p.at(-1);
+ if(activeStroke.p.length<1200&&(Math.abs(p[0]-old[0])+Math.abs(p[1]-old[1])>.002)){
+  activeStroke.p.push(p);renderStrokes();
+ }
+});
+function finishStroke(e){
+ if(!activeStroke)return;
+ if(e&&drawCanvas.hasPointerCapture(e.pointerId))drawCanvas.releasePointerCapture(e.pointerId);
+ if(activeStroke.p.length)strokes.push(activeStroke);
+ activeStroke=null;localChange();renderStrokes();
+}
+drawCanvas.addEventListener('pointerup',finishStroke);
+drawCanvas.addEventListener('pointercancel',finishStroke);
+$('penMode').addEventListener('click',()=>{
+ drawing=!drawing;
+ drawCanvas.classList.toggle('draw-mode',drawing);
+ $('penMode').textContent=drawing?'✓ Закончить рисовать':'✏️ Рисовать пальцем';
+});
+$('undoStroke').addEventListener('click',()=>{if(!strokes.length)return;strokes.pop();localChange();renderStrokes()});
+if('ResizeObserver' in window)new ResizeObserver(renderStrokes).observe($('objectStage'));
+else window.addEventListener('resize',renderStrokes);
+renderStrokes();
 
 async function api(method,data){
  if(!account)throw Error('Требуется вход владельца');
@@ -169,7 +238,7 @@ async function save(){
   if(r.status===409){const fresh=await api('GET');if(fresh.status!==200)throw Error('Не удалось получить актуальную версию');await conflict(fresh);return}
   if(r.status!==200)throw Error('Cloudflare HTTP '+r.status+' '+String(r.data.error||''));
   rev=r.data.revision;
-  const changedWhileSaving=title.value!==snapshot.title||body.value!==snapshot.text||JSON.stringify(items)!==JSON.stringify(snapshot.items);
+  const changedWhileSaving=title.value!==snapshot.title||body.value!==snapshot.text||JSON.stringify(items)!==JSON.stringify(snapshot.items)||JSON.stringify(strokes)!==JSON.stringify(snapshot.strokes);
   dirty=changedWhileSaving;
   cache();$('conflict').style.display='none';remoteConflict=null;
   show(changedWhileSaving?'Версия сохранена; новые изменения остаются локально.':'Сохранено в Cloudflare. Версия '+rev+'.');
@@ -201,11 +270,11 @@ firebase.initializeApp(CFG.firebase);
 firebase.auth().onAuthStateChanged(async user=>{
  account=user&&user.uid===CFG.ownerUid?user:null;
  const enabled=!!account;
- for(const id of ['boardTitle','boardText','save','load','addNote','addRect'])$(id).disabled=!enabled;
+ for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode'])$(id).disabled=!enabled;
  $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
  if(!enabled)return;
  const data=stored();
- if(data){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);renderItems();rev=Number.isSafeInteger(data.revision)?data.revision:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
+ if(data){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);renderItems();renderStrokes();rev=Number.isSafeInteger(data.revision)?data.revision:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
  if(dirty)show('Найдена локальная несинхронизированная версия. Она не будет перезаписана автоматически.');
  else await load();
 });
