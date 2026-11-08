@@ -295,7 +295,13 @@ const shareRead=async(token,part)=>{
     throw error;
   }
 };
-const shareWrite=async(token,part,value,method='PUT')=>{const r=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});if(!r.ok)throw new Error('Firebase не разрешил операцию: '+part);return true};
+const shareWrite=async(token,part,value,method='PUT')=>{
+  const response=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});
+  if(!response.ok)throw new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')');
+  if((part==='board'||part==='meta')&&value!=null)
+    try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
+  return true;
+};
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
 const revokeShare=async token=>{const board=await shareRead(token,'board').catch(()=>null);for(const it of (board?.items||[])){if(it.u&&it.u.startsWith('img:'))await fetch(shareURL(token)+'/assets/'+encodeURIComponent(it.u.slice(4))+'.json',{method:'DELETE'})}for(const part of ['board','room','meta'])await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})};
 const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
@@ -834,6 +840,14 @@ async function openBoard(m,id,guest,shareToken=null){
   activeShareToken=shareToken;
   if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
+  const cloneBoard=value=>JSON.parse(JSON.stringify(value));
+  let lastConfirmedShared=activeShareToken&&d0?cloneBoard(d0):null;
+  const localGuestDraft=activeShareToken
+    ?await localGet('guestDrafts',activeShareToken).catch(()=>null):null;
+  if(localGuestDraft?.value&&!guest){
+    lastConfirmedShared=localGuestDraft.base??lastConfirmedShared;
+    d0=cloneBoard(localGuestDraft.value);
+  }
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
   let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
@@ -841,7 +855,15 @@ async function openBoard(m,id,guest,shareToken=null){
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
-  const r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
+  let roomWarning='',r;
+  try{
+    r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
+  }catch(error){
+    roomWarning=String(error.message||error);
+    // Missing signaling permission must not hide a board that was already
+    // downloaded. Editing stays local, but live co-editing is unavailable.
+    r={id:uid()+uid(),emit:()=>Promise.resolve(false),on:()=>()=>{},close:()=>{}};
+  }
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
   const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null,remoteTimer=null;
@@ -871,7 +893,59 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;applyViewport(p.v);r.emit('followack',{to:p.from,name:myName});say('Следуешь за '+(p.name||'участником'))}});
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
-  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на этом устройстве. Синхронизация с облаком произойдёт при подключении.')}if(activeShareToken)try{await shareWrite(activeShareToken,'board',data)}catch(e){say('Общая доска сохранена локально; облачная синхронизация пока не удалась: '+e.message)}},1200)};
+  let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null;
+  const saveSharedDraft=async(data)=>{
+    const token=activeShareToken;
+    if(!token)return;
+    const previous=await localGet('guestDrafts',token).catch(()=>null);
+    const base=previous?.base??lastConfirmedShared;
+    // Draft first, network second. Multiple changes are serialized.
+    await localPut('guestDrafts',{key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
+      pending:true,updatedAt:Date.now()});
+    try{
+      if(previous?.pending){
+        // Reconnecting after an outage must not overwrite somebody else's
+        // changes. Only an identical base or an already-applied write is safe.
+        const response=await fetch(shareURL(token)+'/board.json',{cache:'no-store'});
+        if(!response.ok)throw new Error('Проверка общей доски: HTTP '+response.status);
+        const live=await response.json();
+        const identical=JSON.stringify(live)===JSON.stringify(data);
+        if(!identical&&JSON.stringify(live)!==JSON.stringify(base)){
+          say('Конфликт: доска изменилась у другого участника. Твоя версия сохранена локально.');
+          return;
+        }
+        if(!identical)await shareWrite(token,'board',data);
+      }else await shareWrite(token,'board',data);
+      lastConfirmedShared=cloneBoard(data);
+      const current=await localGet('guestDrafts',token).catch(()=>null);
+      // A newer draft must never be deleted by an older response.
+      if(current&&JSON.stringify(current.value)===JSON.stringify(data))
+        await localDelete('guestDrafts',token);
+    }catch(error){
+      say('Общая доска сохранена локально; облачная синхронизация: '+error.message);
+    }
+  };
+  const queueSharedDraft=data=>{
+    shareSyncChain=shareSyncChain.then(()=>saveSharedDraft(data))
+      .catch(error=>say('Ошибка локального сохранения: '+error.message));
+    return shareSyncChain;
+  };
+  const retrySharedDraft=()=>{
+    if(guest||!activeShareToken||navigator.onLine===false)return;
+    void localGet('guestDrafts',activeShareToken).then(item=>{
+      if(item?.pending&&item.value)queueSharedDraft(item.value);
+    }).catch(()=>{});
+  };
+  if(activeShareToken&&!guest){
+    window.addEventListener('online',retrySharedDraft);
+    shareRecoveryTimer=setInterval(retrySharedDraft,45000);
+    if(localGuestDraft?.pending)setTimeout(retrySharedDraft,2000);
+  }
+  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{
+    const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};
+    if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на устройстве; ожидание облака')}
+    if(activeShareToken)void queueSharedDraft(data);
+  },1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
@@ -1162,7 +1236,9 @@ async function openBoard(m,id,guest,shareToken=null){
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)shareWrite(activeShareToken,'board',data).catch(()=>{})}activeShareToken=null};
+  if(roomWarning)setTimeout(()=>say('Режим без синхронизации: '+roomWarning),500);
+  if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
+  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)void queueSharedDraft(data)}activeShareToken=null};
 }
 
 /* ---------- образование ---------- */
