@@ -6,6 +6,7 @@
 <script src="config.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <title>Aspace</title>
 <style>
 :root{--bg:#fffef9;--card:#fffef9;--ink:#3a3a46;--mut:#8a8580;--btn:#B7D1EA;/* TCX 14-4005 */--line:#7f9bbd;/* обводка: замените на цвет 20-0124 */--pink:#eaa8b8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -212,7 +213,8 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
-let auth=null,currentUser=null,activeShareToken=null;
+let auth=null,currentUser=null,activeShareToken=null,storage=null;
+const MAX_UPLOAD_BYTES=300*1024*1024;
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{const r=await fetch(shareURL(token)+'/'+part+'.json');if(!r.ok)throw new Error('Ссылка недействительна или доступ отозван');return r.json()};
 const shareWrite=async(token,part,value,method='PUT')=>{const r=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});if(!r.ok)throw new Error('Firebase не разрешил операцию: '+part);return true};
@@ -256,7 +258,7 @@ function loginView(message=''){
 }
 function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
-  try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();auth.onAuthStateChanged(user=>{
+  try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();auth.onAuthStateChanged(user=>{
     currentUser=user;const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
     if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
     const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
@@ -430,7 +432,16 @@ async function boardsView(m){
 const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src,onload:ok,onerror:no}))});
 const PDFCDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfP=null;const pdfjs=()=>pdfP||(pdfP=loadScript('vendor/pdf.min.js').then(()=>'vendor/pdf.worker.min.js',()=>loadScript(PDFCDN+'pdf.min.js').then(()=>PDFCDN+'pdf.worker.min.js')).then(w=>{pdfjsLib.GlobalWorkerOptions.workerSrc=w;return pdfjsLib}));
-const upload=async d=>{const id=uid()+uid(),path=activeShareToken?shareURL(activeShareToken)+'/assets/'+id+'.json':DB()+'/img/'+id+'.json';const r=await fetch(path,{method:'PUT',body:JSON.stringify(d)});if(!r.ok)throw new Error('upload');if(activeShareToken&&currentUser&&currentUser.uid===CFG.ownerUid){const p=await fetch(DB()+'/img/'+id+'.json',{method:'PUT',body:JSON.stringify(d)});if(!p.ok)throw new Error('Не удалось сохранить приватную копию файла')}return'img:'+id};
+const dataUrlBlob=data=>{const m=String(data).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);if(!m)throw new Error('Неверный формат файла');const raw=m[3],bin=m[2]?atob(raw):decodeURIComponent(raw),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new Blob([bytes],{type:m[1]||'application/octet-stream'})};
+const uploadBlob=async(blob,name='file',contentType=blob.type||'application/octet-stream')=>{
+  if(!storage)throw new Error('Firebase Storage не инициализирован. Проверь настройки Firebase Storage.');
+  if(blob.size>MAX_UPLOAD_BYTES)throw new Error('Файл больше 300 МБ.');
+  const safe=String(name).replace(/[^a-zA-Z0-9._-]/g,'_').slice(-90)||'file',path='uploads/'+uid()+uid()+'-'+safe;
+  const task=storage.ref().child(path).put(blob,{contentType});
+  await new Promise((resolve,reject)=>task.on('state_changed',snap=>{const pct=Math.round(snap.bytesTransferred/snap.totalBytes*100);say2('Загрузка '+safe+': '+pct+'%')},reject,resolve));
+  return task.snapshot.ref.getDownloadURL();
+};
+const upload=async d=>{const blob=typeof d==='string'&&d.startsWith('data:')?dataUrlBlob(d):d;return uploadBlob(blob,'image-'+uid(),blob.type||'image/jpeg')};
 const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';return imgCache[u]||(imgCache[u]=fetch(path).then(r=>{if(!r.ok)throw new Error('Файл недоступен');return r.json()}))};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
@@ -624,7 +635,7 @@ async function openBoard(m,id,guest,shareToken=null){
         if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
       persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
   const fm=E('input',{type:'file',accept:'audio/*,video/*',multiple:true,hidden:true,onchange:async()=>{
-    const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>3*1024*1024){alert('Файл «'+f.name+'» больше 3 МБ. Пока поддерживаются файлы до 3 МБ.');continue}say('Добавляю '+f.name+'…');const u=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось добавить медиафайл: '+e.message)}say('');fm.value=''}});
+    const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>MAX_UPLOAD_BYTES){alert('Файл «'+f.name+'» больше 300 МБ.');continue}say('Загружаю '+f.name+'…');const u=await uploadBlob(f,f.name,f.type);const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось загрузить медиафайл: '+e.message)}say('');fm.value=''}});
   /* интерфейс */
   const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp,fm);
   const sitePanel=E('section',{className:'site-panel'});
