@@ -490,15 +490,32 @@ async function openBoard(m,id,guest,shareToken=null){
   const r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
-  const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null;
-  const myViewport=()=>({x:sc.scrollLeft,y:sc.scrollTop,z});
-  const queueViewport=()=>{if(applyingRemote)return;clearTimeout(viewTimer);viewTimer=setTimeout(()=>r.emit('vp',{id:r.id,name:myName,v:myViewport()}),90)};
-  const applyViewport=v=>{if(!v)return;applyingRemote=true;z=Math.min(2.5,Math.max(.25,+v.z||1));applyZ();sc.scrollLeft=+v.x||0;sc.scrollTop=+v.y||0;setTimeout(()=>{applyingRemote=false},140)};
-  const refreshPeers=()=>{const selected=peerSelect.value,now=Date.now();Object.keys(peers).forEach(k=>{if(now-peers[k].at>14000)delete peers[k]});const active=Object.values(peers).filter(p=>p.id!==r.id);peerSelect.replaceChildren(E('option',{value:'',textContent:active.length?'Выбери участника…':'Пока никого нет'}),...active.map(p=>E('option',{value:p.id,textContent:p.name||'Участник'})));if(active.some(p=>p.id===selected))peerSelect.value=selected;if(followId&&!peers[followId])followId=null};
-  r.on('presence',m=>{const p=m.data;if(!p||!p.id||p.id===r.id)return;peers[p.id]={...p,at:Date.now()};refreshPeers()});
+  const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null,remoteTimer=null;
+  const myViewport=()=>({cx:(sc.scrollLeft+sc.clientWidth/2)/z,cy:(sc.scrollTop+sc.clientHeight/2)/z,z});
+  const queueViewport=()=>{if(applyingRemote)return;clearTimeout(viewTimer);viewTimer=setTimeout(()=>r.emit('vp',{id:r.id,name:myName,v:myViewport()}),70)};
+  const applyViewport=v=>{
+    if(!v)return;
+    const nz=Math.min(2.5,Math.max(.25,Number(v.z)||1));
+    const cx=Number.isFinite(Number(v.cx))?Number(v.cx):((Number(v.x)||0)+sc.clientWidth/2)/(Number(v.z)||1);
+    const cy=Number.isFinite(Number(v.cy))?Number(v.cy):((Number(v.y)||0)+sc.clientHeight/2)/(Number(v.z)||1);
+    applyingRemote=true;clearTimeout(remoteTimer);z=nz;applyZ();
+    sc.scrollLeft=Math.max(0,cx*z-sc.clientWidth/2);sc.scrollTop=Math.max(0,cy*z-sc.clientHeight/2);
+    remoteTimer=setTimeout(()=>{applyingRemote=false},250);
+  };
+  const refreshPeers=()=>{
+    const selected=peerSelect.value,now=Date.now();
+    Object.keys(peers).forEach(k=>{if(now-peers[k].at>16000)delete peers[k]});
+    const active=Object.values(peers).filter(p=>p.id!==r.id);
+    peerSelect.replaceChildren(E('option',{value:'',textContent:active.length?'Выбери участника…':'Пока никого нет'}),...active.map(p=>E('option',{value:p.id,textContent:p.name||'Участник'})));
+    if(active.some(p=>p.id===selected))peerSelect.value=selected;
+    if(followId&&!peers[followId])followId=null;
+  };
+  r.on('presence',m=>{const p=m.data;if(!p||!p.id||p.id===r.id)return;peers[p.id]={...(peers[p.id]||{}),...p,at:Date.now()};refreshPeers()});
   r.on('vp',m=>{const p=m.data;if(!p||!p.id||p.id===r.id)return;peers[p.id]={...(peers[p.id]||{}),...p,at:Date.now()};if(followId===p.id)applyViewport(p.v);refreshPeers()});
-  r.on('bring',m=>{const p=m.data;if(p&&p.to===r.id){applyViewport(p.v);say((p.name||'Участник')+' подтянул тебя к себе')}});
-  r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;say((p.name||'Участник')+' попросил следовать за ним')}});
+  r.on('bring',m=>{const p=m.data;if(p&&p.to===r.id){applyViewport(p.v);r.emit('bringack',{to:p.from,name:myName});say((p.name||'Участник')+' переместил тебя к себе')}});
+  r.on('bringack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' перемещён к тебе')});
+  r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;applyViewport(p.v);r.emit('followack',{to:p.from,name:myName});say('Следуешь за '+(p.name||'участником'))}});
+  r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
   const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)await save('boards/'+id,data);if(activeShareToken)try{await shareWrite(activeShareToken,'board',data)}catch(e){say('Не удалось сохранить общую доску: '+e.message)}},1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
@@ -681,9 +698,9 @@ async function openBoard(m,id,guest,shareToken=null){
   /* меню */
   const mp=E('div',{className:'mp'}),mi=(t,fn)=>mp.append(B(t,()=>{mp.classList.remove('open');fn()}));
   const followPanel=E('div',{className:'card',style:'padding:10px;gap:6px'},E('b',{textContent:'Участники · навигация'}),peerSelect,
-    B('⇢ Подтянуть к себе',()=>{const id0=peerSelect.value;if(!id0)return say('Сначала выбери участника');r.emit('bring',{to:id0,name:myName,v:myViewport()});say('Отправлен запрос: подтянуть участника')}),
-    B('◎ Следовать за ним',()=>{const id0=peerSelect.value;if(!id0)return say('Сначала выбери участника');followId=id0;say('Следуешь за '+(peers[id0]?.name||'участником'));if(peers[id0]?.v)applyViewport(peers[id0].v)}),
-    B('↪ Прикрепить ко мне',()=>{const id0=peerSelect.value;if(!id0)return say('Сначала выбери участника');r.emit('followme',{to:id0,from:r.id,name:myName});say('Отправлен запрос: следовать за тобой')}),
+    B('⇢ Подтянуть к себе',()=>{const id0=peerSelect.value;if(!id0||!peers[id0])return say('Участник не найден. Обнови список и выбери его снова.');r.emit('bring',{to:id0,from:r.id,name:myName,v:myViewport()});say('Отправляю участнику текущую область доски…')}),
+    B('◎ Следовать за ним',()=>{const id0=peerSelect.value,p=peers[id0];if(!id0||!p)return say('Участник не найден. Обнови список и выбери его снова.');if(!p.v)return say('Жду, пока участник передаст своё положение на доске…');followId=id0;applyViewport(p.v);say('Следуешь за '+(p.name||'участником'))}),
+    B('↪ Прикрепить ко мне',()=>{const id0=peerSelect.value;if(!id0||!peers[id0])return say('Участник не найден. Обнови список и выбери его снова.');r.emit('followme',{to:id0,from:r.id,name:myName,v:myViewport()});say('Отправляю запрос: участник будет следовать за тобой')}),
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
   const bgb=k=>{bg=k;wrap.className='wrap '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
