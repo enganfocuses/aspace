@@ -1,0 +1,60 @@
+name: Deploy Aspace Cloudflare standby (manual, no Firebase changes)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY_STANDBY_ONLY to deploy the Worker; this does NOT switch production Aspace'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-standby:
+    if: ${{ github.event.inputs.confirm == 'DEPLOY_STANDBY_ONLY' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the isolated standby implementation
+        uses: actions/checkout@v4
+        with:
+          ref: feature/cloudflare-fallback-foundation
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run source tests without cloud credentials
+        run: |
+          node --test cloudflare/tests/*.test.mjs
+          node --test tests/*.test.mjs
+      - name: Confirm Cloudflare credentials are configured
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be configured as repository secrets."
+            exit 1
+          fi
+      - name: Install pinned Worker dependencies
+        working-directory: cloudflare
+        run: npm install --no-audit --no-fund
+      - name: Fail closed if D1 revision migration is not ready
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler d1 execute aspace-fallback --remote --command "SELECT revision FROM docs LIMIT 1"
+          npx wrangler d1 execute aspace-fallback --remote --command "SELECT token_hash FROM shares LIMIT 1"
+      - name: Deploy standby Worker only
+        working-directory: cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
+      - name: Verify live read-only health
+        run: |
+          node -e 'fetch("https://aspace-fallback-api.anncodes001.workers.dev/health/db").then(async r=>{let d=await r.json();if(!r.ok||!d.ok)throw Error("Standby D1 not ready");console.log("Cloudflare standby ready")}).catch(e=>{console.error(e);process.exit(1)})'
