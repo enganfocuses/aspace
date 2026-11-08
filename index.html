@@ -1044,33 +1044,69 @@ async function openBoard(m,id,guest,shareToken=null){
     if(!token)return;
     const previous=await localGet('guestDrafts',token).catch(()=>null);
     const base=previous?.base??lastConfirmedShared;
-    // Draft first, network second. Multiple changes are serialized.
-    await localPut('guestDrafts',{key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
-      pending:true,updatedAt:Date.now()});
+    const draft={key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
+      cloudRevision:previous?.cloudRevision??null,pending:true,updatedAt:Date.now()};
+    // The latest draft is committed locally before contacting either provider.
+    await localPut('guestDrafts',draft);
     unsyncedShareDraft=true;
     try{
+      let result=null;
+      let live=null;
+      let firebaseUnreachable=false;
       if(previous?.pending){
-        // Reconnecting after an outage must not overwrite somebody else's
-        // changes. Only an identical base or an already-applied write is safe.
-        const response=await fetch(shareURL(token)+'/board.json',{cache:'no-store'});
-        if(!response.ok)throw new Error('Проверка общей доски: HTTP '+response.status);
-        const live=await response.json();
-        const identical=JSON.stringify(live)===JSON.stringify(data);
-        if(!identical&&JSON.stringify(live)!==JSON.stringify(base)){
-          say('Конфликт: доска изменилась у другого участника. Твоя версия сохранена локально.');
-          return;
+        try{
+          const response=await fetch(shareURL(token)+'/board.json',{cache:'no-store'});
+          if(response.ok){
+            live=await response.json();
+          }else{
+            const errorText=(await response.text().catch(()=>'')).slice(0,350);
+            const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(errorText);
+            if(!guestStandbyEnabled()||!(response.status===429||response.status>=500||quota))
+              throw Error('Firebase HTTP '+response.status+' во время сверки общей доски');
+            firebaseUnreachable=true;
+          }
+        }catch(error){
+          if(!guestStandbyEnabled()||!(error instanceof TypeError||error?.name==='AbortError'))
+            throw error;
+          firebaseUnreachable=true;
         }
-        if(!identical)await shareWrite(token,'board',data);
-      }else await shareWrite(token,'board',data);
-      lastConfirmedShared=cloneBoard(data);
+        if(firebaseUnreachable){
+          result=await shareWrite(token,'board',data);
+        }else{
+          const identical=JSON.stringify(live)===JSON.stringify(data);
+          if(!identical&&JSON.stringify(live)!==JSON.stringify(base)){
+            say('Конфликт Firebase: другой участник изменил доску. Черновик сохранён.');
+            return;
+          }
+          if(previous.cloudRevision&&guestStandbyEnabled()){
+            const confirmed=await (await getGuestStandby()).read(token);
+            if(confirmed.revision!==previous.cloudRevision||
+              JSON.stringify(confirmed.board)!==JSON.stringify(previous.value)){
+              say('Конфликт Cloudflare: другая версия резервной доски. Черновик сохранён.');
+              return;
+            }
+          }
+          result=identical?{source:'firebase'}:await shareWrite(token,'board',data);
+        }
+      }else{
+        result=await shareWrite(token,'board',data);
+      }
       const current=await localGet('guestDrafts',token).catch(()=>null);
-      // A newer draft must never be deleted by an older response.
+      if(result?.source==='cloudflare'){
+        // D1 is not the primary. Keep the local draft until Firebase recovers.
+        if(current&&JSON.stringify(current.value)===JSON.stringify(data))
+          await localPut('guestDrafts',{...current,cloudRevision:result.revision,
+            pending:true,updatedAt:Date.now()});
+        say('Cloudflare сохранил изменения. Ожидаем безопасного возврата в Firebase.');
+        return;
+      }
+      lastConfirmedShared=cloneBoard(data);
       if(current&&JSON.stringify(current.value)===JSON.stringify(data)){
         await localDelete('guestDrafts',token);
         unsyncedShareDraft=false;
       }
     }catch(error){
-      say('Общая доска сохранена локально; облачная синхронизация: '+error.message);
+      say('Изменения сохранены на устройстве: '+error.message);
     }
   };
   const queueSharedDraft=data=>{
