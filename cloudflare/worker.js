@@ -149,7 +149,7 @@ export default {
       if (!result) return json({ error: "share_already_exists" }, 409);
       return json({ ok: true, role: body.role });
     }
-    const revokeMatch = url.pathname.match(/^\\/v1\\/shares\\/([a-f0-9]{64})$/);
+    const revokeMatch = url.pathname.match(/^\/v1\/shares\/([a-f0-9]{64})$/);
     if (revokeMatch && request.method === "DELETE") {
       const updated = await env.DB.prepare(
         "UPDATE shares SET revoked = 1, updated_at = ? WHERE token_hash = ? AND owner_uid = ?"
