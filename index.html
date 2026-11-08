@@ -272,8 +272,68 @@ const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))r
 const rawFetch=window.fetch.bind(window);
 window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
 const eventUrl=async url=>dbUrl(url);
-async function load(p){try{const r=await fetch(DB()+'/docs/'+p+'.json');if(r.ok){const v=await r.json();if(v&&v.j)return JSON.parse(v.j);const l=ls.g(p,null);if(l)save(p,l);return l}}catch{}return ls.g(p,null)}
-async function save(p,d){ls.s(p,d);try{await fetch(DB()+'/docs/'+p+'.json',{method:'PUT',body:JSON.stringify({j:JSON.stringify(d)})})}catch{}}
+/* Локальное хранилище Aspace: IndexedDB + очередь синхронизации */
+const LOCAL_DB='aspace-local-v1';let localDbPromise=null;
+function localDB(){
+ if(!('indexedDB'in window))return Promise.reject(new Error('IndexedDB недоступна'));
+ if(localDbPromise)return localDbPromise;
+ localDbPromise=new Promise((resolve,reject)=>{
+  const req=indexedDB.open(LOCAL_DB,1);
+  req.onupgradeneeded=()=>{const db=req.result;
+   if(!db.objectStoreNames.contains('docs'))db.createObjectStore('docs',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('pending'))db.createObjectStore('pending',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('assets'))db.createObjectStore('assets',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('assetPending'))db.createObjectStore('assetPending',{keyPath:'key'});
+  };
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Не удалось открыть локальную базу'));
+ });
+ return localDbPromise;
+}
+async function localGet(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).get(key);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>reject(q.error)})}
+async function localPut(store,value){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).put(value);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
+async function localAll(store){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
+async function localDelete(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).delete(key);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
+async function load(p){
+ let cached=null,pending=false;
+ try{const c=await localGet('docs',p);cached=c?.value??null;pending=!!(await localGet('pending',p))}catch{}
+ if(pending&&cached!==null)return cached;
+ try{const r=await fetch(DB()+'/docs/'+p+'.json');if(r.ok){const v=await r.json();const data=v&&v.j?JSON.parse(v.j):v;
+   try{await localPut('docs',{key:p,value:data,updatedAt:Date.now()})}catch{}
+   return data;
+  }}catch{}
+ return cached!==null?cached:ls.g(p,null);
+}
+async function save(p,d){
+ const record={key:p,value:d,updatedAt:Date.now()};
+ ls.s(p,d);
+ try{await localPut('docs',record);await localPut('pending',{key:p,updatedAt:record.updatedAt})}
+ catch(e){console.warn('Aspace local save:',e)}
+ try{
+  const r=await fetch(DB()+'/docs/'+p+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({j:JSON.stringify(d)})});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  try{await localDelete('pending',p)}catch{}
+  return true;
+ }catch(e){console.warn('Aspace sync queued:',e);return false}
+}
+async function syncLocalChanges(){
+ if(!navigator.onLine)return;
+ try{
+  const queue=await localAll('pending');
+  for(const item of queue){
+   const doc=await localGet('docs',item.key);if(!doc)continue;
+   const r=await fetch(DB()+'/docs/'+encodeURIComponent(item.key)+'.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({j:JSON.stringify(doc.value)})});
+   if(r.ok){const latest=await localGet('pending',item.key);if(latest&&latest.updatedAt===item.updatedAt)await localDelete('pending',item.key)}
+  }
+  const assets=await localAll('assetPending');
+  for(const item of assets){const asset=await localGet('assets',item.key);if(!asset)continue;
+   const r=await fetch(DB()+'/img/'+encodeURIComponent(item.id)+'.json',{method:'PUT',body:JSON.stringify(asset.value)});
+   if(r.ok){const latest=await localGet('assetPending',item.key);if(latest&&latest.updatedAt===item.updatedAt)await localDelete('assetPending',item.key)}
+  }
+ }catch(e){console.warn('Aspace background sync:',e)}
+}
+addEventListener('online',()=>syncLocalChanges());
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncLocalChanges()});
+
 const room0={join:(name,customPath)=>new Promise(async res=>{
   const me=uid()+uid(),H={},dead=[],base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
   let closed=false;
@@ -532,12 +592,14 @@ const upload=async d=>{
   const blob=typeof d==='string'&&d.startsWith('data:')?dataUrlBlob(d):d;
   if(blob.size>FREE_MEDIA_LIMIT)throw new Error('Изображение слишком большое для бесплатного хранения.');
   const data=await blobDataUrl(blob),id=uid()+uid();
-  const res=await fetch(DB()+'/img/'+id+'.json',{method:'PUT',body:JSON.stringify(data)});
-  if(!res.ok)throw new Error('Firebase Realtime Database отклонила изображение. Проверь правила базы.');
-  imgCache['img:'+id]=Promise.resolve(data);
-  return 'img:'+id;
+  const key='img:'+id;
+  try{await localPut('assets',{key,value:data,updatedAt:Date.now()})}catch(e){console.warn('Не удалось сохранить изображение локально:',e)}
+  imgCache[key]=Promise.resolve(data);
+  try{const res=await fetch(DB()+'/img/'+id+'.json',{method:'PUT',body:JSON.stringify(data)});if(!res.ok)throw new Error('HTTP '+res.status)}
+  catch(e){try{await localPut('assetPending',{key,id,updatedAt:Date.now()})}catch{};if(!navigator.onLine)say2('Изображение сохранено на этом устройстве. Загрузится в облако при подключении.');else throw new Error('Не удалось отправить изображение в Firebase. Локальная копия сохранена. '+e.message)}
+  return key;
 };
-const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';return imgCache[u]||(imgCache[u]=fetch(path).then(r=>{if(!r.ok)throw new Error('Файл недоступен');return r.json()}))};
+const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);return imgCache[u]||(imgCache[u]=(async()=>{try{const local=await localGet('assets',u);if(local?.value)return local.value}catch{}const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';const r=await fetch(path);if(!r.ok)throw new Error('Файл недоступен');const value=await r.json();try{await localPut('assets',{key:u,value,updatedAt:Date.now()})}catch{}return value})())};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
  select:'<path d="M5 3l13 7-5.5 1.8L10 18z"/>',
