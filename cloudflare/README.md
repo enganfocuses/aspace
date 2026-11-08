@@ -142,3 +142,13 @@ On the draft `feature/cloudflare-fallback-foundation` branch, `index.html` has e
 **The staging branch is not deployed as the normal Aspace site.** Ordinary visits to the GitHub Pages production page remain Firebase-only. The branch must not be merged until the single-router code has been verified against the real application in a controlled owner environment and ownership/guest permissions, Firebase ETag behavior, and existing local pending changes have been reviewed. The single-router mode is a storage-routing prototype, not an all-feature outage-ready product.
 
 For a synthetic end-to-end quota/outage test without enabling production failover, visit `/cloudflare-failover-check.html` on GitHub Pages. It performs one batch covering real board schema read-only inspection, a disposable diagnostic document, quota-triggered standby reads, permission denial isolation, network failure, durable queued edits, restoration, conflicting concurrent edits, and cleanup.
+
+## Experimental write-capable standby (strictly opt-in)
+
+The standby router can now perform Cloudflare D1 CAS updates while Firebase reports quota exhaustion or has a network/server outage. This is only enabled when `allowStandbyWrites: true` is passed explicitly. It first verifies that Cloudflare has the expected original document, uses the server revision for optimistic concurrency, and persists a successful standby-write receipt in the owner-scoped IndexedDB queue. Multiple edits during an outage can update the same Cloudflare document if its last confirmed version still matches. An ambiguous lost response is inspected by reading the Cloudflare document before assuming the write succeeded.
+
+When Firebase recovers, queued edits are only replayed when the current Firebase document still matches the recorded original base AND Cloudflare still matches the last known standby write. Otherwise the queue is retained and a conflict is reported: neither store is silently overwritten. This is a conflict-safe staging implementation, not a full multi-writer CRDT. Old Firebase student share links, guest authorization, video and media are not in this failover scope.
+
+In the draft branch's original `index.html`, owner-only router mode requires `?standby=lab`, and direct Cloudflare write mode additionally requires `&standbywrite=lab`. These flags are **not** active on main GitHub Pages. They must remain off until the branch has been separately published and browser-tested.
+
+The standalone `/cloudflare-failover-check.html` on main GitHub Pages has been expanded to test the new write-capable mode on a disposable `diag-...` document, including repeated offline writes, safe Firebase replay, concurrent-edit rejection and cleanup. No real lesson documents are written by that test.
