@@ -128,6 +128,18 @@ export default {
     const uid = await requireOwner(request, env);
     if (!uid) return json({ error: "unauthorized" }, 401);
 
+    // List hashes and status, never raw link secrets, so links can be revoked on any owner's device.
+    if (url.pathname === "/v1/shares" && request.method === "GET") {
+      const docKey = url.searchParams.get("docKey") || "";
+      if (!isPrototypeDoc(docKey)) return json({ error: "invalid_key" }, 400);
+      const result = await env.DB.prepare(
+        "SELECT token_hash, role, revoked, updated_at FROM shares " +
+        "WHERE owner_uid = ? AND doc_key = ? ORDER BY updated_at DESC LIMIT 100"
+      ).bind(uid, docKey).all();
+      return json({ shares: (result.results || []).map(s => ({
+        tokenHash: s.token_hash, role: s.role, revoked: Boolean(s.revoked), updatedAt: s.updated_at
+      })) });
+    }
     // Owner can create only test-board shares at this stage. Raw tokens are
     // generated in the browser; only SHA-256 hashes are stored in D1.
     if (url.pathname === "/v1/shares" && request.method === "POST") {
