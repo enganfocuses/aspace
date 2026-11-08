@@ -597,18 +597,20 @@ function shell(guest){
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
   else if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
   else if(h==='#usage'&&currentUser?.uid===CFG.ownerUid)go(usageView);
+  else if(h.startsWith('#usage?reading=')&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h.startsWith('#c-'))go(m=>roomUI(m,h.slice(3),'Видеозвонок',false));
   else go(boardsView);
 }
 
 async function usageView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Этот раздел доступен только владельцу.'}));return}
+ const importReading=location.hash.startsWith('#usage?reading=')?location.hash.slice('#usage?reading='.length):null;
  history.replaceState(null,'',location.pathname+location.search+'#usage');
  try{
   const {renderUsage}=await import('./usage-view.js');
   const host=E('div');m.append(host);
   const stop=await renderUsage(host,{getOwner:()=>currentUser?.uid===CFG.ownerUid?currentUser:null,
-   tracker:usageTracker,loadIndex:()=>load('meta/boards'),cfg:CFG,E,B});
+   tracker:usageTracker,loadIndex:()=>load('meta/boards'),cfg:CFG,E,B,importReading});
   if(host.isConnected)cleanup=stop;else stop();
  }catch(error){m.append(E('p',{textContent:'Не удалось открыть лимиты: '+error.message}))}
 }

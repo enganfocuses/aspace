@@ -1,9 +1,10 @@
 // All provider-wide readings are explicitly unknown or manually entered.
 // Browser observations are local lower bounds, never billing totals.
-export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B}){
+export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importReading=null}){
  if(!getOwner()){m.append(E('p',{textContent:'Этот раздел доступен только владельцу.'}));return ()=>{}}
- const {LIMITS,quotaStatus,utcDay}=window.AspaceUsage;
- const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1});
+ const {LIMITS,quotaStatus,utcDay,parseSnapshot}=window.AspaceUsage;
+ let pendingImport=parseSnapshot(importReading);
+ const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
  const size=n=>{if(!Number.isFinite(n))return 'Нет данных';const units=['Б','кБ','МБ','ГБ'];let i=0;while(n>=1000&&i<3){n/=1000;i++}return fmt.format(n)+' '+units[i]};
  const date=n=>new Date(n).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' МСК';
  const number=n=>Number.isFinite(n)?fmt.format(n):'Нет данных';
@@ -27,7 +28,7 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B}){
  ];
  function periodFor(row){const day=utcDay(Date.now());return row.period==='day'?day:row.period==='month'?day.slice(0,7):row.period}
  function freshReading(row,record){
-  if(!record||record.period!==periodFor(row))return false;
+  if(!record||record.snapshot||record.period!==periodFor(row))return false;
   const age=Date.now()-record.updatedAt;
   // Storage observations can change on other devices. Never keep a green old reading indefinitely.
   return age>=0&&age<(row.period==='instant'?5*60000:row.period==='current'?24*3600000:Infinity);
@@ -54,13 +55,17 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B}){
   const grid=E('div',{className:'usage-quota-grid'});
   for(const row of rows){
    const record=state.manual[row.id],fresh=freshReading(row,record),status=quotaStatus(fresh?record.value:null,row.limit);
-   const display=row.scale===1?number:size;
+   const display=row.scale===1?number:n=>number(n/row.scale)+' '+row.unit;
    const item=E('article',{className:'usage-card usage-'+status.level},E('h4',{textContent:row.title}),
     E('div',{className:'usage-value',textContent:display(row.limit)}),E('p',{className:'mut',textContent:row.note}));
    if(status.known){
     item.append(E('p',{textContent:'Использовано '+display(record.value)+' · осталось '+display(status.remaining)}),
      E('progress',{value:Math.min(100,status.percent),max:100,ariaLabel:row.title+' — процент использования'}),
      E('p',{className:'mut',textContent:'Внесено вручную: '+date(record.updatedAt)+(status.level==='full'?' · Лимит достигнут':status.level==='warning'?' · Осталось менее 20%':'')}));
+   }else if(record?.snapshot){
+    const historic=quotaStatus(record.value,row.limit);
+    item.append(E('p',{textContent:'По скриншоту: использовано '+display(record.value)+' · остаток по снимку '+display(historic.remaining)}),
+     E('p',{className:'mut',textContent:'Источник: скриншот пользователя'+(row.period==='month'?' · период '+record.period:'')+'. Внесено '+date(record.updatedAt)+'. Время измерения не указано; текущий остаток неизвестен.'}));
    }else item.append(E('p',{className:'usage-unknown',textContent:record?'Показание устарело — обнови его в консоли':'Использовано: нет данных · остаток неизвестен'}));
    inputFor(row,state,item);grid.append(item);
   }
@@ -132,7 +137,12 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B}){
    if(disposed||!getOwner())return;
    const activeInput=body.contains(document.activeElement)&&['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
    if(activeInput&&!reloadIndex)return;
-   body.replaceChildren(grid,quotaCards(state),browserCounters(state),boardSection,disconnected);
+   const importPanel=pendingImport?E('section',{className:'usage-notice'},
+    E('h3',{textContent:'Показания Firebase со скриншота'}),
+    E('p',{textContent:'Хранение '+size(pendingImport.storage)+', скачивание '+size(pendingImport.downloads)+' за '+pendingImport.month+', соединения '+number(pendingImport.connections)+'.'}),
+    E('p',{className:'mut',textContent:'Заменит три сохранённых показания Firebase в этом браузере. Время измерения на снимке не указано: показания будут отмечены как снимок, а не текущие данные. Cloudflare останется без изменений.'}),
+    B('Импортировать 3 показания',()=>{if(!getOwner())return;tracker.importSnapshot(importReading);pendingImport=null;void refresh(false)})):null;
+   body.replaceChildren(...(importPanel?[importPanel]:[]),grid,quotaCards(state),browserCounters(state),boardSection,disconnected);
    stamp.textContent='Локальные данные обновлены '+date(Date.now())+' · автообновление каждые 15 секунд';
   }catch(error){if(!disposed)stamp.textContent='Не удалось обновить: '+error.message}
   finally{busy=false;refreshButton.disabled=false}

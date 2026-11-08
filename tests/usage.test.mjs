@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
-const require=createRequire(import.meta.url),{create,LIMITS,boardSummary,quotaStatus,utcDay}=require('../usage-tracker.js');
+const require=createRequire(import.meta.url),{create,LIMITS,boardSummary,quotaStatus,utcDay,parseSnapshot}=require('../usage-tracker.js');
 const memory=()=>{const data=new Map();return {getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v),data}};
 const cfg={scope:'owner',firebaseURL:'https://db.example',cloudflareURL:'https://worker.example'};
 
@@ -82,4 +82,24 @@ test('owner usage screen is guarded and file picker matches the actual six-MiB u
  assert.match(view,/currentUser\?\.uid!==CFG\.ownerUid/);
  assert.match(html,/h==='#usage'&&currentUser\?\.uid===CFG\.ownerUid/);
  assert.doesNotMatch(html,/больше 300 МБ/);
+});
+test('screenshot import uses decimal MB and preserves provenance without inventing capture time',()=>{
+ const raw='2026-11,2.17,34.56,3',clock=Date.parse('2026-11-08T20:45:00Z');
+ assert.deepEqual(parseSnapshot(raw),{month:'2026-11',storage:2170000,downloads:34560000,connections:3});
+ const tracker=create({...cfg,storage:memory(),now:()=>clock});
+ tracker.setManual('workerRequests',20,'2026-11-08');tracker.importSnapshot(raw);
+ const state=tracker.snapshot();
+ assert.deepEqual(state.manual.firebaseDownloads,{value:34560000,period:'2026-11',updatedAt:clock,source:'screenshot',snapshot:true});
+ assert.equal(state.manual.firebaseStorage.value,2170000);assert.equal(state.manual.firebaseConnections.value,3);
+ assert.equal(state.manual.workerRequests.value,20);assert.equal(state.manual.d1Reads,undefined);
+ tracker.setManual('firebaseStorage',5,'current');assert.equal(tracker.snapshot().manual.firebaseStorage.snapshot,undefined);
+});
+test('malformed screenshot imports and guest imports cannot modify readings',()=>{
+ const storage=memory(),tracker=create({...cfg,storage});
+ for(const raw of [null,'','2026-13,1,2,3','2026-11,-1,2,3','2026-11,1,2,3.5','2026-11,Infinity,2,3','2026-11,1,2,3,extra','2026-11,1,2,'+'9'.repeat(200)]){
+  assert.equal(parseSnapshot(raw),null);assert.throws(()=>tracker.importSnapshot(raw));
+ }
+ assert.deepEqual(tracker.snapshot().manual,{});
+ const guest=create({...cfg,storage,enabled:()=>false});guest.importSnapshot('2026-11,2.17,34.56,3');
+ assert.deepEqual(guest.snapshot().manual,{});
 });

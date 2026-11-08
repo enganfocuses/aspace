@@ -6,6 +6,16 @@
   workerRequests:100000,d1Database:500e6,d1Account:5e9,d1Reads:5e6,d1Writes:100000});
  const bytes=value=>new TextEncoder().encode(JSON.stringify(value)).byteLength;
  const utcDay=date=>new Date(date).toISOString().slice(0,10);
+ // Compact URL-fragment import. Only these three numeric Firebase readings are allowed.
+ // A screenshot has no verified measurement timestamp: retain it as a historical snapshot.
+ function parseSnapshot(raw){
+  if(typeof raw!=='string'||raw.length>160)return null;
+  const match=raw.match(/^(\d{4}-(?:0[1-9]|1[0-2])),(\d+(?:\.\d+)?),(\d+(?:\.\d+)?),(\d+)$/);
+  if(!match)return null;
+  const storage=Number(match[2])*1e6,downloads=Number(match[3])*1e6,connections=Number(match[4]);
+  if(![storage,downloads,connections].every(n=>Number.isFinite(n)&&n>=0&&n<=Number.MAX_SAFE_INTEGER))return null;
+  return {month:match[1],storage,downloads,connections};
+ }
  function boardSummary(value){
   const copy={...value};delete copy._aspaceSync;
   const j=JSON.stringify(copy),size=new TextEncoder().encode(j).byteLength;
@@ -75,10 +85,18 @@
    change(state=>{state.manual[id]={value,period,updatedAt:now()}});
   }
   function snapshot(){return JSON.parse(JSON.stringify(load()))}
-  return {observe,recordBoard,recordSummary,setManual,snapshot,classify,
+  function importSnapshot(raw){
+   const reading=parseSnapshot(raw);if(!reading)throw Error('Некорректные показания');
+   change(state=>{
+    for(const [id,value,period] of [['firebaseStorage',reading.storage,'current'],
+     ['firebaseDownloads',reading.downloads,reading.month],['firebaseConnections',reading.connections,'instant']])
+     state.manual[id]={value,period,updatedAt:now(),source:'screenshot',snapshot:true};
+   });
+  }
+  return {observe,recordBoard,recordSummary,setManual,snapshot,classify,importSnapshot,
    clearManual:id=>change(state=>{delete state.manual[id]}),
    reset:()=>{if(enabled())persist(empty())}};
  }
- const api={LIMITS,boardSummary,quotaStatus,utcDay,bytes,create};
+ const api={LIMITS,boardSummary,quotaStatus,utcDay,bytes,create,parseSnapshot};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.AspaceUsage=api;
 })(typeof window==='object'?window:globalThis);
