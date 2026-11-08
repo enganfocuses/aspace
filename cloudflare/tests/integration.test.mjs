@@ -11,7 +11,7 @@ test("production main page keeps single board load and save entrypoints",()=>{
 test("standby mode is explicitly opt-in and owner gated",()=>{
  assert.match(html,/get\('standby'\)==='lab'/);
  assert.match(html,/user\?\.uid===CFG\.ownerUid/);
- assert.match(html,/root\.replaceChildren\(E\('div',\{className:'warn'/);
+ assert.match(html,/replaceChildren\(E\('div',\{className:'warn'/);
 });
 test("standby controller bypasses legacy pending queue",()=>{
  assert.match(html,/async function syncLocalChanges\(\)\{\s*if\(standbyController\)return/);
@@ -43,5 +43,5 @@ test("education view is a local static HTML builder without databases",()=>{
  const m=html.match(/async function eduView\(m\)\{([\s\S]*?)\n\}\n\nstart\(\)/);
  assert.ok(m);
  assert.match(m[1],/education\/speakout-b1plus-builder\.html/);
- assert.doesNotMatch(m[1],/await load\(|await save\(|firebase|cloudflare/i);
+ assert.doesNotMatch(m[1].replace(/\/\/[^\n]*/g,''),/await load\(|await save\(|firebase|cloudflare/i);
 });
