@@ -1,0 +1,14 @@
+# Dedicated Cloudflare Worker deployment configuration for Aspace.
+# Root directory in Cloudflare Builds must be "cloudflare".
+# OWNER_UID and FIREBASE_PROJECT_ID are managed in Cloudflare dashboard.
+name = "aspace-fallback-api"
+main = "worker.js"
+compatibility_date = "2026-11-08"
+keep_vars = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aspace-fallback"
+database_id = "3e0139d9-0917-483b-88f6-9b1d91e8c608"
+
+# R2 is intentionally disabled until a separate storage plan is approved.
