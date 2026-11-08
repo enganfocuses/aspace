@@ -71,11 +71,17 @@ export function createAspaceStandby({
 
   async function mirror(key, value) {
     if (value === null) return false; // Tombstones require a separate protocol.
+    // D1 is not a media store; skip costly embedded media and oversized snapshots.
+    const serial = JSON.stringify(value);
+    if (serial.length > 750_000 ||
+        ["data:image/", "data:audio/", "data:video/", "data:application/pdf"].some(part => serial.includes(part))) {
+      tell(key, "mirror_skipped", "Large or embedded media requires a separate standby plan");
+      return false;
+    }
     const before = await cloudflare.getDoc(key).catch(e => {
       if (e.status === 404) return null;
       throw e;
     });
-    const serial = JSON.stringify(value);
     if (before && JSON.stringify(before.value) === serial) {
       lastMirrored.set(key, serial);
       return true;
@@ -102,9 +108,9 @@ export function createAspaceStandby({
       const result = await primary("GET", key);
       state.set(key, { etag: result.etag, lastValue: clone(result.value) });
       tell(key, "primary", "Firebase available");
-      const mirrored = mirror(key, result.value).then(() => {
-        tell(key, "mirrored", "Cloudflare snapshot updated");
-        return true;
+      const mirrored = mirror(key, result.value).then(ok => {
+        if (ok) tell(key, "mirrored", "Cloudflare snapshot updated");
+        return ok;
       }).catch(e => { tell(key, "mirror_error", e.message); return false; });
       return { source: "firebase", value: result.value, mirrored };
     } catch (e) {
@@ -145,8 +151,9 @@ export function createAspaceStandby({
         const saved = await primary("PUT", key, value, known.etag);
         state.set(key, { etag: saved.etag, lastValue: clone(value) });
         await queue.remove(key);
-        const mirrored = mirror(key, value).then(() => {
-          tell(key, "mirrored", "Standby updated after primary save"); return true;
+        const mirrored = mirror(key, value).then(ok => {
+          if (ok) tell(key, "mirrored", "Standby updated after primary save");
+          return ok;
         }).catch(e => { tell(key, "mirror_error", e.message); return false; });
         tell(key, "primary", "Firebase save confirmed");
         return { source: "firebase", pending: false, mirrored };
