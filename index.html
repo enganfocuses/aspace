@@ -266,10 +266,11 @@ const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
 // Experimental Firebase-primary single-router. Only an explicit owner lab session enables it.
-let standbyController=null,standbyPhase='disabled';
+let standbyController=null,standbyPhase='disabled',stopStandbyRecovery=null;
 const standbyOptIn=()=>new URLSearchParams(location.search).get('standby')==='lab';
 const standbyKey=p=>p==='meta/boards'||/^boards\/[A-Za-z0-9_-]+$/.test(p);
 async function prepareStandby(owner){
+ if(stopStandbyRecovery){stopStandbyRecovery();stopStandbyRecovery=null}
  if(!standbyOptIn()||!owner||owner.uid!==CFG.ownerUid){standbyController=null;return}
  const [{createCloudflareFallback},{createIndexedDBStandbyQueue},{createAspaceStandby}]=await Promise.all([
   import('./cloudflare/adapter.js'),import('./cloudflare/queue.js'),import('./cloudflare/standby.js')
@@ -280,7 +281,7 @@ async function prepareStandby(owner){
   allowStandbyWrites:new URLSearchParams(location.search).get('standbywrite')==='lab',
   onStatus:({phase})=>{standbyPhase=phase;const mark=document.getElementById('standbyIndicator');if(mark)mark.textContent='🧪 Резерв: '+phase}
  });
- standbyController.startRecovery({onResults:outcomes=>{
+ stopStandbyRecovery=standbyController.startRecovery({onResults:outcomes=>{
   for(const result of outcomes)if(result.status==='conflict')console.warn('Aspace draft requires reconciliation',result.key);
  }});
  standbyPhase='primary';
@@ -288,8 +289,41 @@ async function prepareStandby(owner){
 
 const MAX_UPLOAD_BYTES=300*1024*1024;
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
-const shareRead=async(token,part)=>{const r=await fetch(shareURL(token)+'/'+part+'.json');if(!r.ok)throw new Error('Ссылка недействительна или доступ отозван');return r.json()};
-const shareWrite=async(token,part,value,method='PUT')=>{const r=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});if(!r.ok)throw new Error('Firebase не разрешил операцию: '+part);return true};
+const shareRead=async(token,part)=>{
+  const canCache=part==='meta'||part==='board';
+  try{
+    const response=await fetch(shareURL(token)+'/'+part+'.json',{cache:'no-store'});
+    if(!response.ok){
+      const detail=(await response.text().catch(()=>'')).slice(0,350);
+      const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(detail);
+      if((response.status===429||response.status>=500||quota)&&canCache){
+        const cache=await localGet('shareCache',token+':'+part).catch(()=>null);
+        if(cache?.value!=null)return cache.value;
+      }
+      throw new Error(response.status===401||response.status===403&&!quota||response.status===404
+        ?'Ссылка недействительна или доступ отозван (HTTP '+response.status+')'
+        :'Firebase недоступен (HTTP '+response.status+'); локальная копия не найдена');
+    }
+    const value=await response.json();
+    if(canCache&&value!=null)try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
+    return value;
+  }catch(error){
+    // Never bypass explicit authorization/revocation errors. Use cache only if
+    // the network could not be reached and the link had been opened before.
+    if(canCache&&(error instanceof TypeError||error?.name==='AbortError')){
+      const cached=await localGet('shareCache',token+':'+part).catch(()=>null);
+      if(cached?.value!=null)return cached.value;
+    }
+    throw error;
+  }
+};
+const shareWrite=async(token,part,value,method='PUT')=>{
+  const response=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});
+  if(!response.ok)throw new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')');
+  if((part==='board'||part==='meta')&&value!=null)
+    try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
+  return true;
+};
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
 const revokeShare=async token=>{const board=await shareRead(token,'board').catch(()=>null);for(const it of (board?.items||[])){if(it.u&&it.u.startsWith('img:'))await fetch(shareURL(token)+'/assets/'+encodeURIComponent(it.u.slice(4))+'.json',{method:'DELETE'})}for(const part of ['board','room','meta'])await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})};
 const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
@@ -302,12 +336,14 @@ function localDB(){
  if(!('indexedDB'in window))return Promise.reject(new Error('IndexedDB недоступна'));
  if(localDbPromise)return localDbPromise;
  localDbPromise=new Promise((resolve,reject)=>{
-  const req=indexedDB.open(LOCAL_DB,1);
+  const req=indexedDB.open(LOCAL_DB,2);
   req.onupgradeneeded=()=>{const db=req.result;
    if(!db.objectStoreNames.contains('docs'))db.createObjectStore('docs',{keyPath:'key'});
    if(!db.objectStoreNames.contains('pending'))db.createObjectStore('pending',{keyPath:'key'});
    if(!db.objectStoreNames.contains('assets'))db.createObjectStore('assets',{keyPath:'key'});
    if(!db.objectStoreNames.contains('assetPending'))db.createObjectStore('assetPending',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('shareCache'))db.createObjectStore('shareCache',{keyPath:'key'});
+   if(!db.objectStoreNames.contains('guestDrafts'))db.createObjectStore('guestDrafts',{keyPath:'key'});
   };
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Не удалось открыть локальную базу'));
  });
@@ -318,7 +354,7 @@ async function localPut(store,value){const db=await localDB();return new Promise
 async function localAll(store){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
 async function localDelete(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).delete(key);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
 async function load(p){
- if(standbyController&&standbyKey(p)){const result=await standbyController.read(p);return result.value}
+ if(standbyController&&currentUser?.uid===CFG.ownerUid&&standbyKey(p)){const result=await standbyController.read(p);return result.value}
  let cached=null,pending=false;
  try{const c=await localGet('docs',p);cached=c?.value??null;pending=!!(await localGet('pending',p))}catch{}
  if(pending&&cached!==null)return cached;
@@ -329,7 +365,7 @@ async function load(p){
  return cached!==null?cached:ls.g(p,null);
 }
 async function save(p,d){
- if(standbyController&&standbyKey(p)){const result=await standbyController.write(p,d);return !result.pending}
+ if(standbyController&&currentUser?.uid===CFG.ownerUid&&standbyKey(p)){const result=await standbyController.write(p,d);return !result.pending}
  const record={key:p,value:d,updatedAt:Date.now()};
  ls.s(p,d);
  try{await localPut('docs',record);await localPut('pending',{key:p,updatedAt:record.updatedAt})}
@@ -342,7 +378,7 @@ async function save(p,d){
  }catch(e){console.warn('Aspace sync queued:',e);return false}
 }
 async function syncLocalChanges(){
- if(standbyController)return; // Only one queue/synchronizer when standby is active.
+ if(standbyController)return;
  if(!navigator.onLine)return;
  try{
   const queue=await localAll('pending');
@@ -361,19 +397,80 @@ async function syncLocalChanges(){
 addEventListener('online',()=>syncLocalChanges());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncLocalChanges()});
 
-const room0={join:(name,customPath)=>new Promise(async res=>{
-  const me=uid()+uid(),H={},dead=[],base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
-  let closed=false;
-  const flush=()=>{if(!dead.length)return;const o={};dead.splice(0).forEach(k=>o[k]=null);fetch(base+'.json',{method:'PATCH',body:JSON.stringify(o),keepalive:true}).catch(()=>{})};
+// Lightweight Firebase signaling. Read and write permissions are both verified
+// before offering a call; a timer must never report a successful SSE connection.
+const room0={async join(name,customPath){
+  const me=uid()+uid(),handlers={},dead=[],
+    base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
+  const preflight=await fetch(base+'.json?shallow=true',{cache:'no-store'});
+  if(!preflight.ok)throw new Error('Нет доступа к каналу видеозвонка (Firebase HTTP '+preflight.status+'). Проверь права гостевого доступа.');
+  let closed=false,es=null,gc=null,hideRegistered=false;
+  const flush=()=>{
+    if(!dead.length)return;
+    const data={};dead.splice(0).forEach(key=>data[key]=null);
+    fetch(base+'.json',{method:'PATCH',body:JSON.stringify(data),keepalive:true}).catch(()=>{});
+  };
   const onPageHide=()=>{closed=true;flush()};
-  addEventListener('pagehide',onPageHide,{once:true});
-  const deliver=v=>{if(v&&v.s&&v.s!==me&&v.t)(H[v.t]||[]).forEach(f=>{let d=null;try{d=JSON.parse(v.d)}catch{}f({data:d,isMe:false})})};
-  const es=new EventSource(await eventUrl(base+'.json'));
-  es.addEventListener('put',e=>{try{const m=JSON.parse(e.data);if(m.data==null)return;if(m.path==='/'){Object.values(m.data).forEach(v=>v&&typeof v==='object'&&deliver(v))}else if(m.path.split('/').length===2)deliver(m.data)}catch{}});
-  const gc=setInterval(flush,10000);
-  const api={id:me,emit:(t,d)=>{fetch(base+'.json',{method:'POST',body:JSON.stringify({t,d:JSON.stringify(d),s:me})}).then(r=>r.json()).then(j=>{if(!j||!j.name)return;if(closed){const o={[j.name]:null};fetch(base+'.json',{method:'PATCH',body:JSON.stringify(o),keepalive:true}).catch(()=>{})}else dead.push(j.name)}).catch(()=>{})},
-    on:(t,f)=>{(H[t]=H[t]||[]).push(f);return()=>{H[t]=H[t].filter(x=>x!==f)}},close:()=>{closed=true;removeEventListener('pagehide',onPageHide);es.close();clearInterval(gc);flush()}};
-  es.onopen=()=>res(api);setTimeout(()=>res(api),2500)})};
+  const deliver=value=>{
+    if(value&&value.s&&value.s!==me&&value.t)
+      (handlers[value.t]||[]).forEach(listener=>{
+        let data=null;try{data=JSON.parse(value.d)}catch{}
+        try{listener({data,isMe:false})}catch(error){console.warn('Aspace signaling listener:',error)}
+      });
+  };
+  const api={
+    id:me,
+    emit:(type,data)=>fetch(base+'.json',{
+      method:'POST',body:JSON.stringify({t:type,d:JSON.stringify(data),s:me})
+    }).then(async response=>{
+      if(!response.ok){console.warn('Aspace signal rejected',type,response.status);return false}
+      const result=await response.json();
+      if(!result?.name)return false;
+      if(closed)fetch(base+'.json',{method:'PATCH',body:JSON.stringify({[result.name]:null}),keepalive:true}).catch(()=>{});
+      else dead.push(result.name);
+      return true;
+    }).catch(error=>{console.warn('Aspace signal failed',type,error);return false}),
+    on:(type,listener)=>{
+      (handlers[type]=handlers[type]||[]).push(listener);
+      return()=>{handlers[type]=handlers[type].filter(fn=>fn!==listener)};
+    },
+    close:()=>{
+      if(closed)return;
+      closed=true;
+      if(hideRegistered)removeEventListener('pagehide',onPageHide);
+      es?.close();if(gc)clearInterval(gc);flush();
+    }
+  };
+  try{
+    es=new EventSource(await eventUrl(base+'.json'));
+    es.addEventListener('put',event=>{
+      try{
+        const message=JSON.parse(event.data);
+        if(message.data==null)return;
+        if(message.path==='/'){
+          Object.values(message.data).forEach(value=>value&&typeof value==='object'&&deliver(value));
+        }else if(message.path.split('/').length===2)deliver(message.data);
+      }catch(error){console.warn('Aspace signal parse:',error)}
+    });
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{es.removeEventListener('open',success);es.removeEventListener('error',failure);reject(new Error('Не удалось подключить канал звонка за 9 секунд'))},9000);
+      const success=()=>{clearTimeout(timer);es.removeEventListener('error',failure);resolve()};
+      const failure=()=>{clearTimeout(timer);es.removeEventListener('open',success);reject(new Error('Канал видеозвонка заблокирован или недоступен'))};
+      es.addEventListener('open',success,{once:true});
+      es.addEventListener('error',failure,{once:true});
+    });
+    // Test write authorization once; a readable SSE stream alone cannot
+    // guarantee that callers are able to send offers/answers.
+    const probe=await fetch(base+'.json',{method:'POST',body:JSON.stringify({t:'ready',d:'{}',s:me})});
+    if(!probe.ok)throw new Error('Нет права отправлять сигналы (Firebase HTTP '+probe.status+').');
+    const ping=await probe.json();
+    if(!ping?.name)throw new Error('Сервер сигналинга не принял тестовое сообщение');
+    dead.push(ping.name);
+    gc=setInterval(flush,10000);
+    addEventListener('pagehide',onPageHide,{once:true});hideRegistered=true;
+    return api;
+  }catch(error){es?.close();if(gc)clearInterval(gc);throw error}
+}};
 const isLocal=false;
 const link=(k,id)=>location.origin+location.pathname+'#'+k+'-'+id;
 const boardLink=(id,mode='view')=>location.origin+location.pathname+'#b-'+id+'-'+mode;
@@ -399,10 +496,16 @@ function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
   try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();auth.onAuthStateChanged(async user=>{
     currentUser=user;
+    if(!user||user.uid!==CFG.ownerUid){
+      if(stopStandbyRecovery){stopStandbyRecovery();stopStandbyRecovery=null}
+      standbyController=null;
+      if(!user)stopPersistentCall();
+    }
     if(standbyOptIn()&&user?.uid===CFG.ownerUid){
-      try{await prepareStandby(user)}catch(e){
-        console.error('Aspace standby could not initialize:',e);standbyPhase='initialization_error';
-        $('#root').replaceChildren(E('div',{className:'warn',textContent:'Резервный тест не подключился. Открой сайт без ?standby=lab. '+e.message}));
+      try{await prepareStandby(user)}catch(error){
+        console.error('Standby lab init failed:',error);
+        $('#root').replaceChildren(E('div',{className:'warn',
+          textContent:'Резервный эксперимент не подключился; открой сайт без ?standby=lab. '+error.message}));
         return;
       }
     }
@@ -422,7 +525,7 @@ function goHome(){
 function shell(guest){
   const hd=E('header',{},E('b',{textContent:'Aspace'}),B(themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема',toggleTheme,'theme-toggle'),B('⌂ Домой',goHome));
   if(standbyController&&!guest)hd.append(E('span',{id:'standbyIndicator',className:'mut',textContent:'🧪 Резерв: '+standbyPhase}));
-  if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
+  if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -495,6 +598,14 @@ function controls(call,onLeave){
 }
 // One long-lived WebRTC session can outlive navigation between call and board views.
 let persistentCallSession=null;
+function stopPersistentCall(){
+  const session=persistentCallSession;
+  if(!session)return;
+  persistentCallSession=null;
+  try{session.call?.stop()}catch(error){console.warn('Aspace call shutdown:',error)}
+  try{session.room?.close()}catch(error){console.warn('Aspace room shutdown:',error)}
+  try{session.window?.remove()}catch{}
+}
 async function roomUI(m,id,name,back){
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
   const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
@@ -505,8 +616,8 @@ async function roomUI(m,id,name,back){
     vw=E('div',{className:'vwin home-call-window'},hd,grid,vbar);
     const fs=()=>document.fullscreenElement?document.exitFullscreen():vw.requestFullscreen();
     hd.append(E('span',{className:'row'},B('⛶',fs),B('–',()=>vw.classList.toggle('min')),B('✕',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'})));
-    const go=B('Включить камеру и войти',async()=>{
-      go.disabled=true;go.textContent='Подключаю канал звонка…';
+    const enterCall=B('Включить камеру и войти',async()=>{
+      enterCall.disabled=true;enterCall.textContent='Подключаю канал звонка…';
       try{
         callRoom=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');
         call=Call(callRoom,grid);await call.start();
@@ -517,15 +628,20 @@ async function roomUI(m,id,name,back){
           const data=msg.data||{};
           if(!data.token||!/^[a-f0-9]{48}$/.test(data.token))return;
           if(!/^[a-z0-9_-]{1,120}$/i.test(data.boardId||''))return;
-          const isOwner=currentUser&&currentUser.uid===CFG.ownerUid;
-          if(isOwner)go(mm=>openBoard(mm,data.boardId,false));
-          else go(mm=>openBoard(mm,null,true,data.token));
+          if(persistentCallSession?.id!==id)return;
+          // Navigate within the same document; the WebRTC tracks and video
+          // window are retained. The control used to shadow global go().
+          const isOwner=!!(currentUser&&currentUser.uid===CFG.ownerUid);
+          void (isOwner
+            ? go(mm=>openBoard(mm,data.boardId,false))
+            : go(mm=>openBoard(mm,null,true,data.token))
+          ).catch(error=>say2('Не удалось открыть доску: '+error.message));
         });
       }catch(e){
         alert(e.message);call?.stop();call=null;callRoom?.close();callRoom=null;
-        go.disabled=false;go.textContent='Повторить подключение';return;
+        enterCall.disabled=false;enterCall.textContent='Повторить подключение';return;
       }
-      go.remove();let ns=true;
+      enterCall.remove();let ns=true;
       const mic=E('button',{title:'Микрофон',onclick:()=>mic.classList.toggle('off',!call.mic())},ic('mic')),
         cam=E('button',{title:'Камера',onclick:()=>cam.classList.toggle('off',!call.cam())},ic('video')),
         nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});
@@ -534,7 +650,7 @@ async function roomUI(m,id,name,back){
       const zc=call.zoomCaps();if(zc)vbar.append(E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,title:'Приблизить / отдалить камеру',oninput:e=>call.zoom(+e.target.value)}));
       vbar.append(mic,cam,nz,cams,mics,speakers,B('⛶',fs),B('Выйти',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'}));
     });
-    grid.append(go);
+    grid.append(enterCall);
     hd.onpointerdown=e=>{
       if(e.target.closest('button'))return;
       hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
@@ -547,7 +663,8 @@ async function roomUI(m,id,name,back){
   const join=B('Открыть видеозвонок',openVideo);
   const boardBtn=B('▤ Перейти на доску вместе',async()=>{
     if(!currentUser||currentUser.uid!==CFG.ownerUid){alert('Выбор совместной доски доступен владельцу звонка.');return}
-    if(!callRoom||!call){alert('Сначала включи камеру и войди в звонок.');return}
+    const live=persistentCallSession?.id===id?persistentCallSession:null;
+    if(!live?.room||!live?.call){alert('Сначала включи камеру и войди в звонок.');return}
     const index=(await load('meta/boards'))||{items:[]};
     const menu=index.items.map((x,i)=>(i+1)+'. '+x.name).join('\n');
     const answer=prompt('На какую доску перейдём вместе?\n0 — создать новую\n'+menu,'0');
@@ -573,7 +690,8 @@ async function roomUI(m,id,name,back){
         chosen.shareToken=token;await save('meta/boards',index);
       }catch(e){alert('Не удалось открыть ученикам доступ: '+e.message);return}
     }
-    callRoom.emit('boardnav',{boardId:chosen.id,token});
+    const notified=await live.room.emit('boardnav',{boardId:chosen.id,token});
+    if(notified!==true){alert('Команда перехода не дошла до сервера звонка. Проверь соединение и повтори.');return}
     await go(mm=>openBoard(mm,chosen.id,false));
     persistentCallSession?.window.classList.remove('min');
     say2('Вы перешли на доску, видеозвонок продолжается');
@@ -762,6 +880,15 @@ async function openBoard(m,id,guest,shareToken=null){
   activeShareToken=shareToken;
   if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
+  const cloneBoard=value=>JSON.parse(JSON.stringify(value));
+  const boardShareToken=activeShareToken;
+  let lastConfirmedShared=boardShareToken&&d0?cloneBoard(d0):null;
+  const localGuestDraft=boardShareToken
+    ?await localGet('guestDrafts',boardShareToken).catch(()=>null):null;
+  if(localGuestDraft?.value&&!guest){
+    lastConfirmedShared=localGuestDraft.base??lastConfirmedShared;
+    d0=cloneBoard(localGuestDraft.value);
+  }
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
   let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
@@ -769,7 +896,15 @@ async function openBoard(m,id,guest,shareToken=null){
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
-  const r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
+  let roomWarning='',r;
+  try{
+    r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
+  }catch(error){
+    roomWarning=String(error.message||error);
+    // Missing signaling permission must not hide a board that was already
+    // downloaded. Editing stays local, but live co-editing is unavailable.
+    r={id:uid()+uid(),emit:()=>Promise.resolve(false),on:()=>()=>{},close:()=>{}};
+  }
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
   const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null,remoteTimer=null;
@@ -799,7 +934,63 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;applyViewport(p.v);r.emit('followack',{to:p.from,name:myName});say('Следуешь за '+(p.name||'участником'))}});
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
-  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на этом устройстве. Синхронизация с облаком произойдёт при подключении.')}if(activeShareToken)try{await shareWrite(activeShareToken,'board',data)}catch(e){say('Общая доска сохранена локально; облачная синхронизация пока не удалась: '+e.message)}},1200)};
+  let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null;
+  let unsyncedShareDraft=Boolean(localGuestDraft?.pending);
+  const saveSharedDraft=async(data)=>{
+    const token=boardShareToken;
+    if(!token)return;
+    const previous=await localGet('guestDrafts',token).catch(()=>null);
+    const base=previous?.base??lastConfirmedShared;
+    // Draft first, network second. Multiple changes are serialized.
+    await localPut('guestDrafts',{key:token,value:cloneBoard(data),base:base?cloneBoard(base):null,
+      pending:true,updatedAt:Date.now()});
+    unsyncedShareDraft=true;
+    try{
+      if(previous?.pending){
+        // Reconnecting after an outage must not overwrite somebody else's
+        // changes. Only an identical base or an already-applied write is safe.
+        const response=await fetch(shareURL(token)+'/board.json',{cache:'no-store'});
+        if(!response.ok)throw new Error('Проверка общей доски: HTTP '+response.status);
+        const live=await response.json();
+        const identical=JSON.stringify(live)===JSON.stringify(data);
+        if(!identical&&JSON.stringify(live)!==JSON.stringify(base)){
+          say('Конфликт: доска изменилась у другого участника. Твоя версия сохранена локально.');
+          return;
+        }
+        if(!identical)await shareWrite(token,'board',data);
+      }else await shareWrite(token,'board',data);
+      lastConfirmedShared=cloneBoard(data);
+      const current=await localGet('guestDrafts',token).catch(()=>null);
+      // A newer draft must never be deleted by an older response.
+      if(current&&JSON.stringify(current.value)===JSON.stringify(data)){
+        await localDelete('guestDrafts',token);
+        unsyncedShareDraft=false;
+      }
+    }catch(error){
+      say('Общая доска сохранена локально; облачная синхронизация: '+error.message);
+    }
+  };
+  const queueSharedDraft=data=>{
+    shareSyncChain=shareSyncChain.then(()=>saveSharedDraft(data))
+      .catch(error=>say('Ошибка локального сохранения: '+error.message));
+    return shareSyncChain;
+  };
+  const retrySharedDraft=()=>{
+    if(guest||!boardShareToken||navigator.onLine===false)return;
+    void localGet('guestDrafts',boardShareToken).then(item=>{
+      if(item?.pending&&item.value)queueSharedDraft(item.value);
+    }).catch(()=>{});
+  };
+  if(boardShareToken&&!guest){
+    window.addEventListener('online',retrySharedDraft);
+    shareRecoveryTimer=setInterval(retrySharedDraft,45000);
+    if(localGuestDraft?.pending)setTimeout(retrySharedDraft,2000);
+  }
+  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{
+    const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};
+    if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на устройстве; ожидание облака')}
+    if(boardShareToken)void queueSharedDraft(data);
+  },1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
@@ -920,7 +1111,7 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
   r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''})});
-  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
+  r.on('state',x=>{if(got||!x.data||unsyncedShareDraft)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
@@ -1090,7 +1281,9 @@ async function openBoard(m,id,guest,shareToken=null){
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)shareWrite(activeShareToken,'board',data).catch(()=>{})}activeShareToken=null};
+  if(roomWarning)setTimeout(()=>say('Режим без синхронизации: '+roomWarning),500);
+  if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
+  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(boardShareToken)void queueSharedDraft(data)}activeShareToken=null};
 }
 
 /* ---------- образование ---------- */
