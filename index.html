@@ -519,7 +519,8 @@ async function roomUI(m,id,name,back){
   const join=B('Открыть видеозвонок',openVideo);
   const boardBtn=B('▤ Перейти на доску вместе',async()=>{
     if(!currentUser||currentUser.uid!==CFG.ownerUid){alert('Выбор совместной доски доступен владельцу звонка.');return}
-    if(!callRoom||!call){alert('Сначала включи камеру и войди в звонок.');return}
+    const live=persistentCallSession?.id===id?persistentCallSession:null;
+    if(!live?.room||!live?.call){alert('Сначала включи камеру и войди в звонок.');return}
     const index=(await load('meta/boards'))||{items:[]};
     const menu=index.items.map((x,i)=>(i+1)+'. '+x.name).join('\n');
     const answer=prompt('На какую доску перейдём вместе?\n0 — создать новую\n'+menu,'0');
@@ -545,7 +546,8 @@ async function roomUI(m,id,name,back){
         chosen.shareToken=token;await save('meta/boards',index);
       }catch(e){alert('Не удалось открыть ученикам доступ: '+e.message);return}
     }
-    callRoom.emit('boardnav',{boardId:chosen.id,token});
+    const notified=await live.room.emit('boardnav',{boardId:chosen.id,token});
+    if(notified!==true){alert('Команда перехода не дошла до сервера звонка. Проверь соединение и повтори.');return}
     await go(mm=>openBoard(mm,chosen.id,false));
     persistentCallSession?.window.classList.remove('min');
     say2('Вы перешли на доску, видеозвонок продолжается');
