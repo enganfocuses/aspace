@@ -36,7 +36,7 @@
         },
         "room": {
           ".read": "root.child('shares').child($token).child('meta').exists()",
-          ".write": "(root.child('shares').child($token).child('meta').child('role').val() === 'editor') || (auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2')"
+          ".write": "root.child('shares').child($token).child('meta').exists()"
         }
       }
     }
