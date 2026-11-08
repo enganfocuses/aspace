@@ -118,3 +118,13 @@ After both Cloudflare Builds and GitHub Pages publish the latest changes:
 
 **Limitations:** Sync is not enabled in production, and no browser integration has been tested with the real Firebase board yet. Replay must be invoked explicitly; merely reconnecting doesn't auto-replay. The prototype Cloudflare guest-board functionality is separate and does not grant failover for existing Firebase student links. The IndexedDB queue is scoped to one owner, but browser-local storage is not encrypted and can be cleared by the user. Never claim that the product is protected against all service outages or billing-limit errors until failover is fully integrated and end-to-end tested.
 
+
+### Failover implementation details (staging)
+
+The opt-in `createAspaceStandby` constructor now requires a durable IndexedDB queue. Writes persist the user's draft before attempting any network mutation. On transient Firebase errors, the queued draft remains available across reloads; reading never silently replaces a pending draft with an older standby snapshot.
+
+`replay(key)` compares the current Firebase document to the previously read base and uses Firebase ETags. If Firebase has changed, the draft is retained for explicit conflict resolution. A lost PUT response is handled by detecting an already-applied identical value. `replayAll()` is sequential; `startRecovery()` optionally polls and handles browser online events, but does not silently merge conflicts. Neither is wired into the production app.
+
+Mirroring skips snapshots larger than 750,000 JSON characters or containing embedded data-URL media. This reduces unexpected storage/bandwidth usage, but means these boards are **not backed up by Cloudflare**. Mirroring also refuses to overwrite a Cloudflare snapshot that differs from the last confirmed local mirror (for instance, if a guest made an edit during an outage). A production implementation will require explicit migration rules and reconciliation of such divergence.
+
+Even with a durable queue, this is **not** a complete solution for simultaneous guest writes, media continuity, or video signaling during Firebase outages. Do not claim zero-cost guarantees or uninterrupted collaboration.
