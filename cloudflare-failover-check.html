@@ -114,8 +114,11 @@ async function check(){
     }
     return fetch(url,opts);
   };
+  const failoverEvents=[];
   const provider=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,
-   cloudflare,queue,fetchImpl:routeFetch,timeoutMs:6000,allowStandbyWrites:true});
+   cloudflare,queue,fetchImpl:routeFetch,timeoutMs:6000,allowStandbyWrites:true,
+   onStatus:info=>{failoverEvents.push(info.phase+(info.note?' · '+info.note:''));if(failoverEvents.length>30)failoverEvents.shift()}
+  });
   status.textContent='Читаю основную базу и создаю резервную копию…';
   const start=await provider.read(key);
   if(start.source!=='firebase')fail('Данные не были прочитаны из Firebase');
@@ -137,8 +140,17 @@ async function check(){
   add('Автоматическое чтение Cloudflare при имитации сбоя',true);
   const changed={...fixture,items:[...fixture.items,{id:'new-note',k:'note',x:220,y:60,w:170,h:110,t:'Создано при сбое',c:'#ead2f4'}],upd:Date.now()};
   const saved=await provider.write(key,changed);
-  if(saved.source!=='cloudflare'||!saved.pending||!await provider.pending(key))
-    fail('Изменения не были подтверждены Cloudflare с локальной очередью');
+  if(saved.source!=='cloudflare'||!saved.pending||!await provider.pending(key)){
+    let cloudInfo='';
+    try {
+      const current=await cloudflare.getDoc(key);
+      cloudInfo='Cloudflare revision '+current.revision+', объектов '+(current.value.items?.length??'?');
+    } catch(e) {cloudInfo='Cloudflare: '+String(e.message||e).slice(0,120)}
+    fail('Резервная запись не подтверждена: режим '+saved.source+
+      ', причина '+(saved.reason||'неизвестна')+
+      (saved.standbyError?', ошибка '+saved.standbyError:'')+
+      ', '+cloudInfo+', события: '+failoverEvents.slice(-4).join(' | '));
+  }
   add('Сохранение в Cloudflare при недоступности Firebase',true);
   const cloudStored=await cloudflare.getDoc(key);
   if(cloudStored.value.items?.length!==2)fail('Cloudflare не сохранил второй объект');
