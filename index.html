@@ -337,19 +337,80 @@ async function syncLocalChanges(){
 addEventListener('online',()=>syncLocalChanges());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncLocalChanges()});
 
-const room0={join:(name,customPath)=>new Promise(async res=>{
-  const me=uid()+uid(),H={},dead=[],base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
-  let closed=false;
-  const flush=()=>{if(!dead.length)return;const o={};dead.splice(0).forEach(k=>o[k]=null);fetch(base+'.json',{method:'PATCH',body:JSON.stringify(o),keepalive:true}).catch(()=>{})};
+// Lightweight Firebase signaling. Read and write permissions are both verified
+// before offering a call; a timer must never report a successful SSE connection.
+const room0={async join(name,customPath){
+  const me=uid()+uid(),handlers={},dead=[],
+    base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
+  const preflight=await fetch(base+'.json?shallow=true',{cache:'no-store'});
+  if(!preflight.ok)throw new Error('Нет доступа к каналу видеозвонка (Firebase HTTP '+preflight.status+'). Проверь права гостевого доступа.');
+  let closed=false,es=null,gc=null,hideRegistered=false;
+  const flush=()=>{
+    if(!dead.length)return;
+    const data={};dead.splice(0).forEach(key=>data[key]=null);
+    fetch(base+'.json',{method:'PATCH',body:JSON.stringify(data),keepalive:true}).catch(()=>{});
+  };
   const onPageHide=()=>{closed=true;flush()};
-  addEventListener('pagehide',onPageHide,{once:true});
-  const deliver=v=>{if(v&&v.s&&v.s!==me&&v.t)(H[v.t]||[]).forEach(f=>{let d=null;try{d=JSON.parse(v.d)}catch{}f({data:d,isMe:false})})};
-  const es=new EventSource(await eventUrl(base+'.json'));
-  es.addEventListener('put',e=>{try{const m=JSON.parse(e.data);if(m.data==null)return;if(m.path==='/'){Object.values(m.data).forEach(v=>v&&typeof v==='object'&&deliver(v))}else if(m.path.split('/').length===2)deliver(m.data)}catch{}});
-  const gc=setInterval(flush,10000);
-  const api={id:me,emit:(t,d)=>{fetch(base+'.json',{method:'POST',body:JSON.stringify({t,d:JSON.stringify(d),s:me})}).then(r=>r.json()).then(j=>{if(!j||!j.name)return;if(closed){const o={[j.name]:null};fetch(base+'.json',{method:'PATCH',body:JSON.stringify(o),keepalive:true}).catch(()=>{})}else dead.push(j.name)}).catch(()=>{})},
-    on:(t,f)=>{(H[t]=H[t]||[]).push(f);return()=>{H[t]=H[t].filter(x=>x!==f)}},close:()=>{closed=true;removeEventListener('pagehide',onPageHide);es.close();clearInterval(gc);flush()}};
-  es.onopen=()=>res(api);setTimeout(()=>res(api),2500)})};
+  const deliver=value=>{
+    if(value&&value.s&&value.s!==me&&value.t)
+      (handlers[value.t]||[]).forEach(listener=>{
+        let data=null;try{data=JSON.parse(value.d)}catch{}
+        try{listener({data,isMe:false})}catch(error){console.warn('Aspace signaling listener:',error)}
+      });
+  };
+  const api={
+    id:me,
+    emit:(type,data)=>fetch(base+'.json',{
+      method:'POST',body:JSON.stringify({t:type,d:JSON.stringify(data),s:me})
+    }).then(async response=>{
+      if(!response.ok){console.warn('Aspace signal rejected',type,response.status);return false}
+      const result=await response.json();
+      if(!result?.name)return false;
+      if(closed)fetch(base+'.json',{method:'PATCH',body:JSON.stringify({[result.name]:null}),keepalive:true}).catch(()=>{});
+      else dead.push(result.name);
+      return true;
+    }).catch(error=>{console.warn('Aspace signal failed',type,error);return false}),
+    on:(type,listener)=>{
+      (handlers[type]=handlers[type]||[]).push(listener);
+      return()=>{handlers[type]=handlers[type].filter(fn=>fn!==listener)};
+    },
+    close:()=>{
+      if(closed)return;
+      closed=true;
+      if(hideRegistered)removeEventListener('pagehide',onPageHide);
+      es?.close();if(gc)clearInterval(gc);flush();
+    }
+  };
+  try{
+    es=new EventSource(await eventUrl(base+'.json'));
+    es.addEventListener('put',event=>{
+      try{
+        const message=JSON.parse(event.data);
+        if(message.data==null)return;
+        if(message.path==='/'){
+          Object.values(message.data).forEach(value=>value&&typeof value==='object'&&deliver(value));
+        }else if(message.path.split('/').length===2)deliver(message.data);
+      }catch(error){console.warn('Aspace signal parse:',error)}
+    });
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{es.removeEventListener('open',success);es.removeEventListener('error',failure);reject(new Error('Не удалось подключить канал звонка за 9 секунд'))},9000);
+      const success=()=>{clearTimeout(timer);es.removeEventListener('error',failure);resolve()};
+      const failure=()=>{clearTimeout(timer);es.removeEventListener('open',success);reject(new Error('Канал видеозвонка заблокирован или недоступен'))};
+      es.addEventListener('open',success,{once:true});
+      es.addEventListener('error',failure,{once:true});
+    });
+    // Test write authorization once; a readable SSE stream alone cannot
+    // guarantee that callers are able to send offers/answers.
+    const probe=await fetch(base+'.json',{method:'POST',body:JSON.stringify({t:'ready',d:'{}',s:me})});
+    if(!probe.ok)throw new Error('Нет права отправлять сигналы (Firebase HTTP '+probe.status+').');
+    const ping=await probe.json();
+    if(!ping?.name)throw new Error('Сервер сигналинга не принял тестовое сообщение');
+    dead.push(ping.name);
+    gc=setInterval(flush,10000);
+    addEventListener('pagehide',onPageHide,{once:true});hideRegistered=true;
+    return api;
+  }catch(error){es?.close();if(gc)clearInterval(gc);throw error}
+}};
 const isLocal=false;
 const link=(k,id)=>location.origin+location.pathname+'#'+k+'-'+id;
 const boardLink=(id,mode='view')=>location.origin+location.pathname+'#b-'+id+'-'+mode;
