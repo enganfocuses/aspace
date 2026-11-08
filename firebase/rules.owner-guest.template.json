@@ -27,7 +27,13 @@
           ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 250",
           "items": {
             "$itemId": {
-              ".validate": "$itemId.matches(/^[A-Za-z0-9_-]{1,120}$/) && newData.hasChildren(['id','k','x','y','w','h']) && newData.child('id').val() === $itemId && newData.child('k').isString() && newData.child('k').val().length <= 24 && newData.child('w').isNumber() && newData.child('h').isNumber() && newData.child('w').val() > 0 && newData.child('h').val() > 0"
+              ".validate": "newData.hasChildren(['id','k','x','y','w','h']) && newData.child('id').isString() && newData.child('id').val().matches(/^[A-Za-z0-9_-]{1,120}$/) && newData.child('k').isString() && newData.child('k').val().length <= 24 && newData.child('x').isNumber() && newData.child('y').isNumber() && newData.child('w').isNumber() && newData.child('h').isNumber() && newData.child('w').val() > 0 && newData.child('h').val() > 0 && newData.child('w').val() <= 10000 && newData.child('h').val() <= 10000",
+              "t": {
+                ".validate": "newData.isString() && newData.val().length <= 20000"
+              },
+              "u": {
+                ".validate": "newData.isString() && newData.val().length <= 4096"
+              }
             }
           }
         },
