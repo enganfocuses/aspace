@@ -346,15 +346,17 @@ function controls(call,onLeave){
   return[mic,cam,nz,cams,mics,speakers,zoom,lv];
 }
 async function roomUI(m,id,name,back){
-  const box=E('div',{className:'vid big'}),bar=E('div',{className:'tb'}),url=link('c',id);let call=null;
+  const box=E('div',{className:'vid big'}),bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null;
+  const leave=()=>{call&&call.stop();call=null;callRoom?.close();callRoom=null;bar.replaceChildren(...idle)};
   const join=B('Войти в звонок',async()=>{
-    const r=await room0.join('c-'+id);call=Call(r,box);
-    try{await call.start()}catch(e){alert(e.message);call=null;return}
-    bar.replaceChildren(...controls(call,()=>{call.stop();call=null;bar.replaceChildren(...idle)}))});
+    join.disabled=true;join.textContent='Подключаю…';
+    try{const r=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');callRoom=r;call=Call(r,box);await call.start()}
+    catch(e){alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;join.disabled=false;join.textContent='Войти в звонок';return}
+    bar.replaceChildren(...controls(call,leave))});
   const boardBtn=B('▤ Включить доску',async()=>{const tab=window.open('about:blank','_blank');const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=boardLink(bid,'edit');if(tab)tab.location.href=u;else copyLink(u);say2('Совместная доска создана')});
   const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,boardBtn];
   bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:url}),box);
-  cleanup=()=>call&&call.stop();
+  cleanup=()=>{call&&call.stop();call=null;callRoom?.close();callRoom=null};
 }
 async function callView(m){
   const me={ics:'/calendar.ics'};
