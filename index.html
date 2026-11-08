@@ -433,15 +433,25 @@ const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src
 const PDFCDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfP=null;const pdfjs=()=>pdfP||(pdfP=loadScript('vendor/pdf.min.js').then(()=>'vendor/pdf.worker.min.js',()=>loadScript(PDFCDN+'pdf.min.js').then(()=>PDFCDN+'pdf.worker.min.js')).then(w=>{pdfjsLib.GlobalWorkerOptions.workerSrc=w;return pdfjsLib}));
 const dataUrlBlob=data=>{const m=String(data).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);if(!m)throw new Error('Неверный формат файла');const raw=m[3],bin=m[2]?atob(raw):decodeURIComponent(raw),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new Blob([bytes],{type:m[1]||'application/octet-stream'})};
+// Бесплатное резервное хранение в Realtime Database. Лимит ниже 10 МБ на запись.
+const FREE_MEDIA_LIMIT=7*1024*1024;
+const blobDataUrl=blob=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Не удалось прочитать файл'));r.readAsDataURL(blob)});
 const uploadBlob=async(blob,name='file',contentType=blob.type||'application/octet-stream')=>{
-  if(!storage)throw new Error('Firebase Storage не инициализирован. Проверь настройки Firebase Storage.');
-  if(blob.size>MAX_UPLOAD_BYTES)throw new Error('Файл больше 300 МБ.');
-  const safe=String(name).replace(/[^a-zA-Z0-9._-]/g,'_').slice(-90)||'file',path='uploads/'+uid()+uid()+'-'+safe;
-  const task=storage.ref().child(path).put(blob,{contentType});
-  await new Promise((resolve,reject)=>task.on('state_changed',snap=>{const pct=Math.round(snap.bytesTransferred/snap.totalBytes*100);say2('Загрузка '+safe+': '+pct+'%')},reject,resolve));
-  return task.snapshot.ref.getDownloadURL();
+  if(blob.size>FREE_MEDIA_LIMIT)throw new Error('Для бесплатного хранения Realtime Database файл должен быть меньше 7 МБ. Большие аудио и видео добавляй ссылкой.');
+  const data=await blobDataUrl(blob),id=uid()+uid();
+  const res=await fetch(DB()+'/media/'+id+'.json',{method:'PUT',body:JSON.stringify(data)});
+  if(!res.ok)throw new Error('Firebase Realtime Database отклонила файл. Проверь правила базы и свободную квоту.');
+  return data;
 };
-const upload=async d=>{const blob=typeof d==='string'&&d.startsWith('data:')?dataUrlBlob(d):d;return uploadBlob(blob,'image-'+uid(),blob.type||'image/jpeg')};
+const upload=async d=>{
+  const blob=typeof d==='string'&&d.startsWith('data:')?dataUrlBlob(d):d;
+  if(blob.size>FREE_MEDIA_LIMIT)throw new Error('Изображение слишком большое для бесплатного хранения.');
+  const data=await blobDataUrl(blob),id=uid()+uid();
+  const res=await fetch(DB()+'/img/'+id+'.json',{method:'PUT',body:JSON.stringify(data)});
+  if(!res.ok)throw new Error('Firebase Realtime Database отклонила изображение. Проверь правила базы.');
+  imgCache['img:'+id]=Promise.resolve(data);
+  return 'img:'+id;
+};
 const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';return imgCache[u]||(imgCache[u]=fetch(path).then(r=>{if(!r.ok)throw new Error('Файл недоступен');return r.json()}))};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
