@@ -198,8 +198,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 @media print{header{display:none!important}}
 /* Совместный просмотр сайта рядом с доской */
 .site-panel{position:absolute;right:0;top:0;bottom:0;width:50%;z-index:18;background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
-.site-head{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);min-height:48px}
+.site-head{position:relative;z-index:35;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);min-height:48px}
 .site-head b{margin-right:auto;color:var(--wine);font-size:13px}
+.site-head .site-url{flex:1 1 180px;min-width:0;max-width:100%;padding:7px 9px;font-size:12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink)}
+.site-head button{white-space:nowrap}
+.bfull.with-site .vtop{right:calc(50% + 12px)}
+@media(max-width:760px){.bfull.with-site .vtop{right:12px;top:calc(14px + env(safe-area-inset-top,0px))}.site-head{gap:6px}.site-head b{flex:1 0 100%}.site-head .site-url{flex:1 1 100%}}
 .site-frame{border:0;width:100%;height:100%;flex:1;background:#fff}
 .bfull.with-site .bscroll{right:50%;width:50%}
 @media(max-width:760px){.site-panel{top:50%;left:0;right:0;bottom:0;width:100%;border-left:0;border-top:1px solid var(--line)}.bfull.with-site .bscroll{top:0;left:0;right:0;bottom:50%;width:100%}}
@@ -738,12 +742,11 @@ async function openBoard(m,id,guest,shareToken=null){
     const url=d.siteUrl||'';root.classList.toggle('with-site',!!url);sitePanel.style.display=url?'flex':'none';sitePanel.replaceChildren();if(!url)return;
     const head=E('div',{className:'site-head'});
     head.append(E('b',{textContent:'Совместный просмотр'}));
-    if(isOwner){
-      const field=E('input',{type:'url',value:url,placeholder:'Вставь ссылку на Yonote',ariaLabel:'Ссылка на сайт',style:'min-width:0;flex:1;max-width:420px'});
-      head.append(field,B('Перейти',()=>applySiteUrl(field.value)));
-    }
-    head.append(B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')));
-    if(isOwner)head.append(B('×',()=>applySiteUrl('')));
+    const field=E('input',{className:'site-url',type:'url',value:url,readOnly:!isOwner,placeholder:'Ссылка на Yonote',ariaLabel:'Ссылка на Yonote'});
+    head.append(field);
+    if(isOwner)head.append(B('Применить',()=>applySiteUrl(field.value)));
+    head.append(B('Копировать ссылку',()=>copyLink(url)),B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')));
+    if(isOwner)head.append(B('✕ Скрыть сайт',()=>applySiteUrl('')));
     const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});
     const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, используй «Открыть отдельно». Разделение экрана и ссылка синхронизируются с учеником.'});
     sitePanel.append(head,frame,note);
