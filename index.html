@@ -645,7 +645,38 @@ const SHAPES=['rr','rect','pill','oval','diamond','triangle','star','hex'],FILLK
 const SHL={rr:'Скруглённый',rect:'Прямоугольник',pill:'Таблетка',oval:'Овал',diamond:'Ромб',triangle:'Треугольник',star:'Звезда',hex:'Шестиугольник'};
 const INK=['#1f1f2b','#4f86b3','#2f7d5b','#d9738f','#e57f2d','#c9a227','#7a5cc4','#a67c52','#8a8a93','#e5484d'];
 const FILLS=['#B7D1EA','#f8d3dc','#f6e7b8','#dfeccf','#e4d7f5','#fbd9c0','#d5eef0','#ffffff','#e9e9ee','#ffe3e3'];
-const SIZES={note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
+const SIZES={embed:[460,285],note:[180,140],rr:[220,130],rect:[200,130],pill:[240,84],oval:[210,140],diamond:[190,170],triangle:[190,170],star:[180,170],hex:[210,170],txt:[260,60],frame:[640,420],emo:[64,64]};
+// Only allow external media from expected HTTPS providers. URLs are loaded by
+// the student's browser, not uploaded through Firebase or Cloudflare.
+function externalMedia(raw){
+  let u;try{u=new URL(String(raw).trim())}catch{return null}
+  if(u.protocol!=='https:'||u.username||u.password)return null;
+  const host=u.hostname.toLowerCase().replace(/^www\./,'');
+  const videoId=/^[A-Za-z0-9_-]{11}$/;
+  let id=null;
+  if(host==='youtube.com'||host==='m.youtube.com'){
+    id=u.pathname==='/watch'?u.searchParams.get('v'):u.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})\/?$/)?.[1];
+    if(id&&videoId.test(id))return{kind:'embed',url:'https://www.youtube-nocookie.com/embed/'+id,host:'YouTube'};
+  }
+  if(host==='youtu.be'){
+    id=u.pathname.slice(1);if(videoId.test(id))return{kind:'embed',url:'https://www.youtube-nocookie.com/embed/'+id,host:'YouTube'};
+  }
+  if(host==='vimeo.com'||host==='player.vimeo.com'){
+    const match=u.pathname.match(/\/(?:video\/)?(\d{5,15})(?:\/|$)/);
+    if(match)return{kind:'embed',url:'https://player.vimeo.com/video/'+match[1],host:'Vimeo'};
+  }
+  if(host==='soundcloud.com'||host==='m.soundcloud.com'){
+    if(u.pathname.split('/').filter(Boolean).length>=2)
+      return{kind:'embed',url:'https://w.soundcloud.com/player/?url='+encodeURIComponent(u.origin+u.pathname),host:'SoundCloud',audio:true};
+  }
+  if(['images.unsplash.com','i.imgur.com','images.pexels.com','upload.wikimedia.org','cdn.pixabay.com'].includes(host)||
+      /\.(?:png|jpe?g|webp|gif|avif)(?:$)/i.test(u.pathname)){
+    return{kind:'img',url:u.href,host:'Изображение'}
+  }
+  if(/\.(?:mp3|ogg|wav|m4a)(?:$)/i.test(u.pathname))return{kind:'aud',url:u.href,host:'Аудио'};
+  if(/\.(?:mp4|webm|mov)(?:$)/i.test(u.pathname))return{kind:'vid',url:u.href,host:'Видео'};
+  return null;
+}
 async function openBoard(m,id,guest,shareToken=null){
   let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
   activeShareToken=shareToken;
@@ -722,6 +753,15 @@ async function openBoard(m,id,guest,shareToken=null){
       el=E('div',{className:'it '+n.k+(FILLK.includes(n.k)?' fill':'')});els[n.id]=el;
       const bgl=E('div',{className:'bgl k-'+n.k});el._bg=bgl;el.append(bgl);let hd=el;
       if(n.k==='img'){const im=E('img',{draggable:false});imgSrc(n.u).then(v=>im.src=v);bgl.append(im)}
+      else if(n.k==='embed'){
+        const src=externalMedia(n.u);
+        if(src?.kind==='embed'){
+          const frame=E('iframe',{src:src.url,title:src.host+' — внешний плеер',loading:'lazy',referrerPolicy:'no-referrer',
+            allow:'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share',
+            allowFullscreen:true,style:'width:100%;height:100%;border:0;border-radius:10px'});
+          bgl.append(frame);hd=E('i');el.append(hd);
+        }else{bgl.textContent='Недопустимая ссылка на плеер';hd=E('i');el.append(hd)}
+      }
       else if(n.k==='aud'||n.k==='vid'){const media=E(n.k==='aud'?'audio':'video',{controls:true,preload:'metadata',src:n.u,style:'width:100%;height:100%;object-fit:contain'});if(n.k==='vid')media.playsInline=true;bgl.append(media);el._media=media;hd=E('i');el.append(hd)}
       else if(n.k==='emo')bgl.textContent=n.t;
       else{hd=E('i');const t=E('div',{className:'t',contentEditable:true,oninput:()=>{n.t=t.innerText;push(n)}});el._t=t;
@@ -806,7 +846,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
   const makeSvg=async()=>{const maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
     for(const st of strokes){let p='';for(let i=0;i<st.p.length;i+=2)p+=(i?'L':'M')+st.p[i]+' '+st.p[i+1]+' ';out.push(`<path d=\"${p}\" fill=\"none\" stroke=\"${st.e?'#fff':xml(st.c)}\" stroke-width=\"${st.w}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>`)}
-    for(const n of items){if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}
+    for(const n of items){if(n.k==='embed'){out.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="#f6f1fa" stroke="#a98cac"/><text x="${n.x+12}" y="${n.y+30}" font-size="16" fill="#715385">${xml(n.t||'Внешний плеер')}</text>`);continue}if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}
     out.push('</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
   const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
   const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const c=E('canvas',{width:im.naturalWidth,height:im.naturalHeight});c.getContext('2d').drawImage(im,0,0);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
@@ -820,6 +860,21 @@ async function openBoard(m,id,guest,shareToken=null){
         await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;const u=await upload(c.toDataURL('image/jpeg',.7)),dw=420,dh=dw*v.height/v.width;
         if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
       persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
+  const addExternalLink=()=>{
+    const raw=prompt('Вставь ссылку YouTube, Vimeo, SoundCloud, изображение или прямую ссылку MP3/MP4 (https://):','');
+    if(raw===null)return;
+    const resource=externalMedia(raw);
+    if(!resource){alert('Ссылка не поддерживается. Для видео: YouTube/Vimeo, для аудио: SoundCloud или прямая MP3, для фото: HTTPS-ссылка на картинку.');return}
+    const [cx,cy]=center();
+    if(resource.kind==='img'){addImg(resource.url,640,400,Math.max(0,cx-210),Math.max(0,cy-140))}
+    else{
+      const n=add(resource.kind,cx,cy,{u:resource.kind==='embed'?raw:resource.url,
+        t:resource.host,w:resource.audio?440:460,h:resource.audio?175:280});
+      // Existing board renderer and sync propagate the same item to students.
+      if(n)persist();
+    }
+    persist();say('Добавлено по ссылке, без загрузки в наши базы');
+  };
   const fm=E('input',{type:'file',accept:'audio/*,video/*',multiple:true,hidden:true,onchange:async()=>{
     const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>MAX_UPLOAD_BYTES){alert('Файл «'+f.name+'» больше 300 МБ.');continue}say('Загружаю '+f.name+'…');const u=await uploadBlob(f,f.name,f.type);const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось загрузить медиафайл: '+e.message)}say('');fm.value=''}});
   /* интерфейс */
@@ -865,7 +920,7 @@ async function openBoard(m,id,guest,shareToken=null){
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
     tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
-    tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()));
+    tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()),tb('link','Медиа по ссылке: YouTube, Vimeo, SoundCloud, фото',addExternalLink));
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
   const fsel=E('select',{onchange:()=>fmt('f',fsel.value)},...FONTS.map(f=>{const o=E('option',{value:f,textContent:f});o.style.fontFamily=`'${f}'`;return o})),
