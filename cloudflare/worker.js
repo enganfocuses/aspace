@@ -44,6 +44,18 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "aspace-fallback", version: 1 });
     }
+    // Public, read-only readiness check. Returns only a boolean, never schema or user data.
+    if (url.pathname === "/health/db" && request.method === "GET") {
+      if (!env.DB) return json({ ok: false, database: "unavailable" }, 503);
+      try {
+        await env.DB.prepare("SELECT 1 FROM docs LIMIT 1").first();
+        await env.DB.prepare("SELECT 1 FROM shares LIMIT 1").first();
+        return json({ ok: true, database: "ready" });
+      } catch (error) {
+        console.error("D1 health check failed", error);
+        return json({ ok: false, database: "unavailable" }, 503);
+      }
+    }
     if (!env.DB || !env.FIREBASE_PROJECT_ID || !env.OWNER_UID) {
       return json({ error: "fallback_not_configured" }, 503);
     }
