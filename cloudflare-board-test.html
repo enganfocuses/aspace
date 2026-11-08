@@ -19,6 +19,7 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 #drawingLayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;touch-action:none}#drawingLayer.draw-mode{pointer-events:auto;cursor:crosshair}.stageObj.rect{background:#e7e1fa;border-radius:5px}.stageObj:focus{outline:3px solid #8a4c91}.stageObj small{display:block;font-size:11px;color:#483849}
 </style>
 <script src="./config.js"></script>
+<script src="./aspace-merge.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 </head><body><div class="shell">
@@ -55,11 +56,11 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 const BASE='https://aspace-fallback-api.anncodes001.workers.dev', KEY='prototype-board-v1', CACHE='aspace:cf:prototype:v1';
 const $=id=>document.getElementById(id);
 const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$('revision');
-let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null, strokes=[], drawing=false, activeStroke=null, undoneStrokes=[], autoTimer=null, lastWrite=0;
+let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null, strokes=[], drawing=false, activeStroke=null, undoneStrokes=[], autoTimer=null, lastWrite=0, baseSnapshot=null;
 const stored=()=>{try{return JSON.parse(localStorage.getItem(CACHE)||'null')}catch{return null}};
-function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,items,strokes,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
+function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,items,strokes,baseSnapshot,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
 function show(text){status.textContent=text;revisionEl.textContent=rev===null?'не загружена':String(rev)}
-function apply(data,newRev,changed){clearTimeout(autoTimer);undoneStrokes=[];title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);selected=null;renderItems();renderStrokes();rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
+function apply(data,newRev,changed){clearTimeout(autoTimer);undoneStrokes=[];baseSnapshot=JSON.parse(JSON.stringify(data));title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);selected=null;renderItems();renderStrokes();rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
 function localChange(){localEditSerial++;dirty=true;cache();show('Изменения сохранены локально. Облако синхронизируется при наличии сети.');queueAutoSave()}
 function queueAutoSave(){
  clearTimeout(autoTimer);
@@ -210,7 +211,7 @@ async function load(force=false,background=false){
   if(!background)show('Загружаю данные из Cloudflare…');
   const r=await api('GET');
   if(r.status===404){
-   if(!dirty&&!priorDirty&&editAtStart===localEditSerial){rev=0;cache()}
+   if(!dirty&&!priorDirty&&editAtStart===localEditSerial){rev=0;baseSnapshot=null;cache()}
    if(!background)show('Серверная доска ещё не создана. Можно сохранить первую версию.');
    return;
   }
@@ -241,7 +242,7 @@ async function save(){
  try{
   if(rev===null) {
    const current=await api('GET');
-   if(current.status===404)rev=0;
+   if(current.status===404){rev=0;baseSnapshot=null;}
    else if(current.status===200) {
      const parsed=JSON.parse(current.data.j);
      if(!dirty){apply(parsed,current.data.revision,false);show('Сначала загружена существующая версия.');return}
@@ -249,15 +250,40 @@ async function save(){
    } else throw Error('Не удалось проверить сервер: HTTP '+current.status);
   }
   show('Сохраняю в Cloudflare…');
-  const snapshot=payload(),expectedRevision=rev;
-  const r=await api('PUT',{j:JSON.stringify(snapshot),expectedRevision});
-  if(r.status===409){const fresh=await api('GET');if(fresh.status!==200)throw Error('Не удалось получить актуальную версию');await conflict(fresh);return}
+  let snapshot=payload(),expectedRevision=rev;
+  const startedSerial=localEditSerial;
+  let r=await api('PUT',{j:JSON.stringify(snapshot),expectedRevision});
+  let autoMerged=false;
+  if(r.status===409){
+   const fresh=await api('GET');
+   if(fresh.status!==200)throw Error('Не удалось получить актуальную версию');
+   let server;
+   try{server=JSON.parse(fresh.data.j)}catch{throw Error('Некорректная версия с сервера')}
+   // Only merge when the exact common ancestor is known. Never guess after a lost local cache.
+   if(baseSnapshot && window.AspaceMerge && expectedRevision>0){
+    const result=window.AspaceMerge.mergeBoard(baseSnapshot,snapshot,server);
+    if(result.ok && localEditSerial===startedSerial){
+     const retry=await api('PUT',{j:JSON.stringify(result.value),expectedRevision:fresh.data.revision});
+     if(retry.status===200){r=retry;snapshot=result.value;autoMerged=true}
+     else if(retry.status!==409)throw Error('Ошибка повторного сохранения HTTP '+retry.status);
+    }
+   }
+   if(r.status===409){await conflict(fresh);return}
+  }
   if(r.status!==200)throw Error('Cloudflare HTTP '+r.status+' '+String(r.data.error||''));
   rev=r.data.revision;lastWrite=Date.now();
-  const changedWhileSaving=title.value!==snapshot.title||body.value!==snapshot.text||JSON.stringify(items)!==JSON.stringify(snapshot.items)||JSON.stringify(strokes)!==JSON.stringify(snapshot.strokes);
+  const changedWhileSaving=localEditSerial!==startedSerial;
+  if(autoMerged && !changedWhileSaving){
+   // The server may contain independent updates from another browser.
+   title.value=String(snapshot.title||'');body.value=String(snapshot.text||'');
+   items=cleanItems(snapshot.items);strokes=cleanStrokes(snapshot.strokes);
+   renderItems();renderStrokes();
+  }
+  baseSnapshot=JSON.parse(JSON.stringify(snapshot));
   dirty=changedWhileSaving;
   cache();$('conflict').style.display='none';remoteConflict=null;
-  show(changedWhileSaving?'Версия сохранена; новые изменения остаются локально.':'Сохранено в Cloudflare. Версия '+rev+'.');if(changedWhileSaving)queueAutoSave();
+  show(autoMerged?'Независимые изменения объединены и сохранены. Версия '+rev+'.':changedWhileSaving?'Версия сохранена; новые изменения остаются локально.':'Сохранено в Cloudflare. Версия '+rev+'.');
+  if(changedWhileSaving)queueAutoSave();
  }catch(e){cache();show('Не удалось сохранить. Локальная копия осталась на устройстве. '+e.message)}
  finally{writing=false;$('save').disabled=!account;if(dirty&&!remoteConflict&&navigator.onLine)queueAutoSave()}
 }
@@ -319,7 +345,7 @@ firebase.auth().onAuthStateChanged(async user=>{
  $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
  if(!enabled)return;
  const data=stored();
- if(data){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);renderItems();renderStrokes();rev=Number.isSafeInteger(data.revision)?data.revision:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
+ if(data){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);renderItems();renderStrokes();rev=Number.isSafeInteger(data.revision)?data.revision:null;baseSnapshot=data.baseSnapshot&&data.baseSnapshot.kind==='aspace-prototype'?data.baseSnapshot:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
  if(dirty){show('Найдена локальная несинхронизированная версия. Она не будет перезаписана автоматически.');queueAutoSave();}
  else await load();
 });
