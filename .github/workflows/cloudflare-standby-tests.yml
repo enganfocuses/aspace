@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'cloudflare/**'
+      - 'index.html'
+      - 'tests/**'
+      - 'education/**'
       - '.github/workflows/cloudflare-standby-tests.yml'
   push:
     branches:
@@ -23,3 +26,5 @@ jobs:
       - name: Run isolated failover regression tests (no credentials needed)
         working-directory: cloudflare
         run: npm test
+      - name: Run Aspace UI, offline cache and guest signaling tests
+        run: node --test tests/*.test.mjs
