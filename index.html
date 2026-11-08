@@ -1105,8 +1105,9 @@ async function eduView(m){
   const open=B('↗ Открыть сборщик на весь экран',()=>window.open(courseUrl,'_blank','noopener,noreferrer'));
   const download=E('a',{href:courseUrl,download:'Speakout-B1plus-Course-Builder.html',textContent:'⬇ Скачать локальный HTML-сборщик',style:'display:inline-block;padding:12px;color:#795779'});
   const frame=E('iframe',{src:courseUrl,title:'Speakout B1+ — локальный HTML-сборщик',
-    loading:'lazy',referrerPolicy:'no-referrer',sandbox:'allow-scripts allow-forms allow-modals allow-popups allow-downloads',
+    loading:'lazy',referrerPolicy:'no-referrer',
     style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
+  frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads');
   m.append(title,info,E('div',{className:'row',style:'margin:12px 0'},open,download),frame);
 }
 
