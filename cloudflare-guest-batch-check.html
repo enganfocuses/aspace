@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aspace · Проверка гостевого резерва</title><meta name="referrer" content="no-referrer">
+<style>
+:root{font:16px system-ui,sans-serif;color:#392944;background:#f7f1fa}
+*{box-sizing:border-box}body{margin:0;padding:18px}main{max-width:900px;margin:auto}
+h1{font-size:1.5rem}h2{font-size:1.15rem}.card{background:#fff;border-radius:17px;padding:20px;margin:14px 0;box-shadow:0 6px 28px #45254b0e}p{line-height:1.55}
+button{background:#76508d;color:white;border:0;border-radius:12px;padding:12px 17px;font:inherit;min-height:45px}button:disabled{opacity:.5}td,th{padding:9px 7px;border-bottom:1px solid #ece1f1;text-align:left}table{width:100%;border-collapse:collapse}.muted{color:#766a7c}#status{white-space:pre-wrap;font-weight:600}a{color:#77508a}
+</style>
+<script src="./config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script></head>
+<body><main>
+<h1>Aspace · Гостевой резерв Cloudflare</h1>
+<p class="muted">Одна безопасная проверка: временная доска, действующие права просмотра/редактирования, защита от конфликта, отзыв ссылки и полная очистка. Firebase остаётся основной базой; настоящие уроки не трогаем.</p>
+<section class="card"><h2>Комплексный тест</h2>
+<p id="auth" role="status">Проверка входа…</p>
+<button id="run" disabled>Проверить гостевой резерв целиком</button>
+<p id="status" role="status">Ожидание.</p>
+<table><thead><tr><th>Этап</th><th>Результат</th></tr></thead><tbody id="checks"></tbody></table>
+<p class="muted">Тест создаёт только синтетическую доску в D1 с префиксом diag- и случайную ссылку. По завершении удаляет доску вместе с временными правами. Настоящие ученические ссылки не передаются и не меняются.</p>
+</section>
+<section class="card"><h2>Что тест пока не подтверждает</h2>
+<p>Не проверяет реальный видеозвонок, синхронизацию медиа и автоматическое переключение опубликованного Aspace. Для этих функций необходимы отдельное развёртывание Worker и испытание с двумя участниками.</p>
+<a href="./">← На главную</a>
+</section></main><script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const API="https://aspace-fallback-api.anncodes001.workers.dev";
+let owner=null,running=false;
+if(!window.firebase||!window.CFG?.firebase){
+  $('auth').textContent="Firebase config.js недоступен";return;
+}
+firebase.initializeApp(CFG.firebase);
+firebase.auth().onAuthStateChanged(user=>{
+  owner=user?.uid===CFG.ownerUid?user:null;
+  $('auth').textContent=owner?"Владелец подтверждён. Можно запускать проверку.":"Войди в Aspace владельцем и открой эту страницу заново.";
+  $('run').disabled=running||!owner;
+});
+const sample=()=>({name:"Aspace: синтетическая доска",bg:"dots",siteUrl:"",
+  items:[{id:"note123",k:"note",x:40,y:50,w:180,h:140,t:"Проверка",c:"#ead7f4"}],
+  strokes:[{id:"stroke123",w:3,c:"#76508d",p:[10,20,40,50]}],upd:Date.now()});
+function testRow(name,pass,detail=""){
+ const tr=document.createElement('tr');
+ for(const value of [name,(pass?'✓ Успешно':'✕ Ошибка')+(detail?' · '+detail:'')]){
+   const td=document.createElement('td');td.textContent=value;tr.append(td);
+ }
+ $('checks').append(tr);
+}
+const stringifyError=e=>String(e?.message||e).slice(0,260);
+async function request(path,{method="GET",ownerOnly=false,token=null,body=null}={}){
+ const headers={};
+ if(ownerOnly)headers.Authorization="Bearer "+await owner.getIdToken();
+ if(token)headers["X-Aspace-Share-Token"]=token;
+ if(body!==null)headers["Content-Type"]="application/json";
+ const response=await fetch(API+path,{method,headers,body:body===null?undefined:JSON.stringify(body),
+   cache:"no-store",referrerPolicy:"no-referrer"});
+ const raw=await response.text();
+ let data={};try{data=JSON.parse(raw)}catch{data={error:raw.slice(0,140)}}
+ return {ok:response.ok,status:response.status,data};
+}
+function assert(value,message){if(!value)throw Error(message)}
+async function run(){
+ if(!owner||running)return;running=true;$('run').disabled=true;
+ $('checks').replaceChildren();$('status').textContent="Начинаю проверку…";
+ const uuid=crypto.randomUUID(),key="diag-"+uuid,token=[...crypto.getRandomValues(new Uint8Array(24))]
+   .map(x=>x.toString(16).padStart(2,"0")).join("");
+ const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token)));
+ const hash=[...digest].map(x=>x.toString(16).padStart(2,"0")).join("");
+ let created=false,grant=false,completed=false;
+ try{
+   const ready=await request("/health/db");
+   assert(ready.ok&&ready.data.ok,"Cloudflare D1 ещё не готова: HTTP "+ready.status);
+   testRow("D1 доступна",true);
+   const support=await request("/v1/shares?docKey="+encodeURIComponent(key),{ownerOnly:true});
+   assert(support.ok&&Array.isArray(support.data.shares),
+     "Нужна обновлённая версия Worker для гостевых диагностических ссылок (HTTP "+support.status+")");
+   testRow("Обновлённый Worker поддерживает гостевые ссылки",true);
+   const board=sample();
+   const saved=await request("/v1/docs/"+encodeURIComponent(key),{
+     ownerOnly:true,method:"PUT",body:{j:JSON.stringify(board),expectedRevision:0}
+   });
+   assert(saved.ok&&saved.data.revision===1,
+     "Не создана временная доска: HTTP "+saved.status);
+   created=true;testRow("Временная доска записана в Cloudflare",true);
+   const createdShare=await request("/v1/shares",{ownerOnly:true,method:"POST",
+     body:{tokenHash:hash,docKey:key,role:"viewer"}});
+   assert(createdShare.ok,"Не создана временная ссылка: HTTP "+createdShare.status);
+   grant=true;testRow("Секрет ссылки хранится только в браузере",true);
+   const viewer=await request("/v1/shared",{token});
+   assert(viewer.ok&&viewer.data.role==="viewer"&&
+     JSON.parse(viewer.data.j).items.length===1,"Гость не смог читать доску без аккаунта");
+   testRow("Гость без входа читает доску",true);
+   const denied=await request("/v1/shared",{method:"PUT",token,body:{
+     j:JSON.stringify({...board,name:"Попытка записи"}),
+     expectedRevision:viewer.data.revision
+   }});
+   assert(denied.status===403,"Просмотр ошибочно позволяет редактирование (HTTP "+denied.status+")");
+   testRow("Просмотр запрещает запись",true);
+   const role=await request("/v1/shares/"+hash,{ownerOnly:true,method:"PATCH",body:{role:"editor"}});
+   assert(role.ok,"Не удалось изменить разрешение ссылки: HTTP "+role.status);
+   const editor=await request("/v1/shared",{token});
+   assert(editor.ok&&editor.data.role==="editor","Гость не получил право редактирования");
+   testRow("Владелец может изменить права доступа",true);
+   const change={...board,items:[...board.items,
+     {id:"otherNote",k:"note",x:220,y:90,w:150,h:90,t:"Добавлено гостем",c:"#f6e7b8"}]};
+   const wrote=await request("/v1/shared",{method:"PUT",token,body:{
+     j:JSON.stringify(change),expectedRevision:editor.data.revision
+   }});
+   assert(wrote.ok&&wrote.data.revision>editor.data.revision,
+     "Гость не смог CAS-сохранить изменения: HTTP "+wrote.status);
+   const confirmed=await request("/v1/shared",{token});
+   assert(confirmed.ok&&JSON.parse(confirmed.data.j).items.length===2,
+     "Запись гостя не сохранилась");
+   testRow("Гость изменяет ту же доску в Cloudflare",true);
+   const conflict=await request("/v1/shared",{method:"PUT",token,body:{
+     j:JSON.stringify(board),expectedRevision:editor.data.revision
+   }});
+   assert(conflict.status===409,"Не сработала защита версий (HTTP "+conflict.status+")");
+   testRow("Устаревшая запись не затирает новые изменения",true);
+   const revoke=await request("/v1/shares/"+hash,{ownerOnly:true,method:"DELETE"});
+   assert(revoke.ok&&revoke.data.revoked===true,"Не удалось отозвать ссылку");
+   grant=false;
+   const after=await request("/v1/shared",{token});
+   assert(after.status===404,"После отзыва ссылка ещё действует (HTTP "+after.status+")");
+   testRow("Отзыв доступа отключает гостевую ссылку",true);
+   completed=true;
+ }catch(error){
+   $('status').textContent="Проверка остановилась: "+stringifyError(error);
+   testRow("Итог",false,stringifyError(error));
+ }finally{
+   let cleaned=true;
+   if(grant){
+     try{const r=await request("/v1/shares/"+hash,{ownerOnly:true,method:"DELETE"});
+       if(!r.ok)throw Error("HTTP "+r.status);
+     }catch(e){cleaned=false;testRow("Очистка разрешений",false,stringifyError(e))}
+   }
+   if(created){
+     try{const r=await request("/v1/docs/"+encodeURIComponent(key),{
+       ownerOnly:true,method:"DELETE"});
+       if(!r.ok)throw Error("HTTP "+r.status);
+       testRow("Временная доска и ссылки удалены",true);
+     }catch(e){cleaned=false;testRow("Очистка временной доски",false,stringifyError(e))}
+   }
+   if(completed&&cleaned)$('status').textContent="Все проверки пройдены. Тестовые данные удалены.";
+   running=false;$('run').disabled=!owner;
+ }
+}
+$('run').addEventListener("click",run);
+})();
+</script></body></html>
