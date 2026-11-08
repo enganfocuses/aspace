@@ -263,6 +263,27 @@ if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWor
 const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
+// Experimental single-router standby mode. Off by default and only present on feature branch.
+let standbyController=null, standbyPhase='disabled';
+const standbyOptIn=()=>new URLSearchParams(location.search).get('standby')==='lab';
+const standbyKey=p=>p==='meta/boards'||/^boards\/[A-Za-z0-9_-]+$/.test(p);
+async function prepareStandby(owner){
+ if(!standbyOptIn()||!owner||owner.uid!==CFG.ownerUid){standbyController=null;return}
+ const [{createCloudflareFallback},{createIndexedDBStandbyQueue},{createAspaceStandby}]=await Promise.all([
+  import('./cloudflare/adapter.js'),import('./cloudflare/queue.js'),import('./cloudflare/standby.js')
+ ]);
+ const getIdToken=()=>owner.getIdToken();
+ const queue=createIndexedDBStandbyQueue({scope:owner.uid+'_aspace'});
+ const cloudflare=createCloudflareFallback({baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',getIdToken});
+ standbyController=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,cloudflare,queue,
+  onStatus:({phase})=>{standbyPhase=phase;const mark=document.getElementById('standbyIndicator');if(mark)mark.textContent='🧪 Резерв: '+phase}
+ });
+ standbyController.startRecovery({onResults:outcomes=>{
+  for(const result of outcomes)if(result.status==='conflict')console.warn('Aspace: draft requires manual resolution',result.key);
+ }});
+ standbyPhase='primary';
+}
+
 const MAX_UPLOAD_BYTES=300*1024*1024;
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{const r=await fetch(shareURL(token)+'/'+part+'.json');if(!r.ok)throw new Error('Ссылка недействительна или доступ отозван');return r.json()};
@@ -295,6 +316,10 @@ async function localPut(store,value){const db=await localDB();return new Promise
 async function localAll(store){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readonly').objectStore(store).getAll();q.onsuccess=()=>resolve(q.result||[]);q.onerror=()=>reject(q.error)})}
 async function localDelete(store,key){const db=await localDB();return new Promise((resolve,reject)=>{const q=db.transaction(store,'readwrite').objectStore(store).delete(key);q.onsuccess=()=>resolve(true);q.onerror=()=>reject(q.error)})}
 async function load(p){
+ if(standbyController&&standbyKey(p)){
+  const result=await standbyController.read(p);
+  return result.value;
+ }
  let cached=null,pending=false;
  try{const c=await localGet('docs',p);cached=c?.value??null;pending=!!(await localGet('pending',p))}catch{}
  if(pending&&cached!==null)return cached;
@@ -305,6 +330,10 @@ async function load(p){
  return cached!==null?cached:ls.g(p,null);
 }
 async function save(p,d){
+ if(standbyController&&standbyKey(p)){
+  const result=await standbyController.write(p,d);
+  return !result.pending;
+ }
  const record={key:p,value:d,updatedAt:Date.now()};
  ls.s(p,d);
  try{await localPut('docs',record);await localPut('pending',{key:p,updatedAt:record.updatedAt})}
@@ -317,6 +346,7 @@ async function save(p,d){
  }catch(e){console.warn('Aspace sync queued:',e);return false}
 }
 async function syncLocalChanges(){
+ if(standbyController)return; // Standby has one durable queue and one recovery runner; never write twice.
  if(!navigator.onLine)return;
  try{
   const queue=await localAll('pending');
@@ -371,8 +401,18 @@ function loginView(message=''){
 }
 function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
-  try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();auth.onAuthStateChanged(user=>{
-    currentUser=user;syncLocalChanges();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
+  try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();auth.onAuthStateChanged(async user=>{
+    currentUser=user;
+    if(standbyOptIn()&&user?.uid===CFG.ownerUid){
+      try{await prepareStandby(user)}catch(e){
+        console.error('Aspace standby initialization refused:',e);
+        // Fail closed: never route experimental mode through the legacy unsafeguarded writer.
+        standbyPhase='initialization_error';
+        root.replaceChildren(E('div',{className:'warn',textContent:'Не удалось безопасно включить резервный тест. Открой Aspace без параметра standby=lab. '+e.message}));
+        return;
+      }
+    }
+    if(!standbyController)syncLocalChanges();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
     if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
     const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
   })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
@@ -387,6 +427,7 @@ function goHome(){
 }
 function shell(guest){
   const hd=E('header',{},E('b',{textContent:'Aspace'}),B(themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема',toggleTheme,'theme-toggle'),B('⌂ Домой',goHome));
+  if(standbyController&&!guest)hd.append(E('span',{id:'standbyIndicator',className:'mut',textContent:'🧪 Резерв: '+standbyPhase}));
   if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('Выйти',async()=>{await auth.signOut()}))}
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
