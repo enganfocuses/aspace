@@ -288,6 +288,14 @@ async function prepareStandby(owner){
 }
 
 const MAX_UPLOAD_BYTES=300*1024*1024;
+// Guest fallback is a transport for the existing board, not a second board UI.
+const guestStandbyEnabled=()=>new URLSearchParams(location.search).get('gueststandby')==='lab';
+let guestStandbyPromise=null;
+const getGuestStandby=()=>guestStandbyPromise||(guestStandbyPromise=import('./cloudflare/guest-standby.js')
+  .then(module=>module.createAspaceGuestStandby({
+    baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',
+    onStatus:info=>console.info('Aspace guest standby:',info.phase,info.source)
+  })));
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{
   const canCache=part==='meta'||part==='board';
@@ -297,6 +305,15 @@ const shareRead=async(token,part)=>{
       const detail=(await response.text().catch(()=>'')).slice(0,350);
       const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(detail);
       if((response.status===429||response.status>=500||quota)&&canCache){
+        if(guestStandbyEnabled()){
+          // On quota/server failures, prefer the owner-seeded D1 snapshot.
+          // A disabled/revoked Cloudflare grant must not silently fall back to
+          // an editable local copy.
+          const backup=await (await getGuestStandby()).read(token);
+          return part==='meta'
+            ? {boardId:backup.boardId,name:backup.name,role:backup.role}
+            : backup.board;
+        }
         const cache=await localGet('shareCache',token+':'+part).catch(()=>null);
         if(cache?.value!=null)return cache.value;
       }
@@ -311,6 +328,12 @@ const shareRead=async(token,part)=>{
     // Never bypass explicit authorization/revocation errors. Use cache only if
     // the network could not be reached and the link had been opened before.
     if(canCache&&(error instanceof TypeError||error?.name==='AbortError')){
+      if(guestStandbyEnabled()){
+        const backup=await (await getGuestStandby()).read(token);
+        return part==='meta'
+          ? {boardId:backup.boardId,name:backup.name,role:backup.role}
+          : backup.board;
+      }
       const cached=await localGet('shareCache',token+':'+part).catch(()=>null);
       if(cached?.value!=null)return cached.value;
     }
@@ -318,11 +341,28 @@ const shareRead=async(token,part)=>{
   }
 };
 const shareWrite=async(token,part,value,method='PUT')=>{
-  const response=await fetch(shareURL(token)+'/'+part+'.json',{method,body:value===null?null:JSON.stringify(value)});
-  if(!response.ok)throw new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')');
+  const standby=part==='board'&&method==='PUT'&&guestStandbyEnabled();
+  let response;
+  try{
+    response=await fetch(shareURL(token)+'/'+part+'.json',{method,
+      body:value===null?null:JSON.stringify(value)});
+  }catch(error){
+    if(!standby||!(error instanceof TypeError||error?.name==='AbortError'))throw error;
+    return (await getGuestStandby()).write(token,value);
+  }
+  if(!response.ok){
+    if(standby&&(response.status===429||response.status>=500)){
+      return (await getGuestStandby()).write(token,value);
+    }
+    const body=(await response.text().catch(()=>'')).slice(0,350);
+    const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(body);
+    if(standby&&quota)return (await getGuestStandby()).write(token,value);
+    throw new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')');
+  }
   if((part==='board'||part==='meta')&&value!=null)
     try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
-  return true;
+  if(standby)(await getGuestStandby()).clear(token);
+  return {source:'firebase'};
 };
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
 const revokeShare=async token=>{const board=await shareRead(token,'board').catch(()=>null);for(const it of (board?.items||[])){if(it.u&&it.u.startsWith('img:'))await fetch(shareURL(token)+'/assets/'+encodeURIComponent(it.u.slice(4))+'.json',{method:'DELETE'})}for(const part of ['board','room','meta'])await fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})};
