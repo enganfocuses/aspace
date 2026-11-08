@@ -485,7 +485,8 @@ async function roomUI(m,id,name,back){
           if(!data.token||!/^[a-f0-9]{48}$/.test(data.token))return;
           if(!/^[a-z0-9_-]{1,120}$/i.test(data.boardId||''))return;
           const isOwner=currentUser&&currentUser.uid===CFG.ownerUid;
-          go(mm=>openBoard(mm,isOwner?data.boardId:null,!isOwner,data.token));
+          if(isOwner)go(mm=>openBoard(mm,data.boardId,false));
+          else go(mm=>openBoard(mm,null,true,data.token));
         });
       }catch(e){
         alert(e.message);call?.stop();call=null;callRoom?.close();callRoom=null;
@@ -540,7 +541,7 @@ async function roomUI(m,id,name,back){
       }catch(e){alert('Не удалось открыть ученикам доступ: '+e.message);return}
     }
     callRoom.emit('boardnav',{boardId:chosen.id,token});
-    await go(mm=>openBoard(mm,chosen.id,false,token));
+    await go(mm=>openBoard(mm,chosen.id,false));
     persistentCallSession?.window.classList.remove('min');
     say2('Вы перешли на доску, видеозвонок продолжается');
   });
