@@ -371,7 +371,7 @@ function loginView(message=''){
 function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
   try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();auth.onAuthStateChanged(user=>{
-    currentUser=user;const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
+    currentUser=user;syncLocalChanges();const shared=location.hash.match(/^#s-([a-f0-9]{48})$/);if(shared){shell(true);return}if(!user){loginView();return}
     if(!CFG.ownerUid||user.uid!==CFG.ownerUid){auth.signOut();loginView('Эта учётная запись пока не назначена владельцем Aspace. Добавим UID владельца в конфигурацию.');return}
     const h=location.hash;shell(h.startsWith('#b-')||h.startsWith('#c-'));
   })}catch(e){loginView('Не удалось подключиться к Firebase: '+e.message)}
@@ -685,7 +685,7 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;applyViewport(p.v);r.emit('followack',{to:p.from,name:myName});say('Следуешь за '+(p.name||'участником'))}});
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
-  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)await save('boards/'+id,data);if(activeShareToken)try{await shareWrite(activeShareToken,'board',data)}catch(e){say('Не удалось сохранить общую доску: '+e.message)}},1200)};
+  const persist=()=>{if(guest)return;clearTimeout(tm);tm=setTimeout(async()=>{const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на этом устройстве. Синхронизация с облаком произойдёт при подключении.')}if(activeShareToken)try{await shareWrite(activeShareToken,'board',data)}catch(e){say('Общая доска сохранена локально; облачная синхронизация пока не удалась: '+e.message)}},1200)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
