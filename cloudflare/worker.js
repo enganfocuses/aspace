@@ -44,7 +44,7 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, service: "aspace-fallback", version: 1 });
     }
-    if (!env.DB || !env.ASSETS || !env.FIREBASE_PROJECT_ID || !env.OWNER_UID) {
+    if (!env.DB || !env.FIREBASE_PROJECT_ID || !env.OWNER_UID) {
       return json({ error: "fallback_not_configured" }, 503);
     }
     const uid = await requireOwner(request, env);
@@ -78,6 +78,7 @@ export default {
 
     const assetMatch = url.pathname.match(/^\/v1\/assets\/([^/]+)$/);
     if (assetMatch) {
+      if (!env.ASSETS) return json({ error: "asset_storage_not_enabled" }, 503);
       const id = decodeURIComponent(assetMatch[1]);
       if (!safeKey(id)) return json({ error: "invalid_asset_id" }, 400);
       const objectKey = `${uid}/${id}`;
