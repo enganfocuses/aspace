@@ -48,9 +48,10 @@ export default {
     if (url.pathname === "/health/db" && request.method === "GET") {
       if (!env.DB) return json({ ok: false, database: "unavailable" }, 503);
       try {
-        await env.DB.prepare("SELECT 1 FROM docs LIMIT 1").first();
-        await env.DB.prepare("SELECT 1 FROM shares LIMIT 1").first();
-        return json({ ok: true, database: "ready" });
+        // SELECT of a named column fails when the required revision migration is missing.
+        await env.DB.prepare("SELECT revision FROM docs LIMIT 1").first();
+        await env.DB.prepare("SELECT token_hash FROM shares LIMIT 1").first();
+        return json({ ok: true, database: "ready", revisions: true });
       } catch (error) {
         console.error("D1 health check failed", error);
         return json({ ok: false, database: "unavailable" }, 503);
