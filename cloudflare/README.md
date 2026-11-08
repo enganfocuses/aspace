@@ -41,3 +41,7 @@ Never commit wrangler.toml, API tokens, or secrets. Do not put Cloudflare API to
 5. Move WebRTC signaling only after guest authorization is ready.
 
 Do not enable automatic failover until phases 1–3 are implemented and tested with a teacher account and a separate student browser.
+
+## Deployment verification
+
+The GitHub-connected Worker must deploy the code from this `cloudflare/` directory, not the Cloudflare Hello World scaffold. In Cloudflare Builds, check that the latest deployment references this branch and commit; a `Ready` status on a dashboard-only deployment does not establish that. After deployment, `GET /health` must return JSON with `service: "aspace-fallback"`. A protected `GET /v1/docs/meta%2Fboards` without an ID token should return HTTP 401. Avoid testing writes on live teaching data.
