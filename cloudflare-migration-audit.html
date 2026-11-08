@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aspace — аудит переноса с Firebase</title>
+<meta name="referrer" content="no-referrer">
+<style>
+:root{font:16px system-ui,-apple-system,sans-serif;color:#34293d;background:#f7f2f8}*{box-sizing:border-box}body{margin:0;padding:20px}main{max-width:950px;margin:auto}h1{font-size:1.5rem}h2{font-size:1.1rem}p{line-height:1.5}section{background:white;border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 4px 25px #30254112}.row{display:flex;flex-wrap:wrap;gap:12px}button{font:inherit;background:#684983;border:0;color:white;padding:12px 18px;border-radius:12px;min-height:45px}button:disabled{opacity:.5}button.secondary{color:#634673;background:#eee7f3}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e8dfed;padding:12px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}small,.muted{color:#766e79}#status{white-space:pre-wrap;font-weight:600}a{color:#71499a}code{overflow-wrap:anywhere}
+</style>
+<script src="./config.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+</head><body><main>
+<h1>Aspace · Подготовка переноса данных</h1>
+<p class="muted">Безопасный аудит существующих досок Firebase. Не изменяет ни одной доски, медиафайла, публичной ссылки или правила доступа.</p>
+<section>
+<h2>Аудит рабочих досок</h2>
+<div id="auth" role="status">Проверяем вход владельца…</div>
+<p>Программа считывает индекс досок и каждую доску только с правами владельца. Выявляет крупные документы, внешние файлы и несовместимости с ограничением Cloudflare D1.</p>
+<div class="row"><button id="scan" disabled>Проверить реальные доски</button><button id="backup" class="secondary" disabled>Скачать резервную копию досок</button><button id="report" class="secondary" disabled>Скачать отчёт без данных учеников</button></div>
+<p id="status" role="status">Ожидание входа.</p>
+<small>Полная резервная копия содержит содержимое уроков и потенциально действующие токены доступа. Храни файл только в защищённом месте. Он не включает медиафайлы из отдельного раздела Firebase Storage/RTDB и не заменяет полную резервную копию Firebase.</small>
+</section>
+<section><h2>Результаты</h2><div id="summary">Аудит ещё не запускался.</div>
+<div style="overflow-x:auto"><table><thead><tr><th>Доска</th><th>Размер JSON</th><th>Объекты</th><th>Линии</th><th>Медиа-ссылки</th><th>Статус</th></tr></thead><tbody id="rows"></tbody></table></div>
+</section>
+<section><h2>Дальнейший порядок</h2>
+<p>После аудита резервируем данные. Затем разрабатываем отдельный перенос с сохранением ID и ревизий, проверкой прав и явным подтверждением. В этом экране нет функции загрузки в Cloudflare: случайно переключить рабочие уроки нельзя.</p>
+<a href="./">← Вернуться в Aspace</a>
+</section>
+</main><script>
+(()=>{
+'use strict';
+const $=id=>document.getElementById(id);
+let owner=null, snapshot=null, report=null, working=false;
+const bytes=obj=>new TextEncoder().encode(JSON.stringify(obj)).byteLength;
+function validId(id){return typeof id==='string'&&/^[a-zA-Z0-9_-]{1,120}$/.test(id)}
+function safeName(s){return String(s||'Без названия').slice(0,120)}
+async function readDoc(key){
+ const token=await owner.getIdToken();
+ const parts=key.split('/').map(encodeURIComponent).join('/');
+ const endpoint=CFG.firebase.databaseURL.replace(/\/$/,'')+'/docs/'+parts+'.json?auth='+encodeURIComponent(token);
+ const response=await fetch(endpoint,{cache:'no-store',referrerPolicy:'no-referrer'});
+ if(!response.ok)throw Error('Firebase HTTP '+response.status+' ('+key+')');
+ const raw=await response.json();
+ if(raw===null)return null;
+ if(raw&&typeof raw==='object'&&typeof raw.j==='string'){
+  try{return JSON.parse(raw.j)}catch{throw Error('Не удалось разобрать документ '+key)}
+ }
+ return raw;
+}
+function checkMedia(board){
+ let refs=0,embedded=0,assetIds=new Set();
+ const objects=Array.isArray(board.items)?board.items:[];
+ for(const item of objects){
+  if(!item||typeof item!=='object')continue;
+  for(const field of ['u','src','url','audioUrl','videoUrl']){
+   const value=item[field];
+   if(typeof value!=='string')continue;
+   if(value.startsWith('img:')){refs++;assetIds.add(value.slice(4))}
+   else if(value.startsWith('data:'))embedded++;
+  }
+ }
+ return {refs,embedded,uniqueAssets:assetIds.size};
+}
+function download(obj,name){
+ const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json;charset=utf-8'});
+ const link=document.createElement('a'),url=URL.createObjectURL(blob);
+ link.href=url;link.download=name;document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+function setBusy(b){working=b;$('scan').disabled=b||!owner;$('backup').disabled=b||!snapshot;$('report').disabled=b||!report}
+async function audit(){
+ if(!owner||working)return;
+ setBusy(true);snapshot=null;report=null;$('rows').replaceChildren();$('summary').textContent='';$('status').textContent='Читаю индекс досок…';
+ try{
+  const index=await readDoc('meta/boards');
+  if(!index||!Array.isArray(index.items))throw Error('Индекс досок не найден или имеет необычный формат. Не выполняем перенос.');
+  if(index.items.length>100)throw Error('Слишком много досок для безопасного автоматического анализа.');
+  const safeIds=index.items.map(x=>x?.id);
+  if(safeIds.some(x=>!validId(x))||new Set(safeIds).size!==safeIds.length){
+    throw Error('В индексе есть необычные или повторяющиеся ID. Нужна ручная проверка.');
+  }
+  const docs=[],summaries=[];
+  for(let i=0;i<index.items.length;i++){
+   const meta=index.items[i],name=safeName(meta.name);
+   $('status').textContent='Проверяю доску '+(i+1)+' из '+index.items.length+': '+name;
+   let data=null,error=null;
+   try{data=await readDoc('boards/'+meta.id)}catch(e){error=String(e.message||e)}
+   const length=data?bytes(data):0;
+   const media=data?checkMedia(data):{refs:0,embedded:0,uniqueAssets:0};
+   const count=Array.isArray(data?.items)?data.items.length:0;
+   const strokes=Array.isArray(data?.strokes)?data.strokes.length:0;
+   const warnings=[];
+   if(!data)warnings.push(error||'Документ отсутствует');
+   if(length>3_500_000)warnings.push('близко к пределу D1 API');
+   if(media.refs)warnings.push('внешние медиа требуют отдельного переноса');
+   if(media.embedded)warnings.push('встроенные медиа увеличивают трафик');
+   if(data&&typeof data!=='object')warnings.push('необычный формат');
+   const summary={id:meta.id,name,sizeBytes:length,itemCount:count,strokeCount:strokes,mediaReferences:media.refs,embeddedMedia:media.embedded,uniqueAssetIds:media.uniqueAssets,warnings};
+   summaries.push(summary);
+   if(data)docs.push({key:'boards/'+meta.id,data});
+   const tr=document.createElement('tr');
+   for(const value of [name,(length/1024).toFixed(1)+' КБ',count,strokes,media.refs+media.embedded,warnings.join('; ')||'Готова к дальнейшему анализу']){
+    const td=document.createElement('td');td.textContent=String(value);tr.append(td);
+   }
+   $('rows').append(tr);
+  }
+  snapshot={format:'aspace-firebase-owner-backup',version:1,exportedAt:new Date().toISOString(),source:'firebase-realtime-database',warning:'Sensitive lesson content and possibly live sharing identifiers. Separate media files are not included.',documents:[{key:'meta/boards',data:index},...docs]};
+  report={format:'aspace-migration-audit',version:1,createdAt:new Date().toISOString(),boardCount:index.items.length,readCount:docs.length,totalBytes:docs.reduce((sum,d)=>sum+bytes(d.data),0),boards:summaries};
+  $('summary').textContent='Досок: '+report.boardCount+' · Прочитано: '+report.readCount+' · Размер данных досок: '+(report.totalBytes/1024).toFixed(1)+' КБ. Данные не переносились.';
+  $('status').textContent=docs.length===index.items.length?'Аудит завершён. Можно сохранить резервную копию.':'Аудит частично завершён. Есть доски с ошибками чтения; резервную копию нельзя считать полной.';
+ }catch(e){$('status').textContent='Аудит остановлен: '+e.message}
+ finally{setBusy(false)}
+}
+$('scan').addEventListener('click',audit);
+$('backup').addEventListener('click',()=>{if(!snapshot)return;if(!confirm('Скачать файл с реальными уроками и идентификаторами доступа? Храни его в защищённом месте.'))return;download(snapshot,'aspace-firebase-boards-backup-'+new Date().toISOString().slice(0,10)+'.json')});
+$('report').addEventListener('click',()=>{if(report)download(report,'aspace-migration-report-'+new Date().toISOString().slice(0,10)+'.json')});
+if(!window.firebase||!window.CFG?.firebase){$('auth').textContent='Конфигурация недоступна.';return}
+firebase.initializeApp(CFG.firebase);
+firebase.auth().onAuthStateChanged(u=>{
+ owner=u&&u.uid===CFG.ownerUid?u:null;
+ $('auth').textContent=owner?'Вход владельца подтверждён. Доступен только просмотр данных.':'Войди в Aspace как владелец в этом браузере.';
+ setBusy(false);
+});
+})();
+</script></body></html>
