@@ -14,16 +14,17 @@
  */
 export function createAspaceStandby({
   firebaseDatabaseURL, getIdToken, cloudflare,
-  fetchImpl = fetch, timeoutMs = 8000, onStatus = () => {}
+  fetchImpl = fetch, timeoutMs = 8000, onStatus = () => {}, queue
 }) {
   const base = String(firebaseDatabaseURL || "").replace(/\/+$/, "");
   if (!base.startsWith("https://") || typeof getIdToken !== "function" ||
       !cloudflare || typeof cloudflare.getDoc !== "function" ||
-      typeof cloudflare.putDoc !== "function") {
-    throw new Error("Firebase URL, getIdToken and Cloudflare adapter are required");
+      typeof cloudflare.putDoc !== "function" || !queue ||
+      ["put", "get", "remove", "list"].some(method => typeof queue[method] !== "function")) {
+    throw new Error("Firebase URL, getIdToken, Cloudflare adapter and durable queue are required");
   }
   const state = new Map();
-  const deferred = new Map();
+  const busy = new Set();
   const safeKey = key => typeof key === "string" && key.length <= 180 &&
     key.split("/").every(s => /^[A-Za-z0-9_-]+$/.test(s));
   const clone = v => JSON.parse(JSON.stringify(v));
@@ -79,18 +80,20 @@ export function createAspaceStandby({
 
   async function read(key) {
     if (!safeKey(key)) throw new Error("Invalid document key");
+    // A pending local edit always wins in the UI until conflict-safe reconciliation.
+    const queued = await queue.get(key);
+    if (queued) {
+      tell(key, "queued", "Unsynced draft retained; manual or safe replay required");
+      return { source: "local", value: clone(queued.value), pending: true, mirrored: Promise.resolve(false) };
+    }
     try {
       const result = await primary("GET", key);
       state.set(key, { etag: result.etag, lastValue: clone(result.value) });
       tell(key, "primary", "Firebase available");
-      // Mirror is asynchronous but errors are surfaced, not treated as successful backups.
       const mirrored = mirror(key, result.value).then(() => {
         tell(key, "mirrored", "Cloudflare snapshot updated");
         return true;
-      }).catch(e => {
-        tell(key, "mirror_error", e.message);
-        return false;
-      });
+      }).catch(e => { tell(key, "mirror_error", e.message); return false; });
       return { source: "firebase", value: result.value, mirrored };
     } catch (e) {
       if (!transient(e)) throw e;
@@ -109,36 +112,97 @@ export function createAspaceStandby({
 
   async function write(key, value) {
     if (!safeKey(key)) throw new Error("Invalid document key");
-    const known = state.get(key);
-    if (!known?.etag) {
-      deferred.set(key, clone(value));
-      tell(key, "queued", "No primary ETag; write kept pending in this tab");
-      return { source: "local", pending: true, reason: "missing_primary_etag" };
-    }
+    if (busy.has(key)) throw error("Another save is running for this document", 409);
+    busy.add(key);
     try {
-      const saved = await primary("PUT", key, value, known.etag);
-      state.set(key, { etag: saved.etag, lastValue: clone(value) });
-      deferred.delete(key);
-      const mirrored = mirror(key, value).then(() => {
-        tell(key, "mirrored", "Standby updated after primary save");
-        return true;
-      }).catch(e => { tell(key, "mirror_error", e.message); return false; });
-      tell(key, "primary", "Firebase save confirmed");
-      return { source: "firebase", pending: false, mirrored };
-    } catch (e) {
-      if (!transient(e)) throw e; // 401, 403, 412, bad data: never fail over.
-      deferred.set(key, clone(value));
-      tell(key, "queued", "Firebase unavailable; draft queued in this tab");
-      return { source: "local", pending: true, reason: "primary_unavailable" };
+      const previous = await queue.get(key);
+      const known = state.get(key);
+      // Keep the earliest common ancestor across multiple offline edits.
+      const record = {
+        id: crypto.randomUUID(),
+        value: clone(value),
+        baseValue: previous ? previous.baseValue : known?.lastValue ?? null,
+        baseKnown: previous ? previous.baseKnown : Boolean(known),
+        createdAt: previous ? previous.createdAt : Date.now()
+      };
+      // The durable local queue MUST commit before attempting Firebase.
+      await queue.put(key, record);
+      tell(key, "queued", "Draft persisted locally before network save");
+      if (previous || !known?.etag) return { source: "local", pending: true, reason: "reconciliation_required" };
+      try {
+        const saved = await primary("PUT", key, value, known.etag);
+        state.set(key, { etag: saved.etag, lastValue: clone(value) });
+        await queue.remove(key);
+        const mirrored = mirror(key, value).then(() => {
+          tell(key, "mirrored", "Standby updated after primary save"); return true;
+        }).catch(e => { tell(key, "mirror_error", e.message); return false; });
+        tell(key, "primary", "Firebase save confirmed");
+        return { source: "firebase", pending: false, mirrored };
+      } catch (e) {
+        if (!transient(e)) {
+          // Keep the local draft for 412, so the user can manually reconcile.
+          tell(key, "conflict", "Primary rejected the write; pending draft retained");
+          throw e;
+        }
+        tell(key, "queued", "Primary unavailable; durable draft retained");
+        return { source: "local", pending: true, reason: "primary_unavailable" };
+      }
+    } finally {
+      busy.delete(key);
     }
   }
 
-  // A caller owns durable IndexedDB persistence; this in-memory queue is only
-  // a staging contract and MUST NOT be used for production/offline persistence.
-  function pending(key) {
-    return key === undefined ? [...deferred.keys()] : deferred.has(key);
+  // Explicit replay after Firebase recovers: read current primary state first.
+  // Only write if unchanged since the captured ancestor. No blind last-write-wins.
+  async function replay(key) {
+    if (!safeKey(key)) throw new Error("Invalid document key");
+    if (busy.has(key)) return { key, status: "busy" };
+    busy.add(key);
+    try {
+      const item = await queue.get(key);
+      if (!item) return { key, status: "empty" };
+      let live;
+      try { live = await primary("GET", key); }
+      catch (e) {
+        return { key, status: transient(e) ? "primary_unavailable" : "error", error: e.message };
+      }
+      if (JSON.stringify(live.value) === JSON.stringify(item.value)) {
+        // The previous PUT may have succeeded before its response was lost.
+        await queue.remove(key);
+        state.set(key, { etag: live.etag, lastValue: clone(live.value) });
+        return { key, status: "already_applied" };
+      }
+      if (!item.baseKnown || JSON.stringify(live.value) !== JSON.stringify(item.baseValue)) {
+        tell(key, "conflict", "Primary document changed while draft was pending");
+        return { key, status: "conflict" };
+      }
+      if (!live.etag) return { key, status: "no_etag" };
+      try {
+        await primary("PUT", key, item.value, live.etag);
+      } catch (e) {
+        return { key, status: e.status === 412 ? "conflict" :
+          transient(e) ? "primary_unavailable" : "error", error: e.message };
+      }
+      await queue.remove(key);
+      // Don't re-use an unknown PUT response ETag; the next write requires a fresh read.
+      state.delete(key);
+      const mirrored = mirror(key, item.value).catch(e => {
+        tell(key, "mirror_error", e.message); return false;
+      });
+      tell(key, "replayed", "Pending draft safely committed to Firebase");
+      return { key, status: "replayed", mirrored };
+    } finally {
+      busy.delete(key);
+    }
   }
-  function draft(key) { return deferred.has(key) ? clone(deferred.get(key)) : null; }
 
-  return { read, write, mirror, pending, draft };
-}
+  async function pending(key) {
+    return key === undefined
+      ? (await queue.list()).map(entry => entry.key)
+      : Boolean(await queue.get(key));
+  }
+  async function draft(key) {
+    const item = await queue.get(key);
+    return item ? clone(item.value) : null;
+  }
+  return { read, write, mirror, replay, pending, draft };}
