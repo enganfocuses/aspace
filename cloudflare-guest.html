@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Aspace · Тестовая общая доска</title>
+<style>
+:root{color-scheme:light;font:16px system-ui,-apple-system,sans-serif;color:#352a3b;background:#f8f4f9}
+*{box-sizing:border-box}body{margin:0;padding:16px}main{max-width:860px;margin:0 auto}
+h1{font-size:1.4rem}h2{font-size:1.08rem}.panel{background:white;padding:18px;border-radius:16px;margin:14px 0;box-shadow:0 6px 28px #31213d10}
+textarea,input{font:inherit;width:100%;padding:12px;margin:8px 0;border:1px solid #c6bbd1;border-radius:10px}
+textarea{min-height:165px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{font:inherit;border:0;border-radius:12px;padding:12px 16px;background:#67487b;color:white;min-height:44px}
+button:disabled{opacity:.45}button.ghost{color:#604274;background:#ede5f2}
+#stage{height:320px;position:relative;overflow:hidden;border:1px solid #dacddd;background:radial-gradient(#d5c6dd 1px,transparent 1px) 0 0/20px 20px;border-radius:12px}
+#drawing{position:absolute;inset:0;width:100%;height:100%}
+.obj{position:absolute;min-width:80px;min-height:65px;padding:9px;overflow:hidden;border:2px solid #8e719e;border-radius:10px;background:#efe2f7;touch-action:none}
+#conflict{display:none;border:2px solid #c38a62}small,.muted{color:#706b76}#status{white-space:pre-wrap;font-weight:600}
+</style></head><body><main>
+<h1>Aspace · Общая тестовая доска</h1>
+<p class="muted">Доступ по персональной ссылке. Аккаунт ученика не требуется. Это изолированный тест, не уроки учеников.</p>
+<section class="panel"><p id="role">Проверка ссылки…</p>
+<label for="title">Название</label><input id="title" disabled maxlength="120">
+<label for="text">Заметки</label><textarea id="text" disabled></textarea>
+<div class="row"><button id="save" disabled>Сохранить изменения</button><button id="reload" class="ghost">Обновить</button><button id="export" class="ghost">Скачать копию</button></div>
+<p id="status" role="status">Загружаю…</p>
+<small>Изменения другого участника проверяются каждые 20 секунд. Незаписанный текст не заменяется. При конфликте сохранение отклоняется.</small>
+</section>
+<section class="panel"><h2>Объекты и рисунки</h2>
+<p class="muted">В режиме просмотра элементы недоступны для редактирования. В режиме редактирования можно добавлять и перемещать стикеры.</p>
+<div class="row"><button id="add" class="ghost" disabled>＋ Стикер</button><button id="remove" class="ghost" disabled>Удалить выбранный</button></div>
+<div id="stage"><canvas id="drawing"></canvas></div></section>
+<section id="conflict" class="panel"><h2>Доска изменилась на другом устройстве</h2>
+<p>Сервер отказался перезаписать более новую версию. Скопируй свой текст или скачай резервную копию, затем обнови страницу.</p>
+<button id="discard" class="ghost">Загрузить новую версию (сбросить черновик)</button></section>
+</main><script>
+(()=>{
+'use strict';
+const BASE='https://aspace-fallback-api.anncodes001.workers.dev/v1/shared';
+const token=location.hash.slice(1);
+const $=id=>document.getElementById(id);
+let revision=null, board=null, dirty=false, busy=false, role=null, editSerial=0,selected=null, timer;
+const valid=/^[a-f0-9]{64}$/.test(token);
+const key='aspace:guest-draft:'+token.slice(0,16);
+function setStatus(msg){$('status').textContent=msg}
+function cleanItems(data){return Array.isArray(data)?data.filter(x=>x&&['note','shape'].includes(x.k)).slice(0,100):[]}
+function saveLocal(){if(!role||role!=='editor')return;try{localStorage.setItem(key,JSON.stringify({revision,board,dirty}))}catch{setStatus('Локальное хранилище переполнено')}}
+function edited(){if(role!=='editor')return;dirty=true;editSerial++;board.title=$('title').value;board.text=$('text').value;saveLocal();setStatus('Черновик сохранён на этом устройстве. Нажми «Сохранить изменения».')}
+function renderStage(){
+ const stage=$('stage');
+ stage.querySelectorAll('.obj').forEach(x=>x.remove());
+ const canvas=$('drawing'),ctx=canvas.getContext('2d'),box=stage.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
+ canvas.width=Math.max(1,Math.round(box.width*dpr));canvas.height=Math.max(1,Math.round(box.height*dpr));
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,box.width,box.height);
+ for(const line of (Array.isArray(board?.strokes)?board.strokes:[])){
+  if(!line||!Array.isArray(line.p)||!line.p.length)continue;
+  ctx.strokeStyle=/^#[0-9a-fA-F]{6}$/.test(line.c)?line.c:'#7444a0';ctx.lineWidth=Math.max(1,Math.min(16,Number(line.w)||4));
+  ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+  line.p.slice(0,1200).forEach((p,i)=>{const x=Number(p[0])*box.width,y=Number(p[1])*box.height;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});
+  ctx.stroke();
+ }
+ for(const o of cleanItems(board?.items)){
+  const el=document.createElement('div');el.className='obj';
+  el.style.background=/^#[0-9a-fA-F]{6}$/.test(o.c)?o.c:'#efe2f7';
+  el.style.left=Math.max(0,Math.min(box.width-100,Number(o.x)||0))+'px';
+  el.style.top=Math.max(0,Math.min(box.height-70,Number(o.y)||0))+'px';
+  el.style.width=Math.max(100,Math.min(400,Number(o.w)||160))+'px';
+  el.style.height=Math.max(65,Math.min(300,Number(o.h)||100))+'px';
+  el.style.borderColor=selected===o.id?'#9e2587':'#8e719e';
+  el.textContent=o.k==='shape'?'Прямоугольник':String(o.t||'Стикер');
+  if(role==='editor'){
+   el.addEventListener('pointerdown',e=>{
+    selected=o.id;$('remove').disabled=false;el.setPointerCapture(e.pointerId);
+    const px=e.clientX,py=e.clientY,ox=Number(o.x)||0,oy=Number(o.y)||0;
+    let moved=false;
+    const move=ev=>{o.x=Math.max(0,Math.min(box.width-100,ox+ev.clientX-px));o.y=Math.max(0,Math.min(box.height-70,oy+ev.clientY-py));el.style.left=o.x+'px';el.style.top=o.y+'px';moved=true};
+    const up=()=>{el.removeEventListener('pointermove',move);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);if(moved)edited();renderStage()};
+    el.addEventListener('pointermove',move);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+   });
+   el.addEventListener('dblclick',()=>{if(o.k!=='note')return;const t=prompt('Текст стикера',o.t||'');if(t===null)return;o.t=t.slice(0,700);edited();renderStage()});
+  }
+  stage.append(el);
+ }
+}
+function apply(doc,rev){
+ if(!doc||doc.kind!=='aspace-prototype'||doc.schema!==1)throw Error('Неизвестный формат документа');
+ board=doc;revision=rev;dirty=false;selected=null;
+ $('title').value=String(board.title||'');$('text').value=String(board.text||'');
+ for(const id of ['title','text','save','add'])$(id).disabled=role!=='editor';
+ $('remove').disabled=true;
+ renderStage();saveLocal();$('conflict').style.display='none';setStatus('Доска загружена. Версия '+revision+'.');
+}
+async function request(method,data){
+ const options={method,headers:{'X-Aspace-Share-Token':token}};
+ if(data){options.headers['Content-Type']='application/json';options.body=JSON.stringify(data)}
+ const r=await fetch(BASE,options);
+ const json=await r.json().catch(()=>({}));
+ return {status:r.status,data:json};
+}
+async function load(force=false){
+ if(!valid){setStatus('Неверная ссылка. Запроси новую у преподавателя.');return}
+ if(busy||document.hidden)return;
+ busy=true;
+ try{
+  const r=await request('GET');
+  if(r.status===404||r.status===403){setStatus('Ссылка недействительна или отозвана.');role=null;for(const id of ['title','text','save','add'])$(id).disabled=true;return}
+  if(r.status!==200)throw Error('HTTP '+r.status);
+  role=r.data.role;
+  $('role').textContent=role==='viewer'?'Доступ: только просмотр':'Доступ: редактирование';
+  const incoming=JSON.parse(r.data.j);
+  if(dirty&&!force){
+   if(revision!==r.data.revision){$('conflict').style.display='block';setStatus('Новая серверная версия. Черновик не перезаписан.')}
+   return;
+  }
+  if(!force&&!dirty&&revision===r.data.revision)return;
+  apply(incoming,r.data.revision);
+ }catch(e){setStatus('Не удалось загрузить: '+e.message)}
+ finally{busy=false}
+}
+async function save(){
+ if(role!=='editor'||!board||busy)return;
+ busy=true;$('save').disabled=true;
+ try{
+  const snapshot=JSON.stringify(board),before=editSerial,rev=revision;
+  const r=await request('PUT',{j:snapshot,expectedRevision:rev});
+  if(r.status===409){$('conflict').style.display='block';setStatus('Конфликт версий. Локальный черновик сохранён, сервер не перезаписан.');return}
+  if(r.status===404||r.status===403){setStatus('Ссылка отозвана или недоступна.');return}
+  if(r.status!==200)throw Error('HTTP '+r.status);
+  revision=r.data.revision;dirty=before!==editSerial;
+  saveLocal();setStatus(dirty?'Сохранено, но есть новые локальные изменения.':'Сохранено в Cloudflare. Версия '+revision+'.');
+ }catch(e){setStatus('Не удалось сохранить. Черновик остался на устройстве. '+e.message)}
+ finally{busy=false;$('save').disabled=role!=='editor'}
+}
+$('text').addEventListener('input',edited);$('title').addEventListener('input',edited);
+$('save').addEventListener('click',save);
+$('reload').addEventListener('click',()=>{if(dirty&&!confirm('Сбросить несохранённые изменения на этом устройстве?'))return;load(true)});
+$('discard').addEventListener('click',()=>{if(!confirm('Заменить черновик серверной версией?'))return;load(true)});
+$('add').addEventListener('click',()=>{if(role!=='editor'||!board)return;board.items=cleanItems(board.items);if(board.items.length>=100)return;board.items.push({id:crypto.randomUUID(),k:'note',x:15,y:15,w:150,h:95,t:'Стикер',c:'#e9d7f0'});edited();renderStage()});
+$('remove').addEventListener('click',()=>{if(!selected||role!=='editor')return;board.items=cleanItems(board.items).filter(o=>o.id!==selected);selected=null;$('remove').disabled=true;edited();renderStage()});
+$('export').addEventListener('click',()=>{if(!board)return;const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify({kind:'aspace-guest-backup',board,revision},null,2)],{type:'application/json'}));a.href=url;a.download='aspace-guest-backup.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)});
+try{const cache=JSON.parse(localStorage.getItem(key)||'null');if(cache?.dirty&&cache.board?.kind==='aspace-prototype'){board=cache.board;revision=cache.revision;dirty=true;role='editor';$('title').value=board.title||'';$('text').value=board.text||'';renderStage();setStatus('Найден локальный черновик. Проверяю доступ по ссылке…')}}catch{}
+load();
+setInterval(()=>{if(!document.hidden&&!busy)load()},20000);
+window.addEventListener('online',()=>load());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+window.addEventListener('resize',()=>{if(board)renderStage()});
+})();
+</script></body></html>
