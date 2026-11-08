@@ -50,8 +50,11 @@ function isPrototypeDoc(key) {
 function isLiveBoardDoc(key) {
   return /^boards\/[A-Za-z0-9_-]{1,120}$/.test(key);
 }
+function isGuestDiagnosticDoc(key) {
+  return /^diag-[0-9a-f-]{36}$/.test(key);
+}
 function isShareableDoc(key) {
-  return isPrototypeDoc(key) || isLiveBoardDoc(key);
+  return isPrototypeDoc(key) || isLiveBoardDoc(key) || isGuestDiagnosticDoc(key);
 }
 // Live whiteboard documents use the existing Aspace schema (no prototype wrapper).
 // Keep edits intentionally bounded so anonymous capability links cannot be used
@@ -266,6 +269,11 @@ export default {
       // Allow owner to clean up only disposable diagnostic documents.
       if (request.method === "DELETE") {
         if (!/^diag-[0-9a-f-]{36}$/.test(key)) return json({ error: "delete_not_allowed" }, 403);
+        // Revoke/remove temporary grants first. No live board can be deleted
+        // through this diagnostic-only route.
+        await env.DB.prepare(
+          "DELETE FROM shares WHERE owner_uid = ? AND doc_key = ?"
+        ).bind(uid,key).run();
         await env.DB.prepare(
           "DELETE FROM docs WHERE owner_uid = ? AND doc_key = ?"
         ).bind(uid, key).run();
