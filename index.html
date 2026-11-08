@@ -917,7 +917,7 @@ async function openBoard(m,id,guest,shareToken=null){
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
   const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null,remoteTimer=null;
   const myViewport=()=>({cx:(sc.scrollLeft+sc.clientWidth/2)/z,cy:(sc.scrollTop+sc.clientHeight/2)/z,z});
-  const queueViewport=()=>{if(applyingRemote)return;clearTimeout(viewTimer);viewTimer=setTimeout(()=>r.emit('vp',{id:r.id,name:myName,v:myViewport()}),70)};
+  const queueViewport=()=>{if(applyingRemote)return;clearTimeout(viewTimer);viewTimer=setTimeout(()=>r.emit('vp',{id:r.id,name:myName,v:myViewport()}),110)};
   const applyViewport=v=>{
     if(!v)return;
     const nz=Math.min(2.5,Math.max(.25,Number(v.z)||1));
@@ -929,7 +929,7 @@ async function openBoard(m,id,guest,shareToken=null){
   };
   const refreshPeers=()=>{
     const selected=peerSelect.value,now=Date.now();
-    Object.keys(peers).forEach(k=>{if(now-peers[k].at>16000)delete peers[k]});
+    Object.keys(peers).forEach(k=>{if(now-peers[k].at>30000)delete peers[k]});
     const active=Object.values(peers).filter(p=>p.id!==r.id);
     peerSelect.replaceChildren(E('option',{value:'',textContent:active.length?'Выбери участника…':'Пока никого нет'}),...active.map(p=>E('option',{value:p.id,textContent:p.name||'Участник'})));
     if(active.some(p=>p.id===selected))peerSelect.value=selected;
@@ -941,7 +941,7 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('bringack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' перемещён к тебе')});
   r.on('followme',m=>{const p=m.data;if(p&&p.to===r.id){followId=p.from;applyViewport(p.v);r.emit('followack',{to:p.from,name:myName});say('Следуешь за '+(p.name||'участником'))}});
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
-  const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},4000);
+  const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},8000);
   let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null;
   let unsyncedShareDraft=Boolean(localGuestDraft?.pending);
   const saveSharedDraft=async(data)=>{
@@ -999,7 +999,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if(isOwner){const synced=await save('boards/'+id,data);if(!synced)say('Изменения сохранены на устройстве; ожидание облака')}
     if(boardShareToken)void queueSharedDraft(data);
   },1200)};
-  const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},50);persist()};
+  const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},90);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
   const seg=(s,a)=>{if(s.e){paint(ctx,s,a,1);paint(ctxM,s,a,1);return}const c=s.m?ctxM:ctx;paint(c,s,a,0);
@@ -1077,7 +1077,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if(tool==='line'||tool==='arrow'){cur={id:uid(),c:color,w:width,ar:tool==='arrow'?1:0,ln:1,e:0,m:0,p:[x,y,x,y]};strokes.push(cur);redraw();flush();return}
     const er=tool==='eraser',mk=tool==='marker';cur={id:uid(),c:er?'#000':color,w:er?32:mk?20:width,e:er?1:0,m:mk?1:0,p:[x,y]};strokes.push(cur);seg(cur,0);sent=0;flush()};
   cv.onpointermove=e=>{if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
-    const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>45)flush()};
+    const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>90)flush()};
   cv.onpointerup=()=>{if(pan){pan=null;setTool(tool);return}if(!cur)return;flush();rec({t:'s',s:cur});cur=null;persist()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
   // Secondary mouse buttons always pan the viewport regardless of the selected tool.
@@ -1118,7 +1118,16 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist()});
   r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
-  r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''})});
+  // The board already loads its saved snapshot. Only the owner sends a small
+  // catch-up state, never multi-megabyte snapshots through Firebase signaling.
+  let lastStateReply=0;
+  r.on('req',x=>{
+    if(!isOwner||x.data?.from===r.id||Date.now()-lastStateReply<6000)return;
+    const size=JSON.stringify(strokes).length+JSON.stringify(items).length;
+    if(size>120000)return;
+    lastStateReply=Date.now();
+    r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''});
+  });
   r.on('state',x=>{if(got||!x.data||unsyncedShareDraft)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
@@ -1288,7 +1297,7 @@ async function openBoard(m,id,guest,shareToken=null){
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();delItem(sel)}
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
-  setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
+  setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
   if(roomWarning)setTimeout(()=>say('Режим без синхронизации: '+roomWarning),500);
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(boardShareToken)void queueSharedDraft(data)}activeShareToken=null};
