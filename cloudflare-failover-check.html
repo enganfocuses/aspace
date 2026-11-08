@@ -95,7 +95,7 @@ async function check(){
  let key='diag-'+crypto.randomUUID(),queue=null,faultMode='none',created=false,done=false;
  const fixture={name:'Резервная тестовая доска',bg:'dots',
    items:[{id:'sample-note',k:'note',x:24,y:42,w:170,h:110,t:'Синтетический стикер',c:'#f3def2'}],
-   strokes:[{id:'sample-line',p:[[20,20],[80,80]],c:'#764d92',w:3}],siteUrl:'',upd:Date.now()};
+   strokes:[{id:'sample-line',p:[20,20,80,80],c:'#764d92',w:3}],siteUrl:'',upd:Date.now()};
  try{
   status.textContent='Проверяю структуру реальной доски (только чтение)…';
   const format=await checkRealFormat();
