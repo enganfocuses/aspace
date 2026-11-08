@@ -28,6 +28,7 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 <label for="boardText">Содержимое доски</label>
 <textarea id="boardText" placeholder="Напиши здесь что-нибудь. Текст сразу сохранится на устройстве." disabled></textarea>
 <div class="actions"><button id="save" disabled>Сохранить в Cloudflare</button><button id="load" class="secondary" disabled>Загрузить из Cloudflare</button></div>
+<p class="muted">Проверка новых версий автоматически каждые 15 секунд, пока вкладка открыта. Черновик на устройстве при этом не перезаписывается.</p>
 <p id="status" role="status">Ожидание авторизации.</p>
 <p class="muted">Локальное сохранение после каждого изменения. При отсутствии сети изменения остаются только на этом устройстве. Отправка в Cloudflare — по кнопке.</p>
 <p class="muted">Ключ тестовой доски: <code>prototype-board-v1</code> · Ревизия сервера: <b id="revision">не загружена</b></p>
@@ -44,12 +45,12 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 const BASE='https://aspace-fallback-api.anncodes001.workers.dev', KEY='prototype-board-v1', CACHE='aspace:cf:prototype:v1';
 const $=id=>document.getElementById(id);
 const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$('revision');
-let rev=null, dirty=false, writing=false, remoteConflict=null, account=null;
+let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0;
 const stored=()=>{try{return JSON.parse(localStorage.getItem(CACHE)||'null')}catch{return null}};
 function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
 function show(text){status.textContent=text;revisionEl.textContent=rev===null?'не загружена':String(rev)}
 function apply(data,newRev,changed){title.value=String(data.title||'');body.value=String(data.text||'');rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
-function localChange(){dirty=true;cache();show('Изменения сохранены на планшете. Нажми «Сохранить в Cloudflare».')}
+function localChange(){localEditSerial++;dirty=true;cache();show('Изменения сохранены на планшете. Нажми «Сохранить в Cloudflare».')}
 title.addEventListener('input',localChange);body.addEventListener('input',localChange);
 function payload(){return {title:title.value,text:body.value,kind:'aspace-prototype',schema:1}}
 async function api(method,data){
@@ -60,23 +61,42 @@ async function api(method,data){
  const json=await response.json().catch(()=>({}));
  return {status:response.status,data:json};
 }
-async function load(force=false){
+async function load(force=false,background=false){
+ if(reading||writing||!account||document.hidden)return;
+ if(dirty&&!force&&!background){show('Есть несохранённый текст на планшете. Сначала сохрани его или реши конфликт.');return}
+ reading=true;
+ const editAtStart=localEditSerial, priorDirty=dirty;
  try{
-  if(dirty&&!force){show('Есть несохранённый текст на планшете. Сначала сохрани его или реши конфликт.');return}
-  show('Загружаю данные из Cloudflare…');
+  if(!background)show('Загружаю данные из Cloudflare…');
   const r=await api('GET');
-  if(r.status===404){if(!dirty){rev=0;cache()}show('Серверная доска ещё не создана. Можно сохранять первую версию.');return}
+  if(r.status===404){
+   if(!dirty&&!priorDirty&&editAtStart===localEditSerial){rev=0;cache()}
+   if(!background)show('Серверная доска ещё не создана. Можно сохранить первую версию.');
+   return;
+  }
   if(r.status!==200)throw Error('Cloudflare HTTP '+r.status);
   let data;
   try{data=JSON.parse(r.data.j)}catch{throw Error('Сервер прислал некорректный документ')}
   if(!data||data.kind!=='aspace-prototype'||data.schema!==1)throw Error('Неподдерживаемый формат серверного документа');
+  if(!Number.isSafeInteger(r.data.revision)||r.data.revision<1)throw Error('Нет корректной версии документа');
+  if(editAtStart!==localEditSerial || (dirty&&!force)){
+   if(rev!==r.data.revision)await conflict(r);
+   else if(!background)show('Есть локальные изменения; серверная версия не заменила черновик.');
+   return;
+  }
+  if(background&&rev===r.data.revision)return;
+  if(background&&priorDirty){
+   if(rev!==r.data.revision)await conflict(r);
+   return;
+  }
   apply(data,r.data.revision,false);
   $('conflict').style.display='none';remoteConflict=null;
-  show('Данные успешно загружены из Cloudflare.');
- }catch(e){show('Не удалось загрузить: '+e.message)}
+  show(background?'Получена новая версия с другого устройства.':'Данные успешно загружены из Cloudflare.');
+ }catch(e){if(!background)show('Не удалось загрузить: '+e.message)}
+ finally{reading=false}
 }
 async function save(){
- if(writing||!account)return;
+ if(writing||reading||!account)return;
  writing=true;$('save').disabled=true;
  try{
   if(rev===null) {
@@ -110,7 +130,17 @@ async function conflict(r){
 }
 $('keepLocal').addEventListener('click',()=>{ $('conflict').style.display='none';show('Твоя локальная версия сохранена. Для синхронизации нужно вручную объединить изменения.');});
 $('useRemote').addEventListener('click',()=>{if(!remoteConflict)return; if(!confirm('Заменить локальный текст версией Cloudflare? Сначала скопируй несохранённые изменения, если они нужны.'))return;apply(remoteConflict.data,remoteConflict.revision,false);remoteConflict=null;$('conflict').style.display='none';show('Загружена актуальная серверная версия.');});
-$('save').addEventListener('click',save);$('load').addEventListener('click',()=>{if(dirty&&!confirm('На планшете есть несохранённые изменения. Заменить их версией Cloudflare?'))return;dirty=false;load(true)});
+$('save').addEventListener('click',save);
+$('load').addEventListener('click',()=>{
+ if(dirty){
+  show('Черновик на планшете не заменён. Чтобы загрузить серверную версию, сначала сохрани или вручную разреши конфликт.');
+  return;
+ }
+ load(false,false);
+});
+// Polling is intentionally read-only and does not overwrite locally edited drafts.
+setInterval(()=>{if(account&&!document.hidden&&!writing&&!reading)load(false,true)},15000);
+document.addEventListener('visibilitychange',()=>{if(account&&!document.hidden&&!writing)load(false,true)});
 if(!window.CFG?.firebase||!window.firebase){$('authStatus').textContent='Не удалось загрузить Firebase Auth.';return}
 firebase.initializeApp(CFG.firebase);
 firebase.auth().onAuthStateChanged(async user=>{
