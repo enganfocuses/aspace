@@ -5,7 +5,7 @@ const FIREBASE_JWKS = createRemoteJWKSet(
 );
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, PUT, POST, PATCH, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Aspace-Share-Token",
   "Access-Control-Max-Age": "86400"
 };
