@@ -168,3 +168,25 @@ This is a **one-off preparation mechanism** rather than continuous synchronizati
 - Call signaling now verifies anonymous read and write permissions instead of reporting success merely because a timeout elapsed. Owner call pages provide a short anonymous access check that creates and deletes one diagnostic signal.
 - WebRTC call state persists across board navigation; a former naming collision between join-call and navigation functions was removed.
 - Board presence, viewport and stroke updates are throttled moderately; full state broadcasts through Firebase signaling are capped at 120 KB to reduce quota costs.
+
+## November 8: no-plugin completion package
+
+- The user does **not** need a ChatGPT Firebase plugin to edit Aspace code. Firebase Rules are still external administration and must be applied only after emulator review and user authorization.
+- Existing D1 schemas: `cloudflare/migrations/001_add_revision.sql` is a **one-time** migration. The fixed `schema.sql` includes `revision` for *fresh databases* only. Never run the ALTER script twice.
+- `cloudflare/guest-standby.js` routes the same legacy 48-digit share token to D1 via `X-Aspace-Share-Token`. No duplicate board interface or Firebase account is needed. Client writes are size-limited, version checked and blocked on revoke or viewer role.
+- The draft Aspace `index.html` uses **`?gueststandby=lab`** as an explicit opt-in. It tries Firebase first; on clearly recognized quota/network errors, it can GET/PUT the D1 mirror and keep IndexedDB drafts until a safe Firebase replay. Replays check the Firebase version against the saved base and check the last confirmed D1 revision before writing. No blind overwrite or silent dropping of local drafts.
+- Owner-only **`?standby=lab`** enables the corresponding owner read/write router, and the separate **`&standbywrite=lab`** controls D1 owner writes. Owner share create/update/revoke attempts to sync hashes/permissions to D1 and displays a warning if the reserve grant could not be updated.
+- During a confirmed guest storage failover, the same board may poll D1 every 12 seconds when Firebase signaling is down. This is not lossless multi-user CRDT synchronization: two simultaneous edits to a single document may require explicit conflict resolution.
+- `cloudflare-guest-batch-check.html` on the main Pages branch is a one-button test on a disposable D1 document: anonymous reader, viewer denial, editor write, CAS conflict, revoke and cleanup. It cannot succeed until the Worker with diagnostic guests is deployed.
+- `.github/workflows/deploy-aspace-cloudflare-standby.yml` is **manual-only** and remains on the default GitHub branch. GitHub Actions needs the existing repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; it runs tests, checks D1 schema before deploying and verifies read-only health afterward. This is not an automatic live deployment and does not modify Firebase.
+- The Firebase candidate rules are in `firebase/rules.owner-guest.template.json`. They are **not deployed**. Evaluate them in Firebase Rules Playground/emulator before applying to a real site. Anonymous call signaling requires sufficiently narrow permissions, abuse controls and bandwidth monitoring.
+- Do not merge PR #5 until the deployed Worker responds to live-board guest endpoints, D1 schema is ready, initial snapshots are made and reviewed, and a teacher + real no-login student have tested edit, view-only, revoke and return-to-Firebase.
+
+### Deployment once Cloudflare credentials are connected to GitHub
+
+1. In GitHub repository Settings → Secrets and variables → Actions, set `CLOUDFLARE_API_TOKEN` (Worker/D1 permissions for this account) and `CLOUDFLARE_ACCOUNT_ID`. Never paste tokens into repository files or ChatGPT chat.
+2. Confirm the existing D1 database has the `revision` column. Use the one-time migration only if absent, after taking a D1 backup.
+3. Under GitHub Actions choose **Deploy Aspace Cloudflare standby (manual, no Firebase changes)** and enter exactly `DEPLOY_STANDBY_ONLY`. Watch for all tests, schema checks and the health check to pass.
+4. Only after this succeeds, run the single browser batch check at `https://enganfocuses.github.io/aspace/cloudflare-guest-batch-check.html`, then use `cloudflare-standby-preparation.html` to explicitly stage actual small board copies with hashed link permissions.
+5. Do not activate the opt-in lab for students until anonymous Firebase share permissions are verified and live two-person QA is complete.
+
