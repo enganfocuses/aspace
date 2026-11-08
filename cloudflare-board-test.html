@@ -52,7 +52,7 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 <p class="muted">Ссылки работают без аккаунта ученика. Просмотр и редактирование разделены. Сначала сохрани доску в Cloudflare. Ссылки содержат секрет — пересылай только нужному ученику.</p>
 <div class="actions"><button id="viewerLink" class="secondary" disabled>Создать ссылку просмотра</button><button id="editorLink" class="secondary" disabled>Создать ссылку редактирования</button></div>
 <p id="shareStatus" role="status"></p>
-<div id="shareList"></div>
+<div id="shareList"></div><button id="refreshShares" class="secondary" disabled>Показать все ссылки и права</button><div id="shareAudit"></div>
 </section>
 <section class="panel" id="conflict" aria-live="polite">
 <h2>Обнаружены изменения в другой вкладке или на другом устройстве</h2>
@@ -368,8 +368,31 @@ async function makeLink(role){
   const response=await ownerShareRequest('POST','/v1/shares',{tokenHash:hash,docKey:KEY,role});
   if(response.status!==200)throw Error('HTTP '+response.status+' '+String(response.data.error||''));
   const links=knownLinks();links.push({token,hash,role,at:Date.now()});rememberLinks(links);
-  renderLinks();copyShare(token);info.textContent='Ссылка создана. '+(role==='viewer'?'Только просмотр.':'Можно редактировать.');
+  renderLinks();refreshShares();copyShare(token);info.textContent='Ссылка создана. '+(role==='viewer'?'Только просмотр.':'Можно редактировать.');
  }catch(e){info.textContent='Ошибка создания ссылки: '+e.message}
+}
+async function refreshShares(){
+ const root=$('shareAudit');root.replaceChildren();
+ try{
+  const response=await ownerShareRequest('GET','/v1/shares?docKey='+encodeURIComponent(KEY));
+  if(response.status!==200)throw Error('HTTP '+response.status);
+  const shares=response.data.shares||[];
+  if(!shares.length){root.textContent='Ссылок нет.';return}
+  const local=knownLinks();
+  for(const entry of shares){
+   const row=document.createElement('div');row.className='actions';row.style.margin='8px 0';
+   const label=document.createElement('span');
+   label.textContent=(entry.role==='viewer'?'Просмотр':'Редактирование')+
+      (entry.revoked?' · отключена':' · активна')+' · '+entry.tokenHash.slice(0,10);
+   row.append(label);
+   if(!entry.revoked){
+    const localToken=local.find(x=>x.hash===entry.tokenHash&&!x.revoked)?.token;
+    if(localToken){const copy=document.createElement('button');copy.className='secondary';copy.textContent='Копировать';copy.onclick=()=>copyShare(localToken);row.append(copy)}
+    const revoke=document.createElement('button');revoke.className='secondary';revoke.textContent='Отозвать';revoke.onclick=()=>revokeShare(entry.tokenHash);row.append(revoke);
+   }
+   root.append(row);
+  }
+ }catch(e){root.textContent='Не удалось получить ссылки: '+e.message}
 }
 async function revokeShare(hash){
  if(!confirm('Отключить эту ссылку? Открытая у ученика страница потеряет доступ при следующем запросе.'))return;
@@ -377,11 +400,12 @@ async function revokeShare(hash){
   const result=await ownerShareRequest('DELETE','/v1/shares/'+hash);
   if(result.status!==200||!result.data.revoked)throw Error('Не получилось отозвать ссылку');
   const links=knownLinks();const item=links.find(x=>x.hash===hash);if(item)item.revoked=true;
-  rememberLinks(links);renderLinks();$('shareStatus').textContent='Ссылка отключена.';
+  rememberLinks(links);renderLinks();refreshShares();$('shareStatus').textContent='Ссылка отключена.';
  }catch(e){$('shareStatus').textContent='Ошибка: '+e.message}
 }
 $('viewerLink').addEventListener('click',()=>makeLink('viewer'));
 $('editorLink').addEventListener('click',()=>makeLink('editor'));
+$('refreshShares').addEventListener('click',refreshShares);
 renderLinks();
 
 // Portable snapshots: never include Firebase credentials or Cloudflare tokens.
@@ -416,11 +440,12 @@ firebase.initializeApp(CFG.firebase);
 firebase.auth().onAuthStateChanged(async user=>{
  account=user&&user.uid===CFG.ownerUid?user:null;
  const enabled=!!account;
- for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','exportJson','importJson','viewerLink','editorLink'])$(id).disabled=!enabled;
+ for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','exportJson','importJson','viewerLink','editorLink','refreshShares'])$(id).disabled=!enabled;
  $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
  if(!enabled)return;
  const data=stored();
  if(data){title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);renderItems();renderStrokes();rev=Number.isSafeInteger(data.revision)?data.revision:null;baseSnapshot=data.baseSnapshot&&data.baseSnapshot.kind==='aspace-prototype'?data.baseSnapshot:null;dirty=Boolean(data.dirty);revisionEl.textContent=rev===null?'не загружена':String(rev)}
+ refreshShares();
  if(dirty){show('Найдена локальная несинхронизированная версия. Она не будет перезаписана автоматически.');queueAutoSave();}
  else await load();
 });
