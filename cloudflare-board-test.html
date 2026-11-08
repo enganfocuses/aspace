@@ -35,7 +35,7 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 <label for="boardText">Содержимое доски</label>
 <textarea id="boardText" placeholder="Напиши здесь что-нибудь. Текст сразу сохранится на устройстве." disabled></textarea>
 <div class="actions"><button id="save" disabled>Сохранить в Cloudflare</button><button id="load" class="secondary" disabled>Загрузить из Cloudflare</button><label style="margin:0"><input id="autoSave" type="checkbox" checked style="width:auto"> Автосохранение (не чаще 1 раза в 20 секунд)</label></div>
-<div class="actions"><button id="exportJson" class="secondary" disabled>↓ Скачать копию JSON</button><button id="importJson" class="secondary" disabled>↑ Импорт копии JSON</button><input id="importFile" type="file" accept=".json,application/json" hidden></div>
+<div class="actions"><button id="history" class="secondary" disabled>История локальных копий</button><button id="exportJson" class="secondary" disabled>↓ Скачать копию JSON</button><button id="importJson" class="secondary" disabled>↑ Импорт копии JSON</button><input id="importFile" type="file" accept=".json,application/json" hidden></div>
 <p class="muted">Данные остаются локально, если интернет недоступен. После восстановления сети приложение попробует синхронизировать черновик, но не перезапишет чужую более новую версию.</p>
 <p class="muted">Проверка новых версий каждые 15 секунд, пока вкладка открыта. Черновик на устройстве при этом не перезаписывается.</p>
 <p id="status" role="status">Ожидание авторизации.</p>
@@ -66,6 +66,7 @@ textarea{min-height:220px;resize:vertical}label{font-weight:650;display:block;ma
 const BASE='https://aspace-fallback-api.anncodes001.workers.dev';
 const slot=['1','2','3'].includes(new URLSearchParams(location.search).get('board'))?new URLSearchParams(location.search).get('board'):'1';
 const KEY='prototype-board-v'+slot, CACHE='aspace:cf:prototype:v'+slot;
+const HISTORY=CACHE+':history';
 document.getElementById('boardSlot').value=slot;
 document.getElementById('boardKey').textContent=KEY;
 document.getElementById('boardSlot').addEventListener('change',e=>{const url=new URL(location.href);url.searchParams.set('board',e.target.value);location.assign(url.toString())});
@@ -74,6 +75,13 @@ const title=$('boardTitle'),body=$('boardText'),status=$('status'),revisionEl=$(
 let rev=null, dirty=false, writing=false, reading=false, remoteConflict=null, account=null, localEditSerial=0, items=[], selected=null, strokes=[], drawing=false, activeStroke=null, undoneStrokes=[], autoTimer=null, lastWrite=0, baseSnapshot=null;
 const stored=()=>{try{return JSON.parse(localStorage.getItem(CACHE)||'null')}catch{return null}};
 function cache(){try{localStorage.setItem(CACHE,JSON.stringify({title:title.value,text:body.value,items,strokes,baseSnapshot,revision:rev,dirty,at:Date.now()}))}catch{status.textContent='Не удалось сохранить локально: проверь доступное место.'}}
+function snapshots(){try{const v=JSON.parse(localStorage.getItem(HISTORY)||'[]');return Array.isArray(v)?v:[]}catch{return []}}
+function captureSnapshot(saved){
+ try{
+  const arr=snapshots();arr.unshift({at:Date.now(),revision:rev,data:saved});
+  localStorage.setItem(HISTORY,JSON.stringify(arr.slice(0,8)));
+ }catch{ /* localStorage may be full; the working draft is more important */ }
+}
 function show(text){status.textContent=text;revisionEl.textContent=rev===null?'не загружена':String(rev)}
 function apply(data,newRev,changed){clearTimeout(autoTimer);undoneStrokes=[];baseSnapshot=JSON.parse(JSON.stringify(data));title.value=String(data.title||'');body.value=String(data.text||'');items=cleanItems(data.items);strokes=cleanStrokes(data.strokes);selected=null;renderItems();renderStrokes();rev=newRev;dirty=changed;cache();revisionEl.textContent=rev===null?'не загружена':String(rev)}
 function localChange(){localEditSerial++;dirty=true;cache();show('Изменения сохранены локально. Облако синхронизируется при наличии сети.');queueAutoSave()}
@@ -295,6 +303,7 @@ async function save(){
    renderItems();renderStrokes();
   }
   baseSnapshot=JSON.parse(JSON.stringify(snapshot));
+  captureSnapshot(snapshot);
   dirty=changedWhileSaving;
   cache();$('conflict').style.display='none';remoteConflict=null;
   show(autoMerged?'Независимые изменения объединены и сохранены. Версия '+rev+'.':changedWhileSaving?'Версия сохранена; новые изменения остаются локально.':'Сохранено в Cloudflare. Версия '+rev+'.');
@@ -408,6 +417,21 @@ $('editorLink').addEventListener('click',()=>makeLink('editor'));
 $('refreshShares').addEventListener('click',refreshShares);
 renderLinks();
 
+$('history').addEventListener('click',()=>{
+ const arr=snapshots();
+ if(!arr.length){show('Локальных копий пока нет. Они появляются после успешного сохранения в Cloudflare.');return}
+ const preview=arr.map((x,i)=>(i+1)+'. '+new Date(x.at).toLocaleString('ru')+' · версия '+x.revision).join('\\n');
+ const choice=prompt('Локальные копии:\\n'+preview+'\\n\\nВведи номер для восстановления на устройство (не в облако).');
+ if(choice===null)return;
+ const i=Number(choice)-1;if(!Number.isSafeInteger(i)||i<0||i>=arr.length){show('Неверный номер копии.');return}
+ if(!confirm('Заменить текущий локальный черновик выбранной копией? На облаке ничего не меняется.'))return;
+ clearTimeout(autoTimer);
+ const saved=arr[i].data;
+ title.value=String(saved.title||'');body.value=String(saved.text||'');
+ items=cleanItems(saved.items);strokes=cleanStrokes(saved.strokes);undoneStrokes=[];
+ selected=null;renderItems();renderStrokes();updateSelection();localChange();
+ show('Локальная копия восстановлена. Серверная версия остаётся прежней до сохранения.');
+});
 // Portable snapshots: never include Firebase credentials or Cloudflare tokens.
 $('exportJson').addEventListener('click',()=>{
  const data={format:'aspace-cloudflare-prototype-backup',version:1,exportedAt:new Date().toISOString(),board:payload()};
@@ -440,7 +464,7 @@ firebase.initializeApp(CFG.firebase);
 firebase.auth().onAuthStateChanged(async user=>{
  account=user&&user.uid===CFG.ownerUid?user:null;
  const enabled=!!account;
- for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','exportJson','importJson','viewerLink','editorLink','refreshShares'])$(id).disabled=!enabled;
+ for(const id of ['boardTitle','boardText','save','load','addNote','addRect','penMode','history','exportJson','importJson','viewerLink','editorLink','refreshShares'])$(id).disabled=!enabled;
  $('authStatus').textContent=enabled?'Вход владельца подтверждён.':'Войди в Aspace как владелец, затем открой страницу снова.';
  if(!enabled)return;
  const data=stored();
