@@ -208,6 +208,49 @@ export function createAspaceStandby({
     }
   }
 
+  async function replayAll() {
+    const entries = await queue.list();
+    const outcomes = [];
+    // Sequential replay avoids hammering Firebase quota after reconnection.
+    for (const entry of entries) {
+      if (!safeKey(entry.key)) {
+        outcomes.push({ key: entry.key, status: "invalid_key" });
+        continue;
+      }
+      outcomes.push(await replay(entry.key));
+    }
+    return outcomes;
+  }
+
+  // Optional automatic recovery. It is *only* activated when the caller enables
+  // the standby adapter, never by importing this module. Conflicts are retained.
+  function startRecovery({
+    target = typeof window === "object" ? window : null,
+    intervalMs = 60_000,
+    onResults = () => {}
+  } = {}) {
+    if (!target || typeof target.addEventListener !== "function" ||
+        typeof target.removeEventListener !== "function") {
+      throw new Error("Recovery requires a browser event target");
+    }
+    let stopped = false, running = false;
+    async function tick() {
+      if (stopped || running || (target.navigator && target.navigator.onLine === false)) return;
+      running = true;
+      try {
+        const results = await replayAll();
+        if (!stopped && results.length) onResults(results);
+      } catch (e) {
+        if (!stopped) tell("*", "recovery_error", e.message);
+      } finally { running = false; }
+    }
+    const delay = Math.max(15_000, Number(intervalMs) || 60_000);
+    target.addEventListener("online", tick);
+    const timer = setInterval(tick, delay);
+    void tick();
+    return () => { stopped = true; target.removeEventListener("online", tick); clearInterval(timer); };
+  }
+
   async function pending(key) {
     return key === undefined
       ? (await queue.list()).map(entry => entry.key)
@@ -217,4 +260,4 @@ export function createAspaceStandby({
     const item = await queue.get(key);
     return item ? clone(item.value) : null;
   }
-  return { read, write, mirror, replay, pending, draft };}
+  return { read, write, mirror, replay, replayAll, startRecovery, pending, draft };}
