@@ -268,7 +268,7 @@ let auth=null,currentUser=null,activeShareToken=null,storage=null;
 // Experimental Firebase-primary single-router. Only an explicit owner lab session enables it.
 let standbyController=null,standbyPhase='disabled',stopStandbyRecovery=null;
 const standbyOptIn=()=>new URLSearchParams(location.search).get('standby')==='lab';
-const standbyKey=p=>p==='meta/boards'||/^boards\/[A-Za-z0-9_-]+$/.test(p);
+const standbyKey=p=>/^boards\/[A-Za-z0-9_-]+$/.test(p); // Never mirror raw share-token indexes into D1.
 async function prepareStandby(owner){
  if(stopStandbyRecovery){stopStandbyRecovery();stopStandbyRecovery=null}
  if(!standbyOptIn()||!owner||owner.uid!==CFG.ownerUid){standbyController=null;return}
