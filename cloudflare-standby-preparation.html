@@ -1,0 +1,157 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aspace — подготовка резервных копий</title><meta name="referrer" content="no-referrer"><style>
+:root{font:16px system-ui,-apple-system,sans-serif;color:#352640;background:#f6f0f9}
+*{box-sizing:border-box}body{margin:0;padding:18px}main{max-width:920px;margin:0 auto}h1{font-size:1.5rem}
+article{background:#fff;padding:20px;border-radius:16px;margin:14px 0;box-shadow:0 5px 20px #30113a12}
+p{line-height:1.5}button{font:inherit;padding:12px 18px;border:0;border-radius:12px;min-height:48px;background:#72518a;color:#fff}button:disabled{opacity:.5}.muted{color:#6e6373}
+table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #eee5f0;padding:9px;text-align:left;overflow-wrap:anywhere}
+#status{white-space:pre-wrap;font-weight:600}a{color:#785390}code{font-size:.93em}
+</style><script src="./config.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script></head>
+<body><main><h1>Aspace · Резерв Firebase → Cloudflare</h1>
+<p class="muted">Firebase остаётся основной базой. Эта страница может подготовить копии досок и хеши действующих ученических ссылок в Cloudflare. Ничего не удаляет и не изменяет в Firebase.</p>
+<article><h2>Подготовка резервных данных</h2><p id="auth">Проверка входа владельца…</p>
+<p><b>Внимание:</b> при подготовке содержимое досок копируется в Cloudflare D1. Секреты публичных ссылок не передаются туда в открытом виде, но сами уроки могут содержать личную информацию. Крупные медиа не копируются.</p>
+<button id="run" disabled>Проверить и подготовить резерв всех досок</button>
+<p id="status" role="status">Ожидание.</p>
+<table><thead><tr><th>Доска</th><th>Резерв</th><th>Публичная ссылка</th></tr></thead><tbody id="results"></tbody></table>
+</article>
+<article><h2>Условия автоматического переключения</h2><p>Этот экран создаёт начальные копии, а не включает аварийное переключение на рабочем сайте. Для него нужны развёрнутый обновлённый Worker, постоянно актуализируемые версии досок, сверка изменений и корректный доступ учеников. Реальная синхронизация медиа и видеосигналинга — отдельные задачи.</p><p><a href="./">← Вернуться к Aspace</a></p></article></main>
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+let owner=null,running=false;
+const BASE="https://aspace-fallback-api.anncodes001.workers.dev";
+if(!window.firebase||!window.CFG?.firebase){$('auth').textContent='Конфигурация Firebase не найдена';return}
+firebase.initializeApp(CFG.firebase);
+firebase.auth().onAuthStateChanged(user=>{
+ owner=user?.uid===CFG.ownerUid?user:null;
+ $('auth').textContent=owner?'Владелец подтверждён. Данные не отправляются, пока не нажата кнопка.':'Войди как владелец на главной странице Aspace.';
+ $('run').disabled=!owner||running;
+});
+const bytes=x=>new TextEncoder().encode(JSON.stringify(x)).length;
+function validId(x){return typeof x==='string'&&/^[A-Za-z0-9_-]{1,120}$/.test(x)}
+function stripSecrets(index){return {items:index.items.map(({shareToken,...rest})=>rest)}}
+async function firebaseRead(path){
+ const token=await owner.getIdToken();
+ const url=CFG.firebase.databaseURL.replace(/\/$/,'')+'/docs/'+path+'.json?auth='+encodeURIComponent(token);
+ const res=await fetch(url,{cache:'no-store',referrerPolicy:'no-referrer'});
+ if(!res.ok)throw Error('Firebase HTTP '+res.status+' ('+path+')');
+ const raw=await res.json();
+ if(raw&&typeof raw.j==='string')return JSON.parse(raw.j);
+ return raw;
+}
+async function firebaseShareMeta(token){
+ const idToken=await owner.getIdToken();
+ const url=CFG.firebase.databaseURL.replace(/\/$/,'')+'/shares/'+encodeURIComponent(token)+'/meta.json?auth='+encodeURIComponent(idToken);
+ const response=await fetch(url,{cache:'no-store',referrerPolicy:'no-referrer'});
+ if(!response.ok)throw Error('Не удалось проверить ссылку в Firebase: HTTP '+response.status);
+ return response.json();
+}
+async function api(path,options={}){
+ const idToken=await owner.getIdToken();
+ const res=await fetch(BASE+path,{...options,cache:'no-store',referrerPolicy:'no-referrer',
+  headers:{'Authorization':'Bearer '+idToken,'Content-Type':'application/json',...(options.headers||{})}});
+ const raw=await res.text();let data;try{data=JSON.parse(raw)}catch{data={error:raw.slice(0,150)}}
+ return {status:res.status,ok:res.ok,data};
+}
+async function hashToken(token){
+ if(!/^[a-f0-9]{48}$/.test(token))throw Error('Необычный формат существующей ссылки');
+ const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)));
+ return [...hash].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function mirror(key,value){
+ const serial=JSON.stringify(value);
+ if(bytes(value)>700000||serial.includes('data:image/')||serial.includes('data:audio/')||
+   serial.includes('data:video/')||serial.includes('data:application/pdf'))
+   return {ok:false,description:'Крупные или встроенные медиа — нужен отдельный резерв'};
+ const current=await api('/v1/docs/'+encodeURIComponent(key));
+ if(current.status!==404&&!current.ok)throw Error('Cloudflare read HTTP '+current.status+': '+current.data.error);
+ const old=current.ok?JSON.parse(current.data.j):null;
+ if(current.ok&&JSON.stringify(old)===serial)return {ok:true,description:'Актуальная копия',revision:current.data.revision};
+ if(current.ok&&current.data.revision!==1)return {ok:false,description:'Конфликт версий Cloudflare — не перезаписываю'};
+ const expected=current.ok?current.data.revision:0;
+ const saved=await api('/v1/docs/'+encodeURIComponent(key),{
+  method:'PUT',body:JSON.stringify({j:serial,expectedRevision:expected})
+ });
+ if(!saved.ok)throw Error('Cloudflare write HTTP '+saved.status+': '+saved.data.error);
+ return {ok:true,description:'Резерв подтверждён, версия '+saved.data.revision,revision:saved.data.revision};
+}
+async function mirrorShares(board,token){
+ const key='boards/'+board.id;
+ const response=await api('/v1/shares?docKey='+encodeURIComponent(key));
+ if(!response.ok)throw Error('Новая версия Worker не поддерживает ссылки реальных досок: HTTP '+response.status);
+ const shares=response.data.shares||[];
+ let desiredHash=null,role=null;
+ if(token){
+  const meta=await firebaseShareMeta(token);
+  if(meta?.boardId!==board.id||!['viewer','editor'].includes(meta.role))
+    throw Error('Ссылка не подтверждена в Firebase');
+  role=meta.role;desiredHash=await hashToken(token);
+ }
+ // First revoke historical links, so an old token cannot silently reopen
+ // access to the D1 standby after its Firebase link was removed.
+ for(const share of shares){
+  if(!share.revoked&&share.tokenHash!==desiredHash){
+   const revoked=await api('/v1/shares/'+share.tokenHash,{method:'DELETE'});
+   if(!revoked.ok)throw Error('Нельзя отозвать старый доступ в резерве');
+  }
+ }
+ if(!desiredHash)return 'Гостевой доступ не настроен';
+ const existing=shares.find(s=>s.tokenHash===desiredHash);
+ if(existing?.revoked)throw Error('Отозванную ссылку нельзя восстановить — нужна новая');
+ if(existing){
+  if(existing.role!==role){
+   const result=await api('/v1/shares/'+desiredHash,{method:'PATCH',body:JSON.stringify({role})});
+   if(!result.ok)throw Error('Не удалось обновить роль в резерве: '+result.status);
+  }
+  return 'Ссылка '+(role==='editor'?'редактирования':'просмотра')+' обновлена';
+ }
+ const created=await api('/v1/shares',{
+  method:'POST',body:JSON.stringify({tokenHash:desiredHash,docKey:key,role})
+ });
+ if(!created.ok)throw Error('Не удалось зарегистрировать ссылку: '+created.status+' '+created.data.error);
+ return 'Ссылка '+(role==='editor'?'редактирования':'просмотра')+' подготовлена';
+}
+function addRow(name,mirrorStatus,shareStatus){
+ const tr=document.createElement('tr');
+ for(const text of [name,mirrorStatus,shareStatus]){
+  const td=document.createElement('td');td.textContent=String(text);tr.append(td)
+ }
+ $('results').append(tr);
+}
+async function prepare(){
+ if(!owner||running)return;
+ if(!confirm('Скопировать содержимое действующих досок в резервную базу Cloudflare? Firebase останется основной базой.'))return;
+ running=true;$('run').disabled=true;$('results').replaceChildren();
+ try{
+  $('status').textContent='Проверяю версию Worker и доступность D1…';
+  const health=await fetch(BASE+'/health/db',{cache:'no-store'});
+  if(!health.ok)throw Error('База Cloudflare не готова: HTTP '+health.status);
+  const support=await api('/v1/shares?docKey='+encodeURIComponent('boards/_aspace_probe'));
+  if(!support.ok)throw Error('Не развернута новая версия Cloudflare Worker для настоящих ученических ссылок (HTTP '+support.status+'). Ничего не копировалось.');
+  const index=await firebaseRead('meta/boards');
+  if(!index||!Array.isArray(index.items)||index.items.length>100)throw Error('Индекс досок отсутствует или имеет необычную структуру');
+  if(index.items.some(x=>!validId(x?.id)))throw Error('Некорректный ID одной из досок');
+  const overview=await mirror('meta/boards',stripSecrets(index));
+  if(!overview.ok)throw Error('Нельзя безопасно сохранить индекс: '+overview.description);
+  let copied=0,errors=0;
+  for(const board of index.items){
+   $('status').textContent='Подготавливаю '+board.name+'…';
+   try{
+    const data=await firebaseRead('boards/'+board.id);
+    if(!data)throw Error('Доска отсутствует');
+    const done=await mirror('boards/'+board.id,data);
+    if(!done.ok){addRow(board.name,done.description,'Не включено');errors++;continue}
+    copied++;
+    try{const shares=await mirrorShares(board,board.shareToken||null);addRow(board.name,done.description,shares)}
+    catch(e){addRow(board.name,done.description,'Ошибка ссылки: '+e.message);errors++}
+   }catch(e){addRow(board.name,'Ошибка: '+e.message,'Не включено');errors++}
+  }
+  $('status').textContent='Готово: резерв досок '+copied+'/'+index.items.length+'; ошибок '+errors+
+   '. Автоматическое переключение рабочего сайта этим тестом не включается.';
+ }catch(e){$('status').textContent='Остановлено: '+e.message}
+ finally{running=false;$('run').disabled=!owner}
+}
+$('run').addEventListener('click',prepare);
+})();
+</script></body></html>
