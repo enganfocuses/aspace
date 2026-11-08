@@ -83,22 +83,40 @@ export default {
       if (!safeKey(key)) return json({ error: "invalid_key" }, 400);
       if (request.method === "GET") {
         const row = await env.DB.prepare(
-          "SELECT payload, updated_at FROM docs WHERE owner_uid = ? AND doc_key = ?"
+          "SELECT payload, updated_at, revision FROM docs WHERE owner_uid = ? AND doc_key = ?"
         ).bind(uid, key).first();
         if (!row) return json({ error: "not_found" }, 404);
-        return json({ j: row.payload, updatedAt: row.updated_at });
+        return json({ j: row.payload, updatedAt: row.updated_at, revision: row.revision });
       }
       if (request.method === "PUT") {
         let body;
         try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
         if (!body || typeof body.j !== "string") return json({ error: "expected_json_wrapper" }, 400);
-        if (body.j.length > 4_000_000) return json({ error: "document_too_large" }, 413);
+        if (new TextEncoder().encode(body.j).byteLength > 4_000_000) return json({ error: "document_too_large" }, 413);
+        // expectedRevision=0 is create-only. Positive values are CAS updates.
+        // Missing revision is rejected rather than silently overwriting stored lessons.
+        const expected = body.expectedRevision;
+        if (!Number.isSafeInteger(expected) || expected < 0) return json({ error: "expected_revision_required" }, 428);
         const now = Date.now();
-        await env.DB.prepare(
-          "INSERT INTO docs(owner_uid, doc_key, payload, updated_at) VALUES(?, ?, ?, ?) " +
-          "ON CONFLICT(owner_uid, doc_key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at"
-        ).bind(uid, key, body.j, now).run();
-        return json({ ok: true, updatedAt: now });
+        let changed;
+        if (expected === 0) {
+          changed = await env.DB.prepare(
+            "INSERT INTO docs(owner_uid, doc_key, payload, updated_at, revision) " +
+            "VALUES(?, ?, ?, ?, 1) ON CONFLICT(owner_uid, doc_key) DO NOTHING RETURNING revision"
+          ).bind(uid, key, body.j, now).first();
+        } else {
+          changed = await env.DB.prepare(
+            "UPDATE docs SET payload = ?, updated_at = ?, revision = revision + 1 " +
+            "WHERE owner_uid = ? AND doc_key = ? AND revision = ? RETURNING revision"
+          ).bind(body.j, now, uid, key, expected).first();
+        }
+        if (!changed) {
+          const existing = await env.DB.prepare(
+            "SELECT revision FROM docs WHERE owner_uid = ? AND doc_key = ?"
+          ).bind(uid, key).first();
+          return json({ error: "revision_conflict", currentRevision: existing?.revision ?? 0 }, 409);
+        }
+        return json({ ok: true, updatedAt: now, revision: changed.revision });
       }
       return json({ error: "method_not_allowed" }, 405);
     }
