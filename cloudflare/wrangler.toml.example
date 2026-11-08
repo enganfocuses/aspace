@@ -1,0 +1,17 @@
+name = "aspace-fallback"
+main = "worker.js"
+compatibility_date = "2026-11-08"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aspace-fallback"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "aspace-fallback-assets"
+
+[vars]
+FIREBASE_PROJECT_ID = "myspace-5d573"
+OWNER_UID = "REPLACE_WITH_OWNER_FIREBASE_UID"
+MAX_ASSET_BYTES = "104857600"
