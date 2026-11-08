@@ -6,7 +6,7 @@ function fakeEnvironment() {
   const docs = new Map([["boards/sample", { value: { text: "original" }, revision: 1 }]]);
   const backup = new Map();
   const pending = new Map();
-  let offline = false, auth = true, putThenThrow = false, reads = 0, cloudReads = 0;
+  let offline = false, auth = true, putThenThrow = false, reads = 0, cloudReads = 0, firebaseError = null;
   const queue = {
     async put(key, value) { pending.set(key, structuredClone(value)); },
     async get(key) { return structuredClone(pending.get(key) ?? null); },
@@ -29,6 +29,10 @@ function fakeEnvironment() {
   };
   const fetchImpl = async (url, init) => {
     if (offline) throw new Error("network");
+    if (firebaseError) return new Response(JSON.stringify({ error: { message: firebaseError.message } }), {
+      status: firebaseError.status,
+      headers: { "Content-Type": "application/json" }
+    });
     const docKey = new URL(url).pathname.slice("/docs/".length, -".json".length);
     const current = docs.get(docKey);
     if (init.method === "GET") {
@@ -55,6 +59,7 @@ function fakeEnvironment() {
     create, queue, docs, backup,
     setOffline(value) { offline = value; },
     setAuth(value) { auth = value; },
+    setFirebaseError(value) { firebaseError = value; },
     loseNextWriteResponse() { putThenThrow = true; },
     stats() { return { reads, cloudReads }; }
   };
@@ -167,4 +172,47 @@ test("large embedded media never silently claims a confirmed standby mirror", as
   assert.equal(saved.pending, false);
   assert.equal(await saved.mirrored, false);
   assert.deepEqual(env.backup.get("boards/sample").value, { text: "original" });
+});
+
+test("explicit Firebase quota exhaustion triggers standby reads", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  await (await app.read("boards/sample")).mirrored;
+  env.setFirebaseError({ status: 403, message: "Quota exceeded" });
+  const result = await app.read("boards/sample");
+  assert.equal(result.source, "cloudflare");
+  assert.equal(result.stale, true);
+});
+
+test("plain Firebase permission denied never triggers standby", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  await (await app.read("boards/sample")).mirrored;
+  env.setFirebaseError({ status: 403, message: "Permission denied" });
+  await assert.rejects(() => app.read("boards/sample"), error => error.status === 403);
+  assert.equal(env.backup.get("boards/sample").revision, 1);
+});
+
+test("Firebase 500 server outage triggers standby, with no duplicate storage subsystem", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  await (await app.read("boards/sample")).mirrored;
+  env.setFirebaseError({ status: 503, message: "Service unavailable" });
+  assert.equal((await app.read("boards/sample")).source, "cloudflare");
+});
+
+test("Firebase validation failure never switches to standby", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  await (await app.read("boards/sample")).mirrored;
+  env.setFirebaseError({ status: 400, message: "Malformed data" });
+  await assert.rejects(() => app.read("boards/sample"), error => error.status === 400);
+});
+
+test("Firebase 429 rate limit triggers standby read", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  await (await app.read("boards/sample")).mirrored;
+  env.setFirebaseError({ status: 429, message: "Too many requests" });
+  assert.equal((await app.read("boards/sample")).source, "cloudflare");
 });
