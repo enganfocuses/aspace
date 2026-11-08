@@ -434,7 +434,7 @@ const PDFCDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfP=null;const pdfjs=()=>pdfP||(pdfP=loadScript('vendor/pdf.min.js').then(()=>'vendor/pdf.worker.min.js',()=>loadScript(PDFCDN+'pdf.min.js').then(()=>PDFCDN+'pdf.worker.min.js')).then(w=>{pdfjsLib.GlobalWorkerOptions.workerSrc=w;return pdfjsLib}));
 const dataUrlBlob=data=>{const m=String(data).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);if(!m)throw new Error('Неверный формат файла');const raw=m[3],bin=m[2]?atob(raw):decodeURIComponent(raw),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new Blob([bytes],{type:m[1]||'application/octet-stream'})};
 // Бесплатное резервное хранение в Realtime Database. Лимит ниже 10 МБ на запись.
-const FREE_MEDIA_LIMIT=7*1024*1024;
+const FREE_MEDIA_LIMIT=6*1024*1024;
 const blobDataUrl=blob=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=()=>reject(new Error('Не удалось прочитать файл'));r.readAsDataURL(blob)});
 const uploadBlob=async(blob,name='file',contentType=blob.type||'application/octet-stream')=>{
   if(blob.size>FREE_MEDIA_LIMIT)throw new Error('Для бесплатного хранения Realtime Database файл должен быть меньше 7 МБ. Большие аудио и видео добавляй ссылкой.');
