@@ -39,13 +39,54 @@ function safeKey(value) {
 
 // Share tokens are high-entropy secrets kept in URL fragments by clients, never in the URL path.
 async function shareTokenHash(token) {
-  if (!/^[a-f0-9]{64}$/.test(token)) return null;
+  if (!/^(?:[a-f0-9]{48}|[a-f0-9]{64})$/.test(token)) return null;
   const bytes = new TextEncoder().encode(token);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
   return Array.from(digest, b => b.toString(16).padStart(2, "0")).join("");
 }
 function isPrototypeDoc(key) {
   return /^prototype-board-v[1-3]$/.test(key);
+}
+function isLiveBoardDoc(key) {
+  return /^boards\/[A-Za-z0-9_-]{1,120}$/.test(key);
+}
+function isShareableDoc(key) {
+  return isPrototypeDoc(key) || isLiveBoardDoc(key);
+}
+// Live whiteboard documents use the existing Aspace schema (no prototype wrapper).
+// Keep edits intentionally bounded so anonymous capability links cannot be used
+// for arbitrary D1 writes or enormous media blobs.
+function validLiveBoard(board) {
+  if (!board || typeof board !== "object" || Array.isArray(board) ||
+      typeof board.name !== "string" || board.name.length > 250 ||
+      !["dots", "clean"].includes(board.bg ?? "dots") ||
+      !Array.isArray(board.items) || board.items.length > 1000 ||
+      !Array.isArray(board.strokes) || board.strokes.length > 3000 ||
+      typeof (board.siteUrl ?? "") !== "string" ||
+      (board.siteUrl ?? "").length > 2048) return false;
+  const kinds = new Set(["note","rr","rect","pill","oval","diamond",
+    "triangle","star","hex","txt","frame","emo","img","aud","vid","embed"]);
+  for (const item of board.items) {
+    if (!item || typeof item !== "object" ||
+        !/^[A-Za-z0-9_-]{1,120}$/.test(item.id || "") ||
+        !kinds.has(item.k) ||
+        !["x","y","w","h"].every(k => Number.isFinite(item[k]) &&
+          item[k] >= 0 && item[k] <= 10000) ||
+        item.w < 1 || item.h < 1 ||
+        typeof (item.t ?? "") !== "string" || (item.t ?? "").length > 20000 ||
+        typeof (item.u ?? "") !== "string" || (item.u ?? "").length > 4096)
+      return false;
+  }
+  for (const stroke of board.strokes) {
+    if (!stroke || typeof stroke !== "object" ||
+        !/^[A-Za-z0-9_-]{1,120}$/.test(stroke.id || "") ||
+        !Array.isArray(stroke.p) || stroke.p.length % 2 !== 0 ||
+        stroke.p.length > 10000 ||
+        !stroke.p.every(n => Number.isFinite(n) && n >= -1000 && n <= 10000) ||
+        !Number.isFinite(stroke.w) || stroke.w < 0 || stroke.w > 100)
+      return false;
+  }
+  return true;
 }
 async function readBody(request) {
   const length = Number(request.headers.get("Content-Length") || 0);
@@ -93,7 +134,7 @@ export default {
       const share = await env.DB.prepare(
         "SELECT owner_uid, doc_key, role FROM shares WHERE token_hash = ? AND revoked = 0"
       ).bind(hash).first();
-      if (!share || !isPrototypeDoc(share.doc_key)) return json({ error: "invalid_share" }, 404);
+      if (!share || !isShareableDoc(share.doc_key)) return json({ error: "invalid_share" }, 404);
       if (request.method === "GET") {
         const row = await env.DB.prepare(
           "SELECT payload, updated_at, revision FROM docs WHERE owner_uid = ? AND doc_key = ?"
@@ -105,18 +146,20 @@ export default {
       const input = await readBody(request);
       if (input.error) return json({ error: input.error }, input.status);
       // Guest links are only for the small text-and-shapes prototype, not arbitrary uploads.
-      if (new TextEncoder().encode(input.value.j).byteLength > 500_000) {
+      const maxGuestBytes = isPrototypeDoc(share.doc_key) ? 500_000 : 750_000;
+      if (new TextEncoder().encode(input.value.j).byteLength > maxGuestBytes) {
         return json({ error: "guest_document_too_large" }, 413);
       }
       let board;
       try { board = JSON.parse(input.value.j); } catch { return json({ error: "invalid_board" }, 400); }
-      if (!board || board.kind !== "aspace-prototype" || board.schema !== 1 ||
-          typeof board.title !== "string" || board.title.length > 120 ||
-          typeof board.text !== "string" || board.text.length > 100_000 ||
-          !Array.isArray(board.items) || board.items.length > 100 ||
-          !Array.isArray(board.strokes) || board.strokes.length > 250) {
-        return json({ error: "invalid_board" }, 400);
-      }
+      const valid = isPrototypeDoc(share.doc_key)
+        ? (board && board.kind === "aspace-prototype" && board.schema === 1 &&
+          typeof board.title === "string" && board.title.length <= 120 &&
+          typeof board.text === "string" && board.text.length <= 100_000 &&
+          Array.isArray(board.items) && board.items.length <= 100 &&
+          Array.isArray(board.strokes) && board.strokes.length <= 250)
+        : validLiveBoard(board);
+      if (!valid) return json({ error: "invalid_board" }, 400);
       const now = Date.now();
       // Check access and update atomically so revoking a link cannot race a write.
       const updated = await env.DB.prepare(
@@ -144,7 +187,7 @@ export default {
     // List hashes and status, never raw link secrets, so links can be revoked on any owner's device.
     if (url.pathname === "/v1/shares" && request.method === "GET") {
       const docKey = url.searchParams.get("docKey") || "";
-      if (!isPrototypeDoc(docKey)) return json({ error: "invalid_key" }, 400);
+      if (!isShareableDoc(docKey)) return json({ error: "invalid_key" }, 400);
       const result = await env.DB.prepare(
         "SELECT token_hash, role, revoked, updated_at FROM shares " +
         "WHERE owner_uid = ? AND doc_key = ? ORDER BY updated_at DESC LIMIT 100"
@@ -159,7 +202,7 @@ export default {
       let body;
       try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
       if (!body || !/^[a-f0-9]{64}$/.test(body.tokenHash || "") ||
-          !isPrototypeDoc(body.docKey) || !["viewer", "editor"].includes(body.role)) {
+          !isShareableDoc(body.docKey) || !["viewer", "editor"].includes(body.role)) {
         return json({ error: "invalid_share_request" }, 400);
       }
       const doc = await env.DB.prepare(
@@ -173,6 +216,21 @@ export default {
       ).bind(body.tokenHash, uid, body.docKey, body.role, now).first();
       if (!result) return json({ error: "share_already_exists" }, 409);
       return json({ ok: true, role: body.role });
+    }
+    const updateRoleMatch = url.pathname.match(/^\/v1\/shares\/([a-f0-9]{64})$/);
+    if (updateRoleMatch && request.method === "PATCH") {
+      let body;
+      try { body = await request.json(); }
+      catch { return json({ error: "invalid_json" }, 400); }
+      if (!body || !["viewer","editor"].includes(body.role)) {
+        return json({ error: "invalid_role" }, 400);
+      }
+      const result = await env.DB.prepare(
+        "UPDATE shares SET role = ?, updated_at = ? WHERE token_hash = ? " +
+        "AND owner_uid = ? AND revoked = 0 RETURNING token_hash"
+      ).bind(body.role,Date.now(),updateRoleMatch[1],uid).first();
+      return result ? json({ ok: true, role: body.role }) :
+        json({ error: "share_not_found_or_revoked" }, 404);
     }
     const revokeMatch = url.pathname.match(/^\/v1\/shares\/([a-f0-9]{64})$/);
     if (revokeMatch && request.method === "DELETE") {
