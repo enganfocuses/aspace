@@ -2,7 +2,7 @@
  * Aspace standby failover controller — NOT connected to the live application.
  *
  * Firebase RTDB remains authoritative. Cloudflare D1 stores a versioned mirror.
- * The controller fails over only on network failures, timeouts, HTTP 429 or 5xx.
+ * Standby reads use one centralized policy: quota exhaustion, network errors, timeouts, HTTP 429 and 5xx.
  * Permission/auth errors NEVER trigger failover.
  *
  * Read: Firebase -> (mirror asynchronously) Cloudflare; on network fault ->
@@ -51,11 +51,21 @@ export function createAspaceStandby({
         cache: "no-store", referrerPolicy: "no-referrer"
       });
     } catch (cause) {
-      throw error("Primary network error: " + (cause?.name || "network"), 503);
+      throw error("Primary network error: " + (cause?.name || "network"), 0);
     } finally { clearTimeout(timeout); }
     if (!response.ok) {
       if (response.status === 412) throw error("Firebase version conflict", 412);
-      throw error("Firebase HTTP " + response.status, response.status);
+      const rawError = (await response.text().catch(() => "")).slice(0, 2048);
+      let detail = rawError;
+      try {
+        const parsed = JSON.parse(rawError);
+        detail = [parsed.error?.message, parsed.error?.status, parsed.error?.code,
+          parsed.error?.errors?.[0]?.reason, typeof parsed.error === "string" ? parsed.error : ""]
+          .filter(Boolean).join(" ");
+      } catch { /* Some Firebase failures use plain text */ }
+      const quota = /quota[ _-]?(exceeded|exhausted|limit)|(?:exceeded|exhausted)[ _-]?(?:quota|usage|bandwidth|storage|download|connection)[ _-]?limit|resource_exhausted|billing[ _-]?quota|bandwidth[ _-]?quota/i.test(detail);
+      throw Object.assign(error("Firebase HTTP " + response.status + (quota ? " (quota)" : ""), response.status), { quota });
+
     }
     const raw = await response.json();
     let parsed = raw;
@@ -65,9 +75,15 @@ export function createAspaceStandby({
     return { value: parsed, etag: response.headers.get("etag") };
   }
 
-  function transient(e) {
-    return e && (e.status === 429 || e.status >= 500);
+  // The only read-failover policy, shared by reads and recovery classification.
+  // Never mask Firebase authentication, access-denied, validation or ETag conflicts.
+  function standbyEligible(e) {
+    if (!e) return false;
+    return Boolean(e.quota) ||
+      e.status === 0 || e.status === 429 ||
+      (e.status >= 500 && e.status <= 599);
   }
+
 
   async function mirror(key, value) {
     if (value === null) return false; // Tombstones require a separate protocol.
@@ -114,7 +130,7 @@ export function createAspaceStandby({
       }).catch(e => { tell(key, "mirror_error", e.message); return false; });
       return { source: "firebase", value: result.value, mirrored };
     } catch (e) {
-      if (!transient(e)) throw e;
+      if (!standbyEligible(e)) throw e;
       tell(key, "standby", "Firebase unavailable, checking Cloudflare");
       try {
         const backup = await cloudflare.getDoc(key);
