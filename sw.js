@@ -1,5 +1,5 @@
-const CACHE_NAME='aspace-shell-v1';
-const CORE=['./','./index.html','./config.js','./vendor/pdf.min.js','./vendor/pdf.worker.min.js'];
+const CACHE_NAME='aspace-shell-v2';
+const CORE=['./','./index.html','./config.js','./vendor/pdf.min.js','./vendor/pdf.worker.min.js','./education/speakout-b1plus-builder.html'];
 self.addEventListener('install',event=>{
  event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);
