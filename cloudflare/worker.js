@@ -30,7 +30,12 @@ async function requireOwner(request, env) {
     return uid && uid === env.OWNER_UID ? uid : null;
   } catch { return null; }
 }
-function safeKey(value) { return /^[A-Za-z0-9_-]{1,180}$/.test(value); }
+function safeKey(value) {
+  // Aspace document identifiers are hierarchical (for example, "meta/boards" and "boards/abc").
+  // Only allow safe path segments; forbid empty, dot and traversal segments.
+  return typeof value === "string" && value.length <= 180 &&
+    value.split("/").every(segment => /^[A-Za-z0-9_-]+$/.test(segment));
+}
 
 export default {
   async fetch(request, env) {
@@ -45,7 +50,7 @@ export default {
     const uid = await requireOwner(request, env);
     if (!uid) return json({ error: "unauthorized" }, 401);
 
-    const docMatch = url.pathname.match(/^\/v1\/docs\/([^/]+)$/);
+    const docMatch = url.pathname.match(/^\/v1\/docs\/(.+)$/);
     if (docMatch) {
       const key = decodeURIComponent(docMatch[1]);
       if (!safeKey(key)) return json({ error: "invalid_key" }, 400);
