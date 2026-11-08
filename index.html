@@ -503,7 +503,7 @@ async function openBoard(m,id,guest,shareToken=null){
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
-  let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
+  let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
@@ -717,11 +717,11 @@ async function openBoard(m,id,guest,shareToken=null){
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:'Видеозвонок'}));
     vw=E('div',{className:'vwin'},hd,grid,vbar);
-    const close=()=>{call&&call.stop();call=null;if(document.fullscreenElement)document.exitFullscreen();vw.remove();vw=null};
+    const close=()=>{call&&call.stop();call=null;callRoom?.close();callRoom=null;if(document.fullscreenElement)document.exitFullscreen();vw.remove();vw=null};
     const fs=()=>document.fullscreenElement?document.exitFullscreen():vw.requestFullscreen();
     hd.append(E('span',{className:'row'},B('⛶',fs),B('–',()=>vw.classList.toggle('min')),B('✕',close)));
-    const go=B('Включить камеру и войти',async()=>{call=Call(r,grid);
-      try{await call.start()}catch(e){alert(e.message);call=null;return}
+    const go=B('Включить камеру и войти',async()=>{go.disabled=true;go.textContent='Подключаю канал звонка…';
+      try{const callPath=activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room/call'):('/rooms/'+encodeURIComponent('b-'+id)+'/call');callRoom=await room0.join('call-'+id,callPath);call=Call(callRoom,grid);await call.start()}catch(e){alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;go.disabled=false;go.textContent='Включить камеру и войти';return}
       go.remove();let ns=true;
       const mic=E('button',{title:'Микрофон',onclick:()=>mic.classList.toggle('off',!call.mic())},ic('mic')),cam=E('button',{title:'Камера',onclick:()=>cam.classList.toggle('off',!call.cam())},ic('video')),
         nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});nz.classList.add('on');
@@ -763,7 +763,7 @@ async function openBoard(m,id,guest,shareToken=null){
     else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{});queueViewport();
-  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)shareWrite(activeShareToken,'board',data).catch(()=>{})}activeShareToken=null};
+  cleanup=()=>{document.removeEventListener('keydown',key);call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);r.close&&r.close();clearTimeout(tm);if(document.fullscreenElement)document.exitFullscreen();if(!guest){const data={name:d.name,strokes,items,bg,siteUrl:d.siteUrl||'',upd:Date.now()};if(isOwner)save('boards/'+id,data);if(activeShareToken)shareWrite(activeShareToken,'board',data).catch(()=>{})}activeShareToken=null};
 }
 
 /* ---------- образование ---------- */
