@@ -104,6 +104,19 @@ export default {
       if (share.role !== "editor") return json({ error: "read_only" }, 403);
       const input = await readBody(request);
       if (input.error) return json({ error: input.error }, input.status);
+      // Guest links are only for the small text-and-shapes prototype, not arbitrary uploads.
+      if (new TextEncoder().encode(input.value.j).byteLength > 500_000) {
+        return json({ error: "guest_document_too_large" }, 413);
+      }
+      let board;
+      try { board = JSON.parse(input.value.j); } catch { return json({ error: "invalid_board" }, 400); }
+      if (!board || board.kind !== "aspace-prototype" || board.schema !== 1 ||
+          typeof board.title !== "string" || board.title.length > 120 ||
+          typeof board.text !== "string" || board.text.length > 100_000 ||
+          !Array.isArray(board.items) || board.items.length > 100 ||
+          !Array.isArray(board.strokes) || board.strokes.length > 250) {
+        return json({ error: "invalid_board" }, 400);
+      }
       const now = Date.now();
       // Check access and update atomically so revoking a link cannot race a write.
       const updated = await env.DB.prepare(
