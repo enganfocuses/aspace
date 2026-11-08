@@ -460,10 +460,13 @@ function controls(call,onLeave){
   const zc=call.zoomCaps();if(zc)zoom.append(E('span',{className:'mut',textContent:'Zoom'}),E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,oninput:e=>call.zoom(+e.target.value)}));
   return[mic,cam,nz,cams,mics,speakers,zoom,lv];
 }
+// One long-lived WebRTC session can outlive navigation between call and board views.
+let persistentCallSession=null;
 async function roomUI(m,id,name,back){
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
-  const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null};
+  const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
   const openVideo=()=>{
+    if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
     vw=E('div',{className:'vwin home-call-window'},hd,grid,vbar);
@@ -474,6 +477,16 @@ async function roomUI(m,id,name,back){
       try{
         callRoom=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');
         call=Call(callRoom,grid);await call.start();
+        persistentCallSession={id,call,room:callRoom,window:vw};
+        // Board navigation clears only the page content, never the call window.
+        cleanup=()=>{};
+        callRoom.on('boardnav',msg=>{
+          const data=msg.data||{};
+          if(!data.token||!/^[a-f0-9]{48}$/.test(data.token))return;
+          if(!/^[a-z0-9_-]{1,120}$/i.test(data.boardId||''))return;
+          const isOwner=currentUser&&currentUser.uid===CFG.ownerUid;
+          go(mm=>openBoard(mm,isOwner?data.boardId:null,!isOwner,data.token));
+        });
       }catch(e){
         alert(e.message);call?.stop();call=null;callRoom?.close();callRoom=null;
         go.disabled=false;go.textContent='Повторить подключение';return;
@@ -498,11 +511,43 @@ async function roomUI(m,id,name,back){
     document.body.append(vw);
   };
   const join=B('Открыть видеозвонок',openVideo);
-  const boardBtn=B('▤ Включить доску',async()=>{const tab=window.open('about:blank','_blank');const bid=uid()+uid();await save('boards/'+bid,{name:'Доска встречи',strokes:[],items:[],bg:'dots'});const u=boardLink(bid,'edit');if(tab)tab.location.href=u;else copyLink(u);say2('Совместная доска создана')});
+  const boardBtn=B('▤ Перейти на доску вместе',async()=>{
+    if(!currentUser||currentUser.uid!==CFG.ownerUid){alert('Выбор совместной доски доступен владельцу звонка.');return}
+    if(!callRoom||!call){alert('Сначала включи камеру и войди в звонок.');return}
+    const index=(await load('meta/boards'))||{items:[]};
+    const menu=index.items.map((x,i)=>(i+1)+'. '+x.name).join('\n');
+    const answer=prompt('На какую доску перейдём вместе?\n0 — создать новую\n'+menu,'0');
+    if(answer===null)return;
+    const num=Number(answer.trim());
+    let chosen;
+    if(Number.isInteger(num)&&num>0&&num<=index.items.length)chosen=index.items[num-1];
+    else if(answer.trim()==='0'){
+      const title=prompt('Название новой доски','Доска встречи');if(title===null)return;
+      chosen={id:uid()+uid(),name:title||'Доска встречи'};
+      await save('boards/'+chosen.id,{name:chosen.name,strokes:[],items:[],bg:'dots'});
+      index.items.push(chosen);await save('meta/boards',index);
+    }else{alert('Неизвестный номер доски');return}
+    let token=chosen.shareToken;
+    if(!token){
+      if(!confirm('Создать для участников звонка ссылку с правом редактировать эту доску?'))return;
+      const board=await load('boards/'+chosen.id);
+      if(!board){alert('Доска пока недоступна');return}
+      token=newShareToken();
+      try{
+        await shareWrite(token,'meta',{boardId:chosen.id,name:chosen.name,role:'editor',createdAt:Date.now()});
+        await shareWrite(token,'board',board);
+        chosen.shareToken=token;await save('meta/boards',index);
+      }catch(e){alert('Не удалось открыть ученикам доступ: '+e.message);return}
+    }
+    callRoom.emit('boardnav',{boardId:chosen.id,token});
+    await go(mm=>openBoard(mm,chosen.id,false,token));
+    persistentCallSession?.window.classList.remove('min');
+    say2('Вы перешли на доску, видеозвонок продолжается');
+  });
   const copyCallLink=B('🔗 Скопировать ссылку',()=>{copyLink(url);say2('Ссылка на видеозвонок скопирована')});
   const idle=[...(back?[B('← Назад',()=>go(callView))]:[]),E('b',{textContent:name}),join,copyCallLink,boardBtn];
   bar.append(...idle);m.append(bar,E('div',{className:'mut',textContent:'Ссылка для ученика: '+url}),E('div',{className:'mut',textContent:'Окно видеозвонка открывается по центру, его можно перемещать, сворачивать и разворачивать на весь экран.'}));
-  cleanup=close;
+  cleanup=()=>{if(!persistentCallSession||persistentCallSession.id!==id)close()};
 }
 async function callView(m){
   const me={ics:'/calendar.ics'};
@@ -960,6 +1005,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const zl=E('span',{className:'zl',textContent:'100%'}),zoom=E('div',{className:'bar zoom'},B('−',()=>setZ(z/1.2)),zl,B('+',()=>setZ(z*1.2)),B('100%',()=>setZ(1)));
   /* видео-окно */
   const openVideo=()=>{
+    if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:'Видеозвонок'}));
     vw=E('div',{className:'vwin'},hd,grid,vbar);
