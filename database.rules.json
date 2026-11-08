@@ -1,7 +1,5 @@
 {
   "rules": {
-    ".read": false,
-    ".write": false,
     "docs": {
       "$path": {
         ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
