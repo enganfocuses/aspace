@@ -291,6 +291,7 @@ const MAX_UPLOAD_BYTES=300*1024*1024;
 // Guest fallback is a transport for the existing board, not a second board UI.
 const guestStandbyEnabled=()=>new URLSearchParams(location.search).get('gueststandby')==='lab';
 let guestStandbyPromise=null;
+const guestPrimaryBases=new Map();
 const getGuestStandby=()=>guestStandbyPromise||(guestStandbyPromise=import('./cloudflare/guest-standby.js')
   .then(module=>module.createAspaceGuestStandby({
     baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',
@@ -323,6 +324,7 @@ const shareRead=async(token,part)=>{
     }
     const value=await response.json();
     if(canCache&&value!=null)try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
+    if(part==='board'&&value!=null)guestPrimaryBases.set(token,JSON.stringify(value));
     return value;
   }catch(error){
     // Never bypass explicit authorization/revocation errors. Use cache only if
@@ -340,6 +342,18 @@ const shareRead=async(token,part)=>{
     throw error;
   }
 };
+async function writeGuestStandby(token,board){
+ const standby=await getGuestStandby();
+ if(!standby.current(token)){
+   const remote=await standby.read(token);
+   const remembered=guestPrimaryBases.get(token);
+   const cache=await localGet('shareCache',token+':board').catch(()=>null);
+   const confirmed=remembered||JSON.stringify(cache?.value??null);
+   if(confirmed==='null'||JSON.stringify(remote.board)!==confirmed)
+     throw Error('Резервная доска отличается от проверенной копии Firebase — запись остановлена');
+ }
+ return standby.write(token,board);
+}
 const shareWrite=async(token,part,value,method='PUT')=>{
   const standby=part==='board'&&method==='PUT'&&guestStandbyEnabled();
   let response;
@@ -348,19 +362,20 @@ const shareWrite=async(token,part,value,method='PUT')=>{
       body:value===null?null:JSON.stringify(value)});
   }catch(error){
     if(!standby||!(error instanceof TypeError||error?.name==='AbortError'))throw error;
-    return (await getGuestStandby()).write(token,value);
+    return writeGuestStandby(token,value);
   }
   if(!response.ok){
     if(standby&&(response.status===429||response.status>=500)){
-      return (await getGuestStandby()).write(token,value);
+      return writeGuestStandby(token,value);
     }
     const body=(await response.text().catch(()=>'')).slice(0,350);
     const quota=/quota[ _-]?(exceeded|exhausted|limit)|resource_exhausted/i.test(body);
-    if(standby&&quota)return (await getGuestStandby()).write(token,value);
+    if(standby&&quota)return writeGuestStandby(token,value);
     throw new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')');
   }
   if((part==='board'||part==='meta')&&value!=null)
     try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
+  if(part==='board'&&value!=null)guestPrimaryBases.set(token,JSON.stringify(value));
   if(standby)(await getGuestStandby()).clear(token);
   return {source:'firebase'};
 };
