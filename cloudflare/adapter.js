@@ -1,6 +1,6 @@
 /* Not imported by the live app yet. The app must provide a fresh Firebase ID token. */
 export function createCloudflareFallback({ baseUrl, getIdToken, fetchImpl = fetch }) {
-  const base = String(baseUrl || "").replace(/\\/+$/, "");
+  const base = String(baseUrl || "").replace(/\/+$/, "");
   if (!base || typeof getIdToken !== "function") throw new Error("Cloudflare fallback requires baseUrl and getIdToken()");
   async function request(path, options = {}) {
     const token = await getIdToken();
