@@ -7,9 +7,10 @@ binding = "DB"
 database_name = "aspace-fallback"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
-[[r2_buckets]]
-binding = "ASSETS"
-bucket_name = "aspace-fallback-assets"
+# Optional: enable only after R2 is activated (not required for D1-only deployment).
+# [[r2_buckets]]
+# binding = "ASSETS"
+# bucket_name = "aspace-fallback-assets"
 
 [vars]
 FIREBASE_PROJECT_ID = "myspace-5d573"
