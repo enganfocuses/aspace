@@ -292,6 +292,7 @@ const MAX_UPLOAD_BYTES=300*1024*1024;
 const guestStandbyEnabled=()=>new URLSearchParams(location.search).get('gueststandby')==='lab';
 let guestStandbyPromise=null;
 const guestPrimaryBases=new Map();
+const guestCloudActiveTokens=new Set();
 const getGuestStandby=()=>guestStandbyPromise||(guestStandbyPromise=import('./cloudflare/guest-standby.js')
   .then(module=>module.createAspaceGuestStandby({
     baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',
@@ -311,6 +312,7 @@ const shareRead=async(token,part)=>{
           // A disabled/revoked Cloudflare grant must not silently fall back to
           // an editable local copy.
           const backup=await (await getGuestStandby()).read(token);
+          guestCloudActiveTokens.add(token);
           return part==='meta'
             ? {boardId:backup.boardId,name:backup.name,role:backup.role}
             : backup.board;
@@ -324,7 +326,10 @@ const shareRead=async(token,part)=>{
     }
     const value=await response.json();
     if(canCache&&value!=null)try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
-    if(part==='board'&&value!=null)guestPrimaryBases.set(token,JSON.stringify(value));
+    if(part==='board'&&value!=null){
+      guestPrimaryBases.set(token,JSON.stringify(value));
+      guestCloudActiveTokens.delete(token);
+    }
     return value;
   }catch(error){
     // Never bypass explicit authorization/revocation errors. Use cache only if
@@ -332,6 +337,7 @@ const shareRead=async(token,part)=>{
     if(canCache&&(error instanceof TypeError||error?.name==='AbortError')){
       if(guestStandbyEnabled()){
         const backup=await (await getGuestStandby()).read(token);
+        guestCloudActiveTokens.add(token);
         return part==='meta'
           ? {boardId:backup.boardId,name:backup.name,role:backup.role}
           : backup.board;
@@ -352,7 +358,9 @@ async function writeGuestStandby(token,board){
    if(confirmed==='null'||JSON.stringify(remote.board)!==confirmed)
      throw Error('Резервная доска отличается от проверенной копии Firebase — запись остановлена');
  }
- return standby.write(token,board);
+ const saved=await standby.write(token,board);
+ guestCloudActiveTokens.add(token);
+ return saved;
 }
 const shareWrite=async(token,part,value,method='PUT')=>{
   const standby=part==='board'&&method==='PUT'&&guestStandbyEnabled();
@@ -376,7 +384,10 @@ const shareWrite=async(token,part,value,method='PUT')=>{
   if((part==='board'||part==='meta')&&value!=null)
     try{await localPut('shareCache',{key:token+':'+part,value,updatedAt:Date.now()})}catch{}
   if(part==='board'&&value!=null)guestPrimaryBases.set(token,JSON.stringify(value));
-  if(standby)(await getGuestStandby()).clear(token);
+  if(standby){
+    (await getGuestStandby()).clear(token);
+    guestCloudActiveTokens.delete(token);
+  }
   return {source:'firebase'};
 };
 const newShareToken=()=>{const a=new Uint8Array(24);crypto.getRandomValues(a);return Array.from(a,x=>x.toString(16).padStart(2,'0')).join('')};
@@ -1430,7 +1441,7 @@ async function openBoard(m,id,guest,shareToken=null){
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
   // When Firebase signaling is unavailable, poll the same Cloudflare document
   // instead of creating another board/call. Never replace unsynced local edits.
-  if(roomWarning&&guestStandbyEnabled()&&boardShareToken){
+  if(roomWarning&&guestStandbyEnabled()&&boardShareToken&&guestCloudActiveTokens.has(boardShareToken)){
     say('Firebase-синхронизация недоступна; резерв Cloudflare проверяется каждые 12 секунд.');
     let lastSnapshot=null;
     cloudPollTimer=setInterval(async()=>{
