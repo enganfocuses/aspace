@@ -154,3 +154,17 @@ test("standby mirror never overwrites divergent guest edits", async () => {
   assert.equal(await saved.mirrored, false);
   assert.deepEqual(env.backup.get("boards/sample").value, { text: "guest changed standby" });
 });
+
+test("large embedded media never silently claims a confirmed standby mirror", async () => {
+  const env = fakeEnvironment();
+  const app = env.create();
+  const start = await app.read("boards/sample");
+  assert.equal(await start.mirrored, true);
+  const saved = await app.write("boards/sample", {
+    text: "data:image/png;base64,AAAA",
+    items: []
+  });
+  assert.equal(saved.pending, false);
+  assert.equal(await saved.mirrored, false);
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "original" });
+});
