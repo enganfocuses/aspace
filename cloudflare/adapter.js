@@ -15,7 +15,7 @@ export function createCloudflareFallback({ baseUrl, getIdToken, fetchImpl = fetc
     });
     if (!response.ok) {
       const detail = await response.text().catch(() => "");
-      throw new Error(`Cloudflare fallback HTTP ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ""}`);
+      throw Object.assign(new Error(`Cloudflare fallback HTTP ${response.status}${detail ? `: ${detail.slice(0, 160)}` : ""}`), { status: response.status });
     }
     return response;
   }
