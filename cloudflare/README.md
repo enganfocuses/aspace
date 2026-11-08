@@ -5,7 +5,7 @@
 **Do not migrate away from Firebase.** Firebase Realtime Database remains the primary datastore, while Cloudflare D1 serves as a warm standby. The intended behavior is:
 
 1. With Firebase healthy: read/write Firebase, mirror confirmed documents to Cloudflare asynchronously using D1 revision checks.
-2. If Firebase returns a *network error, timeout, 429 or 5xx*: switch reads to a previously mirrored Cloudflare snapshot; never turn authentication failures or permission denials into fallback.
+2. If Firebase explicitly reports **quota exhaustion** or has a *network error, timeout, 429 or 5xx*: switch reads to a previously confirmed Cloudflare snapshot. Use one centralized eligibility policy. Do not mask authentication errors, permission denials, ETag conflicts or malformed requests.
 3. During a Firebase outage: preserve edits in a durable local queue. Do not silently overwrite either provider. Write-capable failover to D1 and replay to Firebase requires an idempotent two-way journal, per-document base revisions and conflict handling, and must be tested before enabled.
 4. When Firebase returns: reconcile revisions before replay, avoid losing teacher/student edits, and resume primary writes only after a safe merge.
 5. Public sharing and video require separate consideration: fallback owner document access does not automatically mean students can work during a Firebase/Authentication outage.
@@ -128,3 +128,9 @@ The opt-in `createAspaceStandby` constructor now requires a durable IndexedDB qu
 Mirroring skips snapshots larger than 750,000 JSON characters or containing embedded data-URL media. This reduces unexpected storage/bandwidth usage, but means these boards are **not backed up by Cloudflare**. Mirroring also refuses to overwrite a Cloudflare snapshot that differs from the last confirmed local mirror (for instance, if a guest made an edit during an outage). A production implementation will require explicit migration rules and reconciliation of such divergence.
 
 Even with a durable queue, this is **not** a complete solution for simultaneous guest writes, media continuity, or video signaling during Firebase outages. Do not claim zero-cost guarantees or uninterrupted collaboration.
+
+## Final routing policy
+
+Firebase remains primary. Cloudflare is an emergency reserve if Firebase quotas are exceeded or Firebase becomes unavailable. `standbyEligible()` is the single centralized decision point: explicit quota errors, network failures/timeouts, HTTP 429 and HTTP 5xx trigger standby reads. Unauthorized (401), ordinary permission-denied (403), malformed requests (400) and ETag conflicts (412) must not switch providers. This must not be misrepresented as having two duplicate whiteboard implementations: the provider changes, not the board UI or board document format.
+
+Quota errors can have different shapes, and only confidently recognized signals trigger switching. A permission-denied error must not be mistaken for exhausted quota. Writes are held durably when necessary and only replayed to Firebase with base verification; full editable Cloudflare standby remains a future requirement. Auth still relies on Firebase for fresh tokens.
