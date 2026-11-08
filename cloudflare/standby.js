@@ -24,6 +24,7 @@ export function createAspaceStandby({
     throw new Error("Firebase URL, getIdToken, Cloudflare adapter and durable queue are required");
   }
   const state = new Map();
+  const lastMirrored = new Map();
   const busy = new Set();
   const safeKey = key => typeof key === "string" && key.length <= 180 &&
     key.split("/").every(s => /^[A-Za-z0-9_-]+$/.test(s));
@@ -69,13 +70,24 @@ export function createAspaceStandby({
   }
 
   async function mirror(key, value) {
-    if (value === null) return; // Avoid deleting standby data without a separate tombstone protocol.
-    // D1 snapshots are CAS-protected. A conflicting standby edit must not be overwritten.
+    if (value === null) return false; // Tombstones require a separate protocol.
     const before = await cloudflare.getDoc(key).catch(e => {
       if (e.status === 404) return null;
       throw e;
     });
+    const serial = JSON.stringify(value);
+    if (before && JSON.stringify(before.value) === serial) {
+      lastMirrored.set(key, serial);
+      return true;
+    }
+    // Never clobber a divergent standby copy: a guest may have edited it during
+    // a primary outage. Only advance a snapshot whose last content we confirmed.
+    if (before && lastMirrored.get(key) !== JSON.stringify(before.value)) {
+      throw error("Standby divergence requires reconciliation", 409);
+    }
     await cloudflare.putDoc(key, value, before ? before.revision : 0);
+    lastMirrored.set(key, serial);
+    return true;
   }
 
   async function read(key) {
