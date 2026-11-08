@@ -276,6 +276,8 @@ async function prepareStandby(owner){
  const queue=createIndexedDBStandbyQueue({scope:owner.uid+'_aspace'});
  const cloudflare=createCloudflareFallback({baseUrl:'https://aspace-fallback-api.anncodes001.workers.dev',getIdToken});
  standbyController=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,cloudflare,queue,
+  // Requires two explicit lab flags; never enabled by normal production URLs.
+  allowStandbyWrites:new URLSearchParams(location.search).get('standbywrite')==='lab',
   onStatus:({phase})=>{standbyPhase=phase;const mark=document.getElementById('standbyIndicator');if(mark)mark.textContent='🧪 Резерв: '+phase}
  });
  standbyController.startRecovery({onResults:outcomes=>{
