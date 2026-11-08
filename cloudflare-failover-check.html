@@ -15,14 +15,14 @@ p{line-height:1.5}small,.muted{color:#6e6575}a{color:#71518a}#status{white-space
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 </head><body><main>
 <h1>Aspace · Проверка резервного переключения</h1>
-<p class="muted">Firebase — основная база, Cloudflare — запасная. Программа создаёт исключительно временный тестовый документ и имитирует сбой Firebase в этом окне браузера. Реальные доски учеников не меняются.</p>
+<p class="muted">Firebase — основная база. Cloudflare используется при исчерпании квоты или сбое Firebase. Программа создаёт исключительно временный тестовый документ и имитирует исчерпание квоты и сбой Firebase только в этом окне браузера. Реальные доски учеников не меняются.</p>
 <section class="panel">
 <h2>Один комплексный тест</h2>
 <p id="authStatus" role="status">Проверка аккаунта…</p>
 <button id="run" disabled>Проверить переключение и восстановление</button>
 <p id="status" role="status">Ожидание.</p>
 <table><thead><tr><th>Проверка</th><th>Результат</th></tr></thead><tbody id="results"></tbody></table>
-<p><small>В результате теста небольшая синтетическая доска сохраняется в Firebase и зеркалируется в Cloudflare. Сбой имитируется программно, без отключения реального сервиса. По окончании тестовые записи удаляются. Рабочие данные не отправляются в Cloudflare.</small></p>
+<p><small>Тест проверяет квоту, сеть, безопасный возврат к Firebase и конкурирующие изменения на синтетической доске. Сбой имитируется программно, без отключения реального сервиса. По окончании тестовые записи удаляются. Рабочие данные не отправляются в Cloudflare.</small></p>
 </section>
 <section class="panel">
 <h2>Совместимость с настоящим форматом</h2>
@@ -92,7 +92,7 @@ async function checkRealFormat(){
 async function check(){
  if(running||!account)return;
  running=true;run.disabled=true;results.replaceChildren();
- let key='diag-'+crypto.randomUUID(),queue=null,offline=false,created=false,done=false;
+ let key='diag-'+crypto.randomUUID(),queue=null,faultMode='none',created=false,done=false;
  const fixture={name:'Резервная тестовая доска',bg:'dots',
    items:[{id:'sample-note',k:'note',x:24,y:42,w:170,h:110,t:'Синтетический стикер',c:'#f3def2'}],
    strokes:[{id:'sample-line',p:[[20,20],[80,80]],c:'#764d92',w:3}],siteUrl:'',upd:Date.now()};
@@ -107,7 +107,11 @@ async function check(){
   queue=createIndexedDBStandbyQueue({scope:account.uid+'_'+key});
   const cloudflare=createCloudflareFallback({baseUrl:BASE,getIdToken});
   const routeFetch=async(url,opts)=>{
-    if(offline&&String(url).includes(CFG.firebase.databaseURL))throw new TypeError('Имитация отключения Firebase');
+    if(String(url).includes(CFG.firebase.databaseURL)){
+      if(faultMode==='network')throw new TypeError('Имитация отключения Firebase');
+      if(faultMode==='quota')return new Response(JSON.stringify({error:{message:'Quota exceeded'}}),{status:403,headers:{'Content-Type':'application/json'}});
+      if(faultMode==='permission')return new Response(JSON.stringify({error:{message:'Permission denied'}}),{status:403,headers:{'Content-Type':'application/json'}});
+    }
     return fetch(url,opts);
   };
   const provider=createAspaceStandby({firebaseDatabaseURL:CFG.firebase.databaseURL,getIdToken,
@@ -118,7 +122,16 @@ async function check(){
   add('Firebase используется как основная база',true);
   if(!await start.mirrored)fail('Данные не были скопированы в Cloudflare');
   add('Подтверждённая копия создана в Cloudflare',true);
-  offline=true;
+  faultMode='quota';
+  const quotaStandby=await provider.read(key);
+  if(quotaStandby.source!=='cloudflare')fail('Исчерпание квоты не активировало Cloudflare');
+  add('Переключение при исчерпании квоты Firebase',true);
+  faultMode='permission';
+  let permissionBlocked=false;
+  try{await provider.read(key)}catch(e){permissionBlocked=e.status===403}
+  if(!permissionBlocked)fail('Отказ в доступе ошибочно включил резерв');
+  add('Обычная ошибка доступа не включает резерв',true);
+  faultMode='network';
   const standby=await provider.read(key);
   if(standby.source!=='cloudflare'||standby.value.items?.length!==1)fail('Cloudflare не вернул резервный документ');
   add('Автоматическое чтение Cloudflare при имитации сбоя',true);
@@ -129,7 +142,7 @@ async function check(){
   const returned=await provider.read(key);
   if(returned.source!=='local'||returned.value.items.length!==2)fail('Локальный черновик потерян');
   add('Локальный черновик имеет приоритет над старой копией',true);
-  offline=false;
+  faultMode='none';
   const outcome=await provider.replay(key);
   if(outcome.status!=='replayed')fail('Восстановление: '+outcome.status);
   if(outcome.mirrored&&!await outcome.mirrored)fail('Зеркалирование после восстановления не удалось');
@@ -139,12 +152,31 @@ async function check(){
   const doc=typeof raw?.j==='string'?JSON.parse(raw.j):raw;
   if(doc.items?.length!==2)fail('На Firebase нет второго объекта');
   add('Восстановленные объекты прочитаны из Firebase',true);
+  // An external Firebase write after an offline draft must not be erased by replay.
+  const current=await provider.read(key);
+  if(current.source!=='firebase')fail('Firebase не вернулся в основной режим');
+  add('Автоматический возврат чтения к Firebase',true);
+  faultMode='network';
+  const competing={...changed,items:[...changed.items,{id:'local-conflict',k:'note',x:10,y:90,w:140,h:90,t:'Локальная правка'}]};
+  await provider.write(key,competing);
+  faultMode='none';
+  const external={...changed,items:[...changed.items,{id:'external-change',k:'note',x:20,y:110,w:140,h:90,t:'Правка другого устройства'}]};
+  await ownerFirebase('PUT',key,external);
+  const conflict=await provider.replay(key);
+  if(conflict.status!=='conflict')fail('Конфликт не обнаружен: '+conflict.status);
+  const externalResult=await ownerFirebase('GET',key);
+  const rawExternal=await externalResult.json();
+  const finalExternal=typeof rawExternal?.j==='string'?JSON.parse(rawExternal.j):rawExternal;
+  if(finalExternal.items.some(x=>x.id==='local-conflict')||!finalExternal.items.some(x=>x.id==='external-change'))fail('Конкурирующее изменение было перезаписано');
+  add('Конфликт двух устройств блокирует перезапись',true);
+  if(!await provider.pending(key))fail('Конфликтующий черновик потерян');
+  add('Конфликтующий черновик остаётся локально',true);
   done=true;
  }catch(error){
   status.textContent='Проверка остановлена: '+(error?.message||String(error));
   add('Итог проверки',false,String(error?.message||error).slice(0,140));
  }finally{
-  offline=false;
+  faultMode='none';
   let cleanedFirebase=false,cleanedCloudflare=false;
   if(created){
    try{await ownerDelete(key);cleanedFirebase=true}catch(e){add('Удаление теста из Firebase',false,e.message)}
