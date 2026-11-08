@@ -12,6 +12,12 @@
         ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
       }
     },
+    "media": {
+      "$asset": {
+        ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
+        ".write": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'"
+      }
+    },
     "rooms": {
       "$room": {
         ".read": "auth != null && auth.uid === 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'",
