@@ -1,3 +1,24 @@
+# Aspace Cloudflare standby — Firebase stays primary
+
+## Fundamental architecture decision
+
+**Do not migrate away from Firebase.** Firebase Realtime Database remains the primary datastore, while Cloudflare D1 serves as a warm standby. The intended behavior is:
+
+1. With Firebase healthy: read/write Firebase, mirror confirmed documents to Cloudflare asynchronously using D1 revision checks.
+2. If Firebase returns a *network error, timeout, 429 or 5xx*: switch reads to a previously mirrored Cloudflare snapshot; never turn authentication failures or permission denials into fallback.
+3. During a Firebase outage: preserve edits in a durable local queue. Do not silently overwrite either provider. Write-capable failover to D1 and replay to Firebase requires an idempotent two-way journal, per-document base revisions and conflict handling, and must be tested before enabled.
+4. When Firebase returns: reconcile revisions before replay, avoid losing teacher/student edits, and resume primary writes only after a safe merge.
+5. Public sharing and video require separate consideration: fallback owner document access does not automatically mean students can work during a Firebase/Authentication outage.
+6. No billable R2 deployment: images and videos are **not** automatically backed up by D1.
+
+### Staged standby implementation
+
+`cloudflare/standby.js` is the isolated initial controller, **not loaded by the production site**. It supports Firebase-first reads, Cloudflare reads on transient errors, mirroring confirmed writes, conditional Firebase ETag writes and **in-memory pending drafts**. It does **not** yet provide durable offline replay or full Cloudflare writes during outages. Never present it as completed active automatic failover. The live site still uses Firebase.
+
+The owner-only `cloudflare-migration-audit.html` page is a read-only readiness audit despite its historical filename: it does not migrate or replace data.
+
+---
+
 # Aspace Cloudflare fallback — phase 1
 
 This is an isolated backup backend. It is NOT connected to the live Aspace app and does not change Firebase behavior.
