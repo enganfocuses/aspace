@@ -58,8 +58,10 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .bfull{position:fixed;inset:0;z-index:20;background:#fffef9}
 .bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y}
 .sizer{position:relative}
-.wrap{position:absolute;left:0;top:0;transform-origin:0 0;background-color:#fffef9;will-change:transform}
-.wrap.dots{background-image:radial-gradient(#ddd5c0 1.4px,transparent 1.4px);background-size:24px 24px}
+.wrap{position:absolute;left:0;top:0;transform-origin:0 0;background:transparent;will-change:transform}
+.bscroll{background-color:#fffef9}
+.bscroll.dots{background-image:radial-gradient(#ddd5c0 1.3px,transparent 1.3px);background-size:24px 24px}
+.bscroll.clean{background-image:none}
 .wrap canvas{position:absolute;left:0;top:0;touch-action:none}.wrap canvas.cm{opacity:.4}.snap-guides{position:absolute;inset:0;z-index:12;pointer-events:none}.snap-guide{position:absolute;background:#b34b78;box-shadow:0 0 0 1px #fff8;opacity:.95}.snap-guide.v{top:0;bottom:0;width:1px}.snap-guide.h{left:0;right:0;height:1px}
 .bar{background:#fffffff2;border:1px solid #7f9bbd77;box-shadow:0 8px 28px #3a3a4624;border-radius:999px}
 .tbar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;gap:6px;align-items:center;padding:6px 10px;z-index:25;max-width:calc(100vw - 16px)}
@@ -654,7 +656,7 @@ async function openBoard(m,id,guest,shareToken=null){
   let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
-  const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll'},sizer),toast=E('div',{className:'toast'});
+  const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
   const r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null);
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
@@ -759,6 +761,32 @@ async function openBoard(m,id,guest,shareToken=null){
     const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>45)flush()};
   cv.onpointerup=()=>{if(pan){pan=null;setTool(tool);return}if(!cur)return;flush();rec({t:'s',s:cur});cur=null;persist()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
+  // Secondary mouse buttons always pan the viewport regardless of the selected tool.
+  // Capture-phase prevents right click on contenteditable objects from moving them.
+  let mousePan=null;
+  sc.addEventListener('contextmenu',e=>e.preventDefault());
+  sc.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault()});
+  sc.addEventListener('pointerdown',e=>{
+    if(e.pointerType!=='mouse'||(e.button!==1&&e.button!==2))return;
+    e.preventDefault();e.stopPropagation();
+    mousePan={id:e.pointerId,x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop};
+    sc.setPointerCapture(e.pointerId);sc.style.cursor='grabbing';
+  },true);
+  sc.addEventListener('pointermove',e=>{
+    if(!mousePan||e.pointerId!==mousePan.id)return;
+    e.preventDefault();
+    sc.scrollLeft=mousePan.l-(e.clientX-mousePan.x);
+    sc.scrollTop=mousePan.t-(e.clientY-mousePan.y);
+    queueViewport();
+  },true);
+  const endMousePan=e=>{
+    if(!mousePan||e.pointerId!==mousePan.id)return;
+    mousePan=null;sc.style.cursor='';
+    if(sc.hasPointerCapture(e.pointerId))sc.releasePointerCapture(e.pointerId);
+    queueViewport();
+  };
+  sc.addEventListener('pointerup',endMousePan,true);
+  sc.addEventListener('pointercancel',endMousePan,true);
   sc.addEventListener('wheel',e=>{e.preventDefault();const factor=Math.exp(-e.deltaY*.0015);const b=sc.getBoundingClientRect(),px=(e.clientX-b.left+sc.scrollLeft)/z,py=(e.clientY-b.top+sc.scrollTop)/z,nz=Math.min(2.5,Math.max(.25,z*factor));z=nz;applyZ();sc.scrollLeft=px*z-(e.clientX-b.left);sc.scrollTop=py*z-(e.clientY-b.top);queueViewport()},{passive:false});
   let pinch=null;sc.addEventListener('touchstart',e=>{if(e.touches.length===2){e.preventDefault();const a=e.touches[0],b=e.touches[1],r0=sc.getBoundingClientRect();pinch={dist:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),z,x:(a.clientX+b.clientX)/2-r0.left+sc.scrollLeft,y:(a.clientY+b.clientY)/2-r0.top+sc.scrollTop}}},{passive:false});
   sc.addEventListener('touchmove',e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),nz=Math.min(2.5,Math.max(.25,pinch.z*dist/pinch.dist));const x=pinch.x/pinch.z,y=pinch.y/pinch.z;z=nz;applyZ();sc.scrollLeft=x*z-(a.clientX+b.clientX)/2+sc.getBoundingClientRect().left;sc.scrollTop=y*z-(a.clientY+b.clientY)/2+sc.getBoundingClientRect().top},{passive:false});
@@ -769,10 +797,10 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);persist()});
   r.on('d',x=>{const n=items.find(q=>q.id===x.data.id);if(n){items=items.filter(q=>q!==n);rmEl(n);persist()}});
   r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist()});
-  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;persist()});
+  r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;sc.className='bscroll '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
   r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''})});
-  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;renderSite();redraw();renderAll()});
+  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
@@ -850,7 +878,23 @@ async function openBoard(m,id,guest,shareToken=null){
   const customColor=E('input',{type:'color',value:'#49372f',title:'Выбрать собственный цвет текста',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
   customColor.onchange=()=>{const c=customColor.value.toLowerCase();if(!textPalette.includes(c)){textPalette.push(c);ls.s('aspace-text-palette',textPalette);drawTextPalette()}fmt('col',c)};
   fontSec.append(customColor);drawTextPalette();
-  FILLS.forEach(c=>{const s=E('button',{className:'sw',title:'Цвет фигуры / заливка',onclick:()=>fmt('c',c)});s.style.background=c;fillSec.append(s)});const shapeColor=E('input',{type:'color',value:'#b7d1ea',title:'Любой цвет фигуры',style:'width:30px;height:30px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});shapeColor.oninput=()=>fmt('c',shapeColor.value);fillSec.append(shapeColor);
+  const defaultShapePalette=[...FILLS];
+  let shapePalette=ls.g('aspace-shape-palette',defaultShapePalette);
+  if(!Array.isArray(shapePalette))shapePalette=[...defaultShapePalette];
+  const shapeSwatches=E('div',{className:'row nw',style:'gap:3px;align-items:center'});
+  const drawShapes=()=>{shapeSwatches.replaceChildren(...shapePalette.map(c=>{
+    const s=E('button',{className:'sw',title:'Цвет фигуры '+c,onclick:()=>fmt('c',c)});s.style.background=c;return s
+  }))};
+  drawShapes();fillSec.append(shapeSwatches);
+  const shapeColor=E('input',{type:'color',value:'#b7d1ea',title:'Спектр: любой цвет фигуры',style:'width:34px;height:34px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
+  shapeColor.oninput=()=>fmt('c',shapeColor.value);
+  const saveShapeColor=()=>{const v=shapeColor.value.toLowerCase();if(!shapePalette.includes(v)){shapePalette.push(v);ls.s('aspace-shape-palette',shapePalette);drawShapes()}fmt('c',v)};
+  const keepColor=B('＋ Цвет',saveShapeColor);
+  const eyeShape=B('◉ Пипетка',async()=>{
+    if(!window.EyeDropper){alert('Пипетка недоступна в этом браузере. Используй цветовой спектр.');return}
+    try{const result=await new EyeDropper().open(),v=result.sRGBHex.toLowerCase();shapeColor.value=v;fmt('c',v);if(!shapePalette.includes(v)){shapePalette.push(v);ls.s('aspace-shape-palette',shapePalette);drawShapes()}}catch(e){if(e.name!=='AbortError')alert(e.message)}
+  });
+  fillSec.append(shapeColor,keepColor,eyeShape);
   fbar.append(fontSec,E('span',{className:'sep'}),fillSec);fbar.onmousedown=e=>{if(e.target.tagName!=='SELECT')e.preventDefault()};
   const fmt=(k,v)=>{if(!sel)return;sel[k]=v;upsert(sel);push(sel);syncBar()};
   const syncBar=()=>{if(!sel)return;fsel.value=sel.f||'Open Sans';ssel.value=sel.fs||16;bB.classList.toggle('on',!!sel.b);bI.classList.toggle('on',!!sel.i);bU.classList.toggle('on',!!sel.ul)};
@@ -887,7 +931,7 @@ async function openBoard(m,id,guest,shareToken=null){
     B('◎ Следовать за ним',()=>{const id0=peerSelect.value,p=peers[id0];if(!id0||!p)return say('Участник не найден. Обнови список и выбери его снова.');if(!p.v)return say('Жду, пока участник передаст своё положение на доске…');followId=id0;applyViewport(p.v);say('Следуешь за '+(p.name||'участником'))}),
     B('↪ Прикрепить ко мне',()=>{const id0=peerSelect.value;if(!id0||!peers[id0])return say('Участник не найден. Обнови список и выбери его снова.');r.emit('followme',{to:id0,from:r.id,name:myName,v:myViewport()});say('Отправляю запрос: участник будет следовать за тобой')}),
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
-  const bgb=k=>{bg=k;wrap.className='wrap '+k;r.emit('bg',{bg:k});persist()};
+  const bgb=k=>{bg=k;wrap.className='wrap '+k;sc.className='bscroll '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
   const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:goHome},ic('home'),E('span',{textContent:'Домой'}));
   const menu=E('div',{className:'menu'},home,mb,mp);
