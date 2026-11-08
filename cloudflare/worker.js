@@ -50,6 +50,21 @@ export default {
     const uid = await requireOwner(request, env);
     if (!uid) return json({ error: "unauthorized" }, 401);
 
+    // Owner-only, read-only database diagnostic. Does not expose or modify lesson data.
+    if (url.pathname === "/v1/diagnostics/db" && request.method === "GET") {
+      try {
+        const result = await env.DB.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('docs', 'shares')"
+        ).all();
+        const present = new Set((result.results || []).map(row => row.name));
+        const ready = present.has("docs") && present.has("shares");
+        return json({ ok: ready, database: ready ? "ready" : "schema_incomplete" }, ready ? 200 : 503);
+      } catch (error) {
+        console.error("D1 diagnostic failed", error);
+        return json({ ok: false, database: "unavailable" }, 503);
+      }
+    }
+
     const docMatch = url.pathname.match(/^\/v1\/docs\/(.+)$/);
     if (docMatch) {
       const key = decodeURIComponent(docMatch[1]);
