@@ -152,3 +152,19 @@ When Firebase recovers, queued edits are only replayed when the current Firebase
 In the draft branch's original `index.html`, owner-only router mode requires `?standby=lab`, and direct Cloudflare write mode additionally requires `&standbywrite=lab`. These flags are **not** active on main GitHub Pages. They must remain off until the branch has been separately published and browser-tested.
 
 The standalone `/cloudflare-failover-check.html` on main GitHub Pages has been expanded to test the new write-capable mode on a disposable `diag-...` document, including repeated offline writes, safe Firebase replay, concurrent-edit rejection and cleanup. No real lesson documents are written by that test.
+
+## Legacy Aspace boards and existing student links — staged only
+
+The branch Worker now accepts **existing 48-character hexadecimal Aspace share tokens** (as well as 64-character prototype tokens). It stores only SHA-256 token hashes. Owner share management can register the live `boards/<id>` key, list/revoke grants, and PATCH the permission of an active grant. Guest GET returns a versioned snapshot and viewer/editor role; guest PUT validates the real Aspace board schema, enforces a 750 KB cap, uses revision CAS and refuses viewer updates. Only board content is in scope, not the Firebase signaling path, local assets or embedded media. This is **server source on the draft branch**, not proof that the deployed Worker has been upgraded.
+
+The owner-facing `/cloudflare-standby-preparation.html` on GitHub Pages requires an explicit button press and confirms owner authentication. It first checks whether the deployed Worker recognizes live board share endpoints. If the Worker is stale it refuses to upload data. After an updated Worker is deployed, it can snapshot the current owner index with the raw `shareToken` field **removed**, snapshot each small board, register hashes of still-active guest links and revoke previously registered obsolete grants. It refuses to overwrite D1 revisions above 1 when content differs, preventing silent loss of standby edits.
+
+This is a **one-off preparation mechanism** rather than continuous synchronization. Until the Worker is actually deployed, share revocation is mirrored on each permission change, automatic owner/guest failover is enabled with end-to-end tests, and signaling is secured for no-account guests, Aspace must continue using Firebase as its live primary. Do not claim that the existing guest links already fail over automatically or that a formerly revoked link can be instantly revoked in a disconnected mirror.
+
+### Low-quota live app fixes
+
+- Existing guest boards are cached in IndexedDB only after successful authenticated/authorized-by-capability reads. Explicit HTTP 401/403/404 does not use an offline cached share to bypass a revoked link; temporary network errors and recognized quota failures may use a previously cached copy.
+- Guest drafts are saved to a separate IndexedDB store before Firebase share writes. The original shared-board state is retained for comparison on reconnection; conflicting remote changes are not overwritten automatically.
+- Call signaling now verifies anonymous read and write permissions instead of reporting success merely because a timeout elapsed. Owner call pages provide a short anonymous access check that creates and deletes one diagnostic signal.
+- WebRTC call state persists across board navigation; a former naming collision between join-call and navigation functions was removed.
+- Board presence, viewport and stroke updates are throttled moderately; full state broadcasts through Firebase signaling are capped at 120 KB to reduce quota costs.
