@@ -623,8 +623,8 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('clr',()=>{strokes=[];items=[];redraw();renderAll();persist()});
   r.on('bg',x=>{bg=x.data.bg;wrap.className='wrap '+bg;persist()});
   r.on('site',x=>{if(!x.data)return;d.siteUrl=x.data.url||'';renderSite();persist()});
-  r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg})});
-  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;wrap.className='wrap '+bg;redraw();renderAll()});
+  r.on('req',()=>{if(JSON.stringify(strokes).length+JSON.stringify(items).length<9000000)r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''})});
+  r.on('state',x=>{if(got||!x.data)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
@@ -649,7 +649,24 @@ async function openBoard(m,id,guest,shareToken=null){
   /* интерфейс */
   const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp,fm);
   const sitePanel=E('section',{className:'site-panel'});
-  const renderSite=()=>{const url=d.siteUrl||'';root.classList.toggle('with-site',!!url);sitePanel.style.display=url?'flex':'none';sitePanel.replaceChildren();if(!url)return;const head=E('div',{className:'site-head'},E('b',{textContent:'Совместный просмотр · сайт'}),B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')),B('×',()=>{if(guest)return;d.siteUrl='';renderSite();persist();r.emit('site',{url:''})}));const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, открой его отдельно кнопкой ↗.'});sitePanel.append(head,frame,note)};
+  const applySiteUrl=raw=>{
+    let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}
+    d.siteUrl=url;renderSite();persist();r.emit('site',{url});
+  };
+  const renderSite=()=>{
+    const url=d.siteUrl||'';root.classList.toggle('with-site',!!url);sitePanel.style.display=url?'flex':'none';sitePanel.replaceChildren();if(!url)return;
+    const head=E('div',{className:'site-head'});
+    head.append(E('b',{textContent:'Совместный просмотр'}));
+    if(isOwner){
+      const field=E('input',{type:'url',value:url,placeholder:'Вставь ссылку на Yonote',ariaLabel:'Ссылка на сайт',style:'min-width:0;flex:1;max-width:420px'});
+      head.append(field,B('Перейти',()=>applySiteUrl(field.value)));
+    }
+    head.append(B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')));
+    if(isOwner)head.append(B('×',()=>applySiteUrl('')));
+    const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});
+    const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, используй «Открыть отдельно». Разделение экрана и ссылка синхронизируются с учеником.'});
+    sitePanel.append(head,frame,note);
+  };
   renderSite();root.append(sitePanel);
   const tb=(icon,lb,fn,t)=>{const b=E('button',{className:'tbtn',title:lb,'aria-label':lb,onclick:fn},ic(icon));if(t)b.dataset.t=t;return b};
   const sep=()=>E('span',{className:'sep'}),tbar=E('div',{className:'bar tbar'}),pops=[];
@@ -732,7 +749,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('← Список досок',()=>go(boardsView));
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   if(isOwner)mi('📹 Видеозвонок на доске',openVideo);
-  if(isOwner)mi('🖥 Совместный просмотр · добавить сайт',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}d.siteUrl=url;renderSite();persist();r.emit('site',{url})});
+  if(isOwner)mi('🖥 Экран: доска + сайт / Yonote',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;applySiteUrl(raw)});
   if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
