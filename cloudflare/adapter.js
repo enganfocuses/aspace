@@ -25,14 +25,25 @@ export function createCloudflareFallback({ baseUrl, getIdToken, fetchImpl = fetc
       if (!r.ok) throw new Error(`Cloudflare health HTTP ${r.status}`);
       return r.json();
     },
+    // Returns both the document and its revision. Keep this revision for safe subsequent writes.
     async getDoc(key) {
       const r = await request("/v1/docs/" + encodeURIComponent(key));
       const record = await r.json();
-      return record && typeof record.j === "string" ? JSON.parse(record.j) : null;
+      return record && typeof record.j === "string"
+        ? { value: JSON.parse(record.j), revision: record.revision, updatedAt: record.updatedAt }
+        : null;
     },
-    async putDoc(key, value) {
-      await request("/v1/docs/" + encodeURIComponent(key), { method: "PUT", body: JSON.stringify({ j: JSON.stringify(value) }) });
-      return true;
+    // Use expectedRevision=0 for creating a new document, or the revision from getDoc.
+    // A 409 indicates a concurrent edit; callers must reconcile rather than retry blindly.
+    async putDoc(key, value, expectedRevision) {
+      if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+        throw new Error("putDoc requires a nonnegative expectedRevision");
+      }
+      const r = await request("/v1/docs/" + encodeURIComponent(key), {
+        method: "PUT",
+        body: JSON.stringify({ j: JSON.stringify(value), expectedRevision })
+      });
+      return r.json();
     },
     async getAsset(id) {
       const r = await request("/v1/assets/" + encodeURIComponent(id));
