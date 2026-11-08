@@ -50,10 +50,10 @@ function fakeEnvironment() {
       status: 200, headers: { ETag: `"${next.revision}"` }
     });
   };
-  const create = () => createAspaceStandby({
+  const create = (opts = {}) => createAspaceStandby({
     firebaseDatabaseURL: "https://example.firebaseio.com",
     getIdToken: async () => auth ? "test-token" : null,
-    cloudflare, fetchImpl, queue
+    cloudflare, fetchImpl, queue, ...opts
   });
   return {
     create, queue, docs, backup,
@@ -215,4 +215,76 @@ test("Firebase 429 rate limit triggers standby read", async () => {
   await (await app.read("boards/sample")).mirrored;
   env.setFirebaseError({ status: 429, message: "Too many requests" });
   assert.equal((await app.read("boards/sample")).source, "cloudflare");
+});
+
+test("opt-in Cloudflare writes during outage use the verified mirror and replay safely", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  const baseline = await app.read("boards/sample");
+  assert.equal(await baseline.mirrored, true);
+  env.setOffline(true);
+  const first = await app.write("boards/sample", { text: "standby first" });
+  assert.equal(first.source, "cloudflare");
+  assert.equal(first.pending, true);
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "standby first" });
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
+  const second = await app.write("boards/sample", { text: "standby second" });
+  assert.equal(second.source, "cloudflare");
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "standby second" });
+  env.setOffline(false);
+  const replay = await app.replay("boards/sample");
+  assert.equal(replay.status, "replayed");
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "standby second" });
+  assert.equal(await app.pending("boards/sample"), false);
+});
+
+test("standby cannot overwrite changes made by another participant", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  env.backup.set("boards/sample", {
+    value: { text: "other participant" }, revision: 2
+  });
+  const result = await app.write("boards/sample", { text: "my edit" });
+  assert.equal(result.source, "local");
+  assert.deepEqual(env.backup.get("boards/sample").value, { text: "other participant" });
+  assert.equal(await app.pending("boards/sample"), true);
+});
+
+test("standby write refuses absent confirmed backup", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await app.read("boards/sample"); // Mirror promise intentionally not awaited.
+  env.setOffline(true);
+  const result = await app.write("boards/sample", { text: "offline" });
+  assert.ok(["local", "cloudflare"].includes(result.source));
+  assert.equal(await app.pending("boards/sample"), true);
+});
+
+test("standby reconciliation blocks a changed Firebase primary document", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  assert.equal((await app.write("boards/sample", { text: "cloud" })).source, "cloudflare");
+  env.docs.set("boards/sample", { value: { text: "other primary writer" }, revision: 2 });
+  env.setOffline(false);
+  assert.equal((await app.replay("boards/sample")).status, "conflict");
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "other primary writer" });
+  assert.equal(await app.pending("boards/sample"), true);
+});
+
+test("standby replay refuses subsequent edits from a second Cloudflare writer", async () => {
+  const env = fakeEnvironment();
+  const app = env.create({ allowStandbyWrites: true });
+  await (await app.read("boards/sample")).mirrored;
+  env.setOffline(true);
+  await app.write("boards/sample", { text: "offline teacher" });
+  env.backup.set("boards/sample", {
+    value: { text: "other cloud writer" }, revision: 3
+  });
+  env.setOffline(false);
+  assert.equal((await app.replay("boards/sample")).status, "standby_conflict");
+  assert.deepEqual(env.docs.get("boards/sample").value, { text: "original" });
 });
