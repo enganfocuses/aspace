@@ -4,7 +4,7 @@ A static Russian-language self-study course, linked from the owner's `#psycholog
 
 ## Content
 
-- 24 modules with 110 verbatim source pages (100 from the digital third edition; 10 from the scanned challenging-problems edition), plus 24 separately labelled editorial worked examples.
+- 24 modules with 112 verbatim source pages (102 from the digital third edition; 10 from the scanned challenging-problems edition), plus 24 separately labelled editorial worked examples.
 - 72 written practice prompts and 48 knowledge questions with explanations.
 - 16 reusable worksheets and 12 fictional learning cases.
 - Bibliographic mapping to the supplied PDFs, critical context for the defenses handout, and Vygotsky reading links/questions.
@@ -37,4 +37,8 @@ Browser QA uses a separate preview with synthetic in-memory records; no personal
 
 ## Verbatim source verification
 
-`excerpt-manifest.json` maps all 24 modules to exact PDF pages. Every text page retains the supplied PDF text layer, trimming only outer whitespace. No spelling, punctuation, line breaks or OCR errors are rewritten. The current 110 page texts were independently compared against fresh `pdftotext -layout` extraction from the original supplied PDFs; all matched. Ten scanned source pages are rendered as eight adjacent WebP image strips each, retaining the original page order and printed wording; strip boundaries do not remove content. Their OCR remains optional, with an explicit recognition-error label. Full diagrams/layout from the digital book are not represented in its text layer.
+`excerpt-manifest.json` maps all 24 modules to exact PDF pages. Every text page retains the supplied PDF text layer, trimming only outer whitespace. No spelling, punctuation, line breaks or OCR errors are rewritten. The current 112 page texts were independently compared against fresh `pdftotext -layout` extraction from the original supplied PDFs; all matched. Ten scanned source pages are rendered as eight adjacent WebP image strips each, retaining the original page order and printed wording; strip boundaries do not remove content. Their OCR remains optional, with an explicit recognition-error label. Full diagrams/layout from the digital book are not represented in its text layer.
+
+
+
+Two supplied digital PDF pages (303 and 401) are completely blank and excluded. Three other pages (304, 340 and 402) contain rasterized material or diagrams and are preserved as original facsimiles. Thirteen original-page facsimiles are included in total.

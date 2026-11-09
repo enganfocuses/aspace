@@ -64,6 +64,6 @@ test('offline shell includes every psychology module and local source PDFs are n
 });
 
 test('every source page has a reproducible text hash and scanned sources provide original facsimiles',()=>{
- for(const l of LESSONS){const source=BOOK_EXCERPTS[l.id];assert.ok(source.book&&source.chapter);assert.match(source.sourcePdfSha256,/^[a-f0-9]{64}$/);for(const page of source.pages){assert.equal(createHash('sha256').update(page.text).digest('hex'),page.textSha256);assert.ok(Number.isSafeInteger(page.page)&&page.page>0);if(source.ocr){assert.equal(page.images.length,8);for(const path of page.images)assert.ok(existsSync(new URL('../psychology/'+path,import.meta.url)))}}}
+ for(const l of LESSONS){const source=BOOK_EXCERPTS[l.id];assert.ok(source.book&&source.chapter);assert.match(source.sourcePdfSha256,/^[a-f0-9]{64}$/);for(const page of source.pages){assert.equal(createHash('sha256').update(page.text).digest('hex'),page.textSha256);assert.ok(Number.isSafeInteger(page.page)&&page.page>0);assert.ok(page.text.length>=150||page.images,'Image-only pages need a facsimile');if(page.images){assert.equal(page.images.length,8);for(const path of page.images)assert.ok(existsSync(new URL('../psychology/'+path,import.meta.url)))}}}
  const app=readFileSync(new URL('../psychology/app.mjs',import.meta.url),'utf8');assert.match(app,/Текст учебника · дословно/);assert.match(app,/Авторский разбор · не цитата из учебника/);assert.match(app,/Авторские задания тренажёра/);assert.match(app,/возможны ошибки OCR/);
 });

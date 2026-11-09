@@ -65,4 +65,8 @@ The owner navigation, board menu and Home now include Psychology (`#psychology`)
 
 ## Verbatim psychology theory
 
-Replaced all 24 modules’ editorial theory with 110 directly sourced PDF-page excerpts, each citing its book, chapter and physical PDF page. The ten scanned pages also display original facsimiles, with OCR text collapsed and labelled. Editorial examples, practice prompts and answer explanations are explicitly distinguished from the book text. Removed the previous theory paragraphs from both reading and search. Source hashes and the excerpt manifest support verification; diary storage and encryption are unchanged.
+Replaced all 24 modules’ editorial theory with 112 directly sourced PDF-page excerpts, each citing its book, chapter and physical PDF page. The ten scanned pages also display original facsimiles, with OCR text collapsed and labelled. Editorial examples, practice prompts and answer explanations are explicitly distinguished from the book text. Removed the previous theory paragraphs from both reading and search. Source hashes and the excerpt manifest support verification; diary storage and encryption are unchanged.
+
+
+
+Two supplied digital PDF pages (303 and 401) are completely blank and excluded. Three other pages (304, 340 and 402) contain rasterized material or diagrams and are preserved as original facsimiles. Thirteen original-page facsimiles are included in total.

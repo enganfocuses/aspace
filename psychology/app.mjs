@@ -46,13 +46,13 @@ function lesson(id){const l=LESSONS.find(l=>l.id===id)||LESSONS[0],i=LESSONS.ind
  const source=BOOK_EXCERPTS[l.id];
  content.append(E('h2',{textContent:'Текст учебника · дословно'}),P(source.book,'source-book'),P(source.chapter,'meta'),E('aside',{className:'notice'},P('Ниже — фрагменты из загруженного PDF, без авторского пересказа. Указаны номера страниц PDF, а не печатная пагинация. Обращение автора к терапевту не является персональным назначением читателю.','mut')));
  if(source.ocr)content.append(P('Эта книга отсканирована. Основное чтение — изображения оригинальных страниц. Распознанный текст раскрывается отдельно и может содержать ошибки OCR.','mut'));
- else content.append(P('Сохранены слова, пунктуация и переносы извлечённого текста. Иллюстрации и исходная вёрстка не воспроизводятся в текстовом слое. Фрагмент может начинаться или заканчиваться на границе страницы; контекст — в указанной главе.','mut'));
+ else content.append(P('Сохранены слова, пунктуация и переносы текстового слоя PDF. Иллюстрации и исходная вёрстка не воспроизводятся в текстовом слое. Для страниц без доступного текстового слоя показаны оригинальные изображения. Две пустые страницы исходного PDF не включены. Контекст фрагмента — в указанной главе.','mut'));
  for(const page of source.pages){
   const section=E('section',{className:'source-page'},E('h3',{textContent:'Страница PDF '+page.page}));
   const quote=E('blockquote',{className:'verbatim',textContent:page.text});
   if(page.images){
    const images=E('div',{className:'facsimile'},...page.images.map((src,i)=>E('img',{src,loading:'lazy',alt:'Оригинальная страница '+page.page+', часть '+(i+1)+' из '+page.images.length})));
-   section.append(images,E('details',{},E('summary',{textContent:'Показать распознанный текст · возможны ошибки OCR'}),quote));
+   section.append(images);if(page.text.length>=150)section.append(E('details',{},E('summary',{textContent:source.ocr?'Показать распознанный текст · возможны ошибки OCR':'Показать текстовый слой страницы'}),quote));else section.append(P('Текст или схема на этой странице представлены изображением. Выше — оригинал страницы PDF.','mut'));
   }else section.append(quote);
   section.append(P(source.book+' · '+source.chapter+' · PDF '+page.page,'source-caption'));content.append(section);
  }
