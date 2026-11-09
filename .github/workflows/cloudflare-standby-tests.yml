@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'cloudflare/**'
+      - 'psychology/**'
       - 'index.html'
       - 'usage-*.js'
       - 'usage.css'
@@ -16,6 +17,7 @@ on:
     paths:
       - 'cloudflare/**'
       - 'standby-lab/**'
+      - 'psychology/**'
       - 'index.html'
       - 'usage-*.js'
       - 'usage.css'

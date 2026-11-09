@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'psychology/**'
       - 'index.html'
       - 'usage-*.js'
       - 'usage.css'
@@ -11,6 +12,7 @@ on:
       - '.github/workflows/aspace-ui-smoke.yml'
   pull_request:
     paths:
+      - 'psychology/**'
       - 'index.html'
       - 'usage-*.js'
       - 'usage.css'
