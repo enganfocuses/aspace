@@ -3,7 +3,7 @@
 export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importReading=null}){
  if(!getOwner()){m.append(E('p',{textContent:'Этот раздел доступен только владельцу.'}));return ()=>{}}
  const {LIMITS,quotaStatus,utcDay,parseSnapshot,downloadEstimate}=window.AspaceUsage;
- let pendingImport=parseSnapshot(importReading);
+ const pendingImport=parseSnapshot(importReading);
  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
  const size=n=>{if(!Number.isFinite(n))return 'Нет данных';const units=['Б','кБ','МБ','ГБ'];let i=0;while(n>=1000&&i<3){n/=1000;i++}return fmt.format(n)+' '+units[i]};
  const date=n=>new Date(n).toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' МСК';
@@ -13,7 +13,31 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
  const refreshButton=B('Обновить',()=>refresh(true));
  const head=E('div',{className:'usage-heading'},E('div',{},E('h2',{textContent:'Лимиты пространства'}),
   E('p',{className:'mut',textContent:'Файлы, доски, локальные копии и бесплатные лимиты сервисов'})),refreshButton);
- panel.append(head,stamp,body);m.append(panel);
+ panel.append(head,stamp);m.append(panel);
+ // Keep this form outside the refreshed body: draft fields must survive refresh.
+ const saved=tracker.snapshot().manual;
+ const field=(title,value,inputMode='decimal',type='text')=>{
+  const input=E('input',{type,inputMode,value,ariaLabel:title,style:'width:100%;box-sizing:border-box'});
+  return {input,label:E('label',{},E('span',{textContent:title}),input)};
+ };
+ const month=field('Месяц скачиваний',pendingImport?.month||saved.firebaseDownloads?.period||utcDay(Date.now()).slice(0,7),'numeric','month');
+ const storage=field('Хранение, МБ',pendingImport?String(pendingImport.storage/1e6):saved.firebaseStorage?String(saved.firebaseStorage.value/1e6):'');
+ const downloads=field('Скачивания за месяц, МБ',pendingImport?String(pendingImport.downloads/1e6):saved.firebaseDownloads?String(saved.firebaseDownloads.value/1e6):'');
+ const connections=field('Соединения',pendingImport?String(pendingImport.connections):saved.firebaseConnections?String(saved.firebaseConnections.value):'','numeric');
+ const importFeedback=E('p',{className:'mut',role:'status',ariaLive:'polite'});
+ const importForm=E('form',{className:'usage-notice'},E('h3',{textContent:'Импорт показаний Firebase'}),
+  E('p',{textContent:'Введи цифры из Firebase → Realtime Database → Usage. Хранение и скачивания — в МБ. Дроби можно писать через точку или запятую.'}),
+  E('div',{className:'usage-grid'},month.label,storage.label,downloads.label,connections.label),
+  E('p',{className:'mut',textContent:'Показания сохраняются в этом браузере. Они заменят три предыдущих значения Firebase и зададут начало расчёта трафика. Значения будут отмечены как снимок: время измерения не подтверждено. Cloudflare не изменится.'}),
+  E('button',{type:'submit',textContent:'Импортировать 3 показания'}),importFeedback);
+ importForm.addEventListener('submit',event=>{
+  event.preventDefault();if(!getOwner())return;
+  const raw=[month.input.value,...[storage,downloads,connections].map(field=>field.input.value.trim().replace(',','.'))].join(',');
+  if(!parseSnapshot(raw)){importFeedback.textContent='Заполни месяц и все три числа. Значения должны быть неотрицательными, соединения — целым числом.';return}
+  try{tracker.importSnapshot(raw);importFeedback.textContent='Сохранено: 3 показания Firebase. Расчёт трафика начат от этого показания.';void refresh(false)}
+  catch(error){importFeedback.textContent='Не удалось сохранить: '+error.message}
+ });
+ panel.append(importForm,body);
  const link=(text,href)=>E('a',{textContent:text,href,target:'_blank',rel:'noopener noreferrer'});
  const card=(label,value,note)=>E('article',{className:'usage-card'},E('div',{className:'mut',textContent:label}),
   E('strong',{className:'usage-value',textContent:value}),E('p',{className:'mut',textContent:note}));
@@ -164,12 +188,7 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
    if(disposed||!getOwner())return;
    const activeInput=body.contains(document.activeElement)&&['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
    if(activeInput&&!reloadIndex)return;
-   const importPanel=pendingImport?E('section',{className:'usage-notice'},
-    E('h3',{textContent:'Показания Firebase со скриншота'}),
-    E('p',{textContent:'Хранение '+size(pendingImport.storage)+', скачивание '+size(pendingImport.downloads)+' за '+pendingImport.month+', соединения '+number(pendingImport.connections)+'.'}),
-    E('p',{className:'mut',textContent:'Заменит три сохранённых показания Firebase в этом браузере. Время измерения на снимке не указано: показания будут отмечены как снимок, а не текущие данные. Cloudflare останется без изменений.'}),
-    B('Импортировать 3 показания',()=>{if(!getOwner())return;tracker.importSnapshot(importReading);pendingImport=null;void refresh(false)})):null;
-   body.replaceChildren(...(importPanel?[importPanel]:[]),grid,quotaCards(state),actionMetrics(state),browserCounters(state),boardSection,disconnected);
+   body.replaceChildren(grid,quotaCards(state),actionMetrics(state),browserCounters(state),boardSection,disconnected);
    stamp.textContent='Локальные данные обновлены '+date(Date.now())+' · автообновление каждые 15 секунд';
   }catch(error){if(!disposed)stamp.textContent='Не удалось обновить: '+error.message}
   finally{busy=false;refreshButton.disabled=false}

@@ -609,7 +609,7 @@ async function usageView(m){
  const importReading=location.hash.startsWith('#usage?reading=')?location.hash.slice('#usage?reading='.length):null;
  history.replaceState(null,'',location.pathname+location.search+'#usage');
  try{
-  const {renderUsage}=await import('./usage-view.js');
+  const {renderUsage}=await import('./usage-view.js?v=7');
   const host=E('div');m.append(host);
   const stop=await renderUsage(host,{getOwner:()=>currentUser?.uid===CFG.ownerUid?currentUser:null,
    tracker:usageTracker,loadIndex:()=>load('meta/boards'),cfg:CFG,E,B,importReading});
