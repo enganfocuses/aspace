@@ -621,7 +621,7 @@ async function usageView(m){
 async function psychologyView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
  history.replaceState(null,'',location.pathname+location.search+'#psychology');
- const url='./psychology/index.html';
+ const url='./psychology/index.html?v=2';
  m.append(E('h2',{textContent:'Психология · самоучитель навыков КПТ'}),
   E('p',{className:'mut',textContent:'24 модуля, 16 рабочих форм, тренажёр ситуаций и библиотека. Личные ответы хранятся в локальном зашифрованном дневнике; они не отправляются в базы Aspace.'}),
   E('div',{className:'row',style:'margin:12px 0'},B('↗ Открыть на весь экран',()=>window.open(url,'_blank','noopener,noreferrer'))));

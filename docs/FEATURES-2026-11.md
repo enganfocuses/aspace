@@ -62,3 +62,11 @@ The limits screen now always shows a Firebase readings form on the ordinary owne
 ## Psychology self-study
 
 The owner navigation, board menu and Home now include Psychology (`#psychology`). A static course provides 24 modules, 72 written tasks, 48 explained knowledge questions, 16 worksheet types and 12 fictional cases, adapted from the supplied Beck textbooks. A critical handout discussion and Vygotsky 1934 reading links are included. Personal notes use a local WebCrypto encrypted vault with backup/restore, autosaved drafts, reversible trash and print; no journal data is sent to Firebase or Cloudflare. Original uploaded PDFs are not public assets; the reader opens device-selected PDFs only for the current session. See psychology/README.md for sources, boundaries and storage details.
+
+## Verbatim psychology theory
+
+Replaced all 24 modules’ editorial theory with 112 directly sourced PDF-page excerpts, each citing its book, chapter and physical PDF page. The ten scanned pages also display original facsimiles, with OCR text collapsed and labelled. Editorial examples, practice prompts and answer explanations are explicitly distinguished from the book text. Removed the previous theory paragraphs from both reading and search. Source hashes and the excerpt manifest support verification; diary storage and encryption are unchanged.
+
+
+
+Two supplied digital PDF pages (303 and 401) are completely blank and excluded. Three other pages (304, 340 and 402) contain rasterized material or diagrams and are preserved as original facsimiles. Thirteen original-page facsimiles are included in total.

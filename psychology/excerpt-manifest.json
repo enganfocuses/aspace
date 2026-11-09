@@ -1,0 +1,258 @@
+[
+  {
+    "id": "start",
+    "bookId": "beck-basics",
+    "pages": [
+      17,
+      18,
+      19
+    ]
+  },
+  {
+    "id": "goals",
+    "bookId": "beck-basics",
+    "pages": [
+      140,
+      141,
+      142,
+      143,
+      144,
+      145
+    ]
+  },
+  {
+    "id": "model",
+    "bookId": "beck-basics",
+    "pages": [
+      47,
+      48,
+      49,
+      50
+    ]
+  },
+  {
+    "id": "emotions",
+    "bookId": "beck-basics",
+    "pages": [
+      273,
+      274,
+      275,
+      276,
+      277,
+      278
+    ]
+  },
+  {
+    "id": "thoughts",
+    "bookId": "beck-basics",
+    "pages": [
+      254,
+      255,
+      256,
+      257,
+      258
+    ]
+  },
+  {
+    "id": "biases",
+    "bookId": "beck-basics",
+    "pages": [
+      300,
+      301,
+      302,
+      304
+    ]
+  },
+  {
+    "id": "evidence",
+    "bookId": "beck-basics",
+    "pages": [
+      288,
+      289,
+      290,
+      291,
+      292,
+      293
+    ]
+  },
+  {
+    "id": "response",
+    "bookId": "beck-basics",
+    "pages": [
+      311,
+      312,
+      313,
+      314,
+      315,
+      316
+    ]
+  },
+  {
+    "id": "activation",
+    "bookId": "beck-basics",
+    "pages": [
+      151,
+      152,
+      153,
+      154,
+      155
+    ]
+  },
+  {
+    "id": "homework",
+    "bookId": "beck-basics",
+    "pages": [
+      171,
+      172,
+      173,
+      174,
+      175
+    ]
+  },
+  {
+    "id": "experiments",
+    "bookId": "beck-basics",
+    "pages": [
+      305,
+      306,
+      307
+    ]
+  },
+  {
+    "id": "avoidance",
+    "bookId": "beck-basics",
+    "pages": [
+      396,
+      397,
+      398
+    ]
+  },
+  {
+    "id": "worry",
+    "bookId": "beck-basics",
+    "pages": [
+      332,
+      333,
+      334,
+      335,
+      336
+    ]
+  },
+  {
+    "id": "rules",
+    "bookId": "beck-basics",
+    "pages": [
+      352,
+      353,
+      354,
+      355
+    ]
+  },
+  {
+    "id": "beliefs",
+    "bookId": "beck-basics",
+    "pages": [
+      339,
+      340,
+      341,
+      342,
+      343
+    ]
+  },
+  {
+    "id": "attention",
+    "bookId": "beck-basics",
+    "pages": [
+      328,
+      329,
+      330,
+      331
+    ]
+  },
+  {
+    "id": "problems",
+    "bookId": "beck-basics",
+    "pages": [
+      389,
+      390,
+      391,
+      392
+    ]
+  },
+  {
+    "id": "standards",
+    "bookId": "beck-basics",
+    "pages": [
+      369,
+      370,
+      371,
+      372
+    ]
+  },
+  {
+    "id": "communication",
+    "bookId": "beck-basics",
+    "pages": [
+      399,
+      400,
+      402,
+      403,
+      404
+    ]
+  },
+  {
+    "id": "obstacles",
+    "bookId": "beck-challenges",
+    "pages": [
+      252,
+      253,
+      254,
+      255,
+      256
+    ]
+  },
+  {
+    "id": "alliance",
+    "bookId": "beck-challenges",
+    "pages": [
+      104,
+      105,
+      106,
+      107,
+      108
+    ]
+  },
+  {
+    "id": "imagery",
+    "bookId": "beck-basics",
+    "pages": [
+      409,
+      410,
+      411,
+      412
+    ]
+  },
+  {
+    "id": "relapse",
+    "bookId": "beck-basics",
+    "pages": [
+      422,
+      423,
+      424,
+      425,
+      426,
+      427
+    ]
+  },
+  {
+    "id": "integration",
+    "bookId": "beck-basics",
+    "pages": [
+      429,
+      430,
+      431,
+      432,
+      433
+    ]
+  }
+]
