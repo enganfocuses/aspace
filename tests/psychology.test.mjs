@@ -4,13 +4,15 @@ import {readFileSync,existsSync} from 'node:fs';
 import {LESSONS,SOURCES,VYGOTSKY} from '../psychology/course-data.mjs';
 import {WORKSHEETS,CASES} from '../psychology/worksheets.mjs';
 import {JournalVault,VAULT_KEY,validateEnvelope} from '../psychology/vault.mjs';
+import {BOOK_EXCERPTS} from '../psychology/book-excerpts.mjs';
+import {createHash} from 'node:crypto';
 const memory=()=>{const values=new Map();return{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),values}};
 const pass='fixture-only-passphrase-123';
 const record=(id,secret)=>({id,type:'thought',title:'Учебная запись',fields:{situation:secret,before:'70',after:'60'},createdAt:'2026-11-09T12:00:00Z'});
 
-test('the full course has substantial original theory, worked cases, practice and answer explanations',()=>{
+test('the full course has verbatim source pages, separately labelled editorial practice and explanations',()=>{
  assert.equal(LESSONS.length,24);assert.equal(new Set(LESSONS.map(l=>l.id)).size,24);
- for(const l of LESSONS){assert.equal(l.sections.length,4);assert.ok(l.sections.map(x=>x[1]).join('').length>1100,l.id);assert.equal(l.example.length,4);assert.equal(l.practice.length,3);assert.equal(l.questions.length,2);for(const q of l.questions){assert.equal(q.options.length,3);assert.ok(q.answer>=0&&q.answer<3);assert.ok(q.why.length>35)}}
+ for(const l of LESSONS){assert.equal(l.sections.length,0);assert.equal(l.theoryMode,'verbatim');assert.ok(BOOK_EXCERPTS[l.id].pages.length>=3,l.id);assert.ok(BOOK_EXCERPTS[l.id].verbatim);assert.equal(l.example.length,4);assert.equal(l.practice.length,3);assert.equal(l.questions.length,2);for(const q of l.questions){assert.equal(q.options.length,3);assert.ok(q.answer>=0&&q.answer<3);assert.ok(q.why.length>35)}}
  assert.equal(WORKSHEETS.length,16);assert.equal(CASES.length,12);assert.equal(SOURCES.length,3);assert.equal(VYGOTSKY.chapters.length,7);
  assert.match(VYGOTSKY.reader,/^https:\/\/psychlib\.ru\//);
 });
@@ -59,4 +61,9 @@ test('owner route and navigation are present while psychology records never ente
 test('offline shell includes every psychology module and local source PDFs are not public assets',()=>{
  const sw=readFileSync(new URL('../sw.js',import.meta.url),'utf8');for(const name of ['index.html','style.css','app.mjs','course-data.mjs','worksheets.mjs','vault.mjs']){assert.ok(sw.includes('./psychology/'+name));assert.ok(existsSync(new URL('../psychology/'+name,import.meta.url)))}
  assert.ok(!existsSync(new URL('../psychology/book-3.pdf',import.meta.url)));
+});
+
+test('every source page has a reproducible text hash and scanned sources provide original facsimiles',()=>{
+ for(const l of LESSONS){const source=BOOK_EXCERPTS[l.id];assert.ok(source.book&&source.chapter);assert.match(source.sourcePdfSha256,/^[a-f0-9]{64}$/);for(const page of source.pages){assert.equal(createHash('sha256').update(page.text).digest('hex'),page.textSha256);assert.ok(Number.isSafeInteger(page.page)&&page.page>0);if(source.ocr){assert.equal(page.images.length,8);for(const path of page.images)assert.ok(existsSync(new URL('../psychology/'+path,import.meta.url)))}}}
+ const app=readFileSync(new URL('../psychology/app.mjs',import.meta.url),'utf8');assert.match(app,/Текст учебника · дословно/);assert.match(app,/Авторский разбор · не цитата из учебника/);assert.match(app,/Авторские задания тренажёра/);assert.match(app,/возможны ошибки OCR/);
 });
