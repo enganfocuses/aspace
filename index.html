@@ -1157,7 +1157,9 @@ async function openBoard(m,id,guest,shareToken=null){
       const item=cloneBoard(next);upsert(item);return item;
     });
     strokes=cloneBoard(value.strokes||[]);bg=value.bg||'dots';d.name=value.name||d.name;
-    d.entryCall=value.entryCall||'';\n    d.announcement=value.announcement&&typeof value.announcement.text==='string'?value.announcement:null;\n    renderAnnouncement();
+    d.entryCall=value.entryCall||'';
+    d.announcement=value.announcement&&typeof value.announcement.text==='string'?value.announcement:null;
+    renderAnnouncement();
     d.jazzUrl=value.jazzUrl||'';
     d.telemostUrl=value.telemostUrl||'';
     refreshMeetings();
