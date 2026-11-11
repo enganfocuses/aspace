@@ -147,3 +147,10 @@ test('shape connectors offer draggable straight and curved arrows',()=>{
  assert.match(index,/bend:wireMode==='curved'\?100:0/);
  assert.match(index,/Стрелка добавлена/);
 });
+
+
+test('completed drawing and erase gestures are queued for immediate board save',()=>{
+ assert.match(index,/const persistNow=\(\)=>\{persist\(\);if\(guest\|\|disposed\)return;clearTimeout\(tm\);void queueSharedDraft\(snapshot\(\)\)\}/);
+ assert.match(index,/cv\.onpointerup=e=>\{[^\n]*cur=null;persistNow\(\)\}/);
+ assert.match(index,/r\.emit\('clr',\{\}\);persistNow\(\)/);
+});
