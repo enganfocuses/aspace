@@ -66,10 +66,10 @@ test('external meeting providers request compact popup windows and offer retry w
  const begin=index.indexOf('function launchMeeting(service){');
  const end=index.indexOf('const defaultCall=',begin);
  const launch=index.slice(begin,end);
- assert.match(launch,/popup=yes,resizable=yes,scrollbars=yes/);
- assert.match(launch,/width=\\x27\\+width\\+\\x27,height=\\x27\\+height/);
- assert.match(launch,/if\\(!popup\\)\\{showCallInvitation\\(service,url\\);return\\}/);
- assert.match(launch,/Повторить открытие отдельного окна/);
- assert.doesNotMatch(launch,/target:\\x27_blank\\x27/);
- assert.match(index,/if\\(service\\)launchMeeting\\(service\\)/);
+ assert.ok(launch.includes('popup=yes,resizable=yes,scrollbars=yes'));
+ assert.ok(launch.includes("'width='+width+',height='+height"));
+ assert.ok(launch.includes('if(!popup){showCallInvitation(service,url);return}'));
+ assert.ok(launch.includes('Повторить открытие отдельного окна'));
+ assert.ok(!launch.includes("target:'_blank'"));
+ assert.match(index,/if\(service\)launchMeeting\(service\)/);
 });
