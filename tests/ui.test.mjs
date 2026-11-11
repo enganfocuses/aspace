@@ -70,6 +70,9 @@ test('external meeting providers request compact popup windows and offer retry w
  assert.ok(launch.includes("width='+width+',height='+height"));
  assert.ok(launch.includes('if(!popup){showCallInvitation(service,url);return}'));
  assert.ok(launch.includes('Повторить открытие отдельного окна'));
- assert.ok(!launch.includes("target:'_blank'"));
+ assert.ok(launch.includes("target:'_blank'"));
+ assert.ok(launch.includes("rel:'noopener noreferrer'"));
+ assert.ok(launch.includes('Открыть звонок в отдельной вкладке'));
+ assert.ok(launch.includes('Если браузер или телефон не поддерживает отдельное окно'));
  assert.match(index,/if\(service\)launchMeeting\(service\)/);
 });
