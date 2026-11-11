@@ -157,7 +157,7 @@ test('completed drawing and erase gestures are queued for immediate board save',
 
 
 test('owner board explicitly keeps editing controls visible',()=>{
- assert.match(index,/\(isOwner\?' owner-board':' '\)/);
+ assert.match(index,/isOwner\?' owner-board':''/);
  assert.match(index,/if\(isOwner\)\{guest=false;root\.classList\.remove\('readonly'\)\}/);
  assert.match(index,/\.owner-board \.tbar,\.owner-board \.hist\{display:flex!important/);
 });
