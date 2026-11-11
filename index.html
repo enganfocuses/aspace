@@ -566,7 +566,7 @@ const room0={async join(name,customPath,onData=()=>{}){
     await new Promise((resolve,reject)=>{
       const timer=setTimeout(()=>{es.removeEventListener('open',success);es.removeEventListener('error',failure);reject(new Error('Не удалось подключить канал звонка за 9 секунд'))},9000);
       const success=()=>{clearTimeout(timer);es.removeEventListener('error',failure);resolve()};
-      const failure=()=>{clearTimeout(timer);es.removeEventListener('open',success);reject(new Error('Канал видеозвонка заблокирован или недоступен'))};
+      const failure=()=>{if(es.readyState!==EventSource.CLOSED)return;clearTimeout(timer);es.removeEventListener('open',success);reject(new Error('Канал видеозвонка заблокирован или недоступен'))};
       es.addEventListener('open',success,{once:true});
       es.addEventListener('error',failure,{once:true});
     });
@@ -1631,6 +1631,8 @@ async function openBoard(m,id,guest,shareToken=null){
   chat.ontoggle=()=>{
     if(chat.open){unreadChat=0;chatTab.textContent='Чат';chatLog.scrollTop=chatLog.scrollHeight;chatInput.focus()}
   };
+  // Keep the student's chat visible when opening the permanent board link.
+  chat.open=!isOwner;
   r.on('chat',event=>showChat(event.data,false));
   chatForm.onsubmit=async event=>{
     event.preventDefault();
@@ -1719,7 +1721,7 @@ async function openBoard(m,id,guest,shareToken=null){
   }
   const videoOptions=E('div',{className:'video-options'});
   const vtop=E('details',{className:'vtop board-video'},E('summary',{className:'tbtn',title:'Видео',ariaLabel:'Видео'},ic('video'),'Видео'),videoOptions);
-  if(isOwner)videoOptions.append(E('label',{},'При входе ученика ',defaultCall));
+  if(isOwner)videoOptions.append(E('label',{},'Канал по кнопке видео ученика ',defaultCall));
   videoOptions.append(B('Видеозвонок Aspace',()=>{vtop.open=false;openVideo()},'board-call'));
   for(const service of meetingServices){
     service.section.append(E('b',{textContent:service.name}),service.join);
@@ -1731,6 +1733,14 @@ async function openBoard(m,id,guest,shareToken=null){
   function updateEmptyVideo(){emptyVideo.hidden=!root.classList.contains('readonly')||meetingServices.some(service=>!!meetingUrl(d[service.field],service))}
   vtop.ontoggle=updateEmptyVideo;
   refreshMeetings();
+  // Students use the top-right video button to enter the channel selected by the owner.
+  // Opening the board itself must never start a call or redirect to an external meeting.
+  vtop.querySelector('summary').addEventListener('click',event=>{
+    if(isOwner)return;
+    event.preventDefault();
+    const service=entryService();
+    if(service)launchMeeting(service);else openVideo(true);
+  });
   /* меню */
   const mp=E('div',{className:'mp'}),mi=(t,fn)=>mp.append(B(t,()=>{mp.classList.remove('open');fn()}));
   const followPanel=E('div',{className:'card',style:'padding:10px;gap:6px'},E('b',{textContent:'Участники · навигация'}),peerSelect,
@@ -1794,7 +1804,6 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
   renderAnnouncement();m.append(root);
-  if(!isOwner&&!persistentCallSession){const service=entryService();if(service)launchMeeting(service);else openVideo(true)}
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
@@ -1811,8 +1820,10 @@ async function openBoard(m,id,guest,shareToken=null){
         const meta=await shareRead(boardShareToken,'meta');
         if(!isOwner){guest=meta.role!=='editor';root.classList.toggle('readonly',guest)}
       }
-      if(!boardTransport||!guest&&editEpoch!==savedEpoch)return;
-      const result=await boardTransport.read();
+      if(!guest&&editEpoch!==savedEpoch)return;
+      const result=boardTransport?await boardTransport.read():
+        boardShareToken?{value:await shareRead(boardShareToken,'board')}:null;
+      if(!result)return;
       if(!disposed&&editEpoch===epoch&&result.value){
         if(!result.conflict){applySnapshot(result.value);displayedBase=cloneBoard(result.value)}
         unsyncedShareDraft=Boolean(result.pending);
