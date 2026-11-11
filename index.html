@@ -127,7 +127,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .vwin.min{height:auto!important;min-height:0;resize:none}.vwin.min .vgrid,.vwin.min .vbar{display:none}
 .vwin:fullscreen{width:100vw;height:100vh;border-radius:0;resize:none}.vwin:fullscreen .vgrid{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
 @media(max-width:900px){.tbar{overflow-x:auto;scrollbar-width:none}.hist,.zoom{bottom:calc(88px + env(safe-area-inset-bottom,0px))}}
-.readonly .tbar,.readonly .hist,.readonly .fbar,.readonly .vtop{display:none!important}.readonly .it,.readonly canvas{pointer-events:none!important}.readonly .it>i,.readonly .it .g,.readonly .it .sb{display:none!important}
+.readonly .tbar,.readonly .hist,.readonly .fbar{display:none!important}.readonly .it,.readonly canvas{pointer-events:none!important}.readonly .it>i,.readonly .it .g,.readonly .it .sb{display:none!important}
 @media print{header,.noprint{display:none!important}html,body,#app{height:auto}#main{overflow:visible}}
 @media(max-width:700px){.bw{flex-direction:column;height:auto}.vid{width:100%;flex-direction:row}.scroll{height:55vh}}
 
@@ -186,7 +186,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin .tile{border-radius:12px}
 .vbar{background:#352a3d;border:0;border-radius:12px}
 .device-select{border-radius:8px;background:#fff;color:#30283b}
-.readonly .tbar,.readonly .hist,.readonly .fbar,.readonly .vtop{display:none!important}
+.readonly .tbar,.readonly .hist,.readonly .fbar{display:none!important}
 @media(max-width:760px){
  #app{flex-direction:column}
  header{width:100%;min-width:0;flex-direction:row;align-items:center;overflow-x:auto;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line)}
@@ -252,6 +252,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin.home-call-window.min{left:auto;right:16px;top:16px;transform:none;width:260px;min-width:220px;min-height:0}
 @media(max-width:600px){.vwin.home-call-window{left:50%;top:50%;right:auto;width:calc(100vw - 16px);height:calc(100dvh - 32px);min-width:0;min-height:0;transform:translate(-50%,-50%)}.vwin.home-call-window.min{left:auto;right:8px;top:8px;width:220px;height:auto;transform:none}}
 .sync-indicator{position:fixed;right:16px;bottom:76px;z-index:26;padding:5px 10px;border-radius:12px;background:#fffef9eb;color:#765279;font-size:12px;pointer-events:none}
+.board-video summary{list-style:none;cursor:pointer}.board-video summary::-webkit-details-marker{display:none}
+.board-video .video-options{position:absolute;top:calc(100% + 6px);right:0;width:min(290px,calc(100vw - 28px));max-height:60dvh;overflow:auto;padding:12px;background:var(--card,#fff);color:var(--ink);border-radius:12px;box-shadow:0 8px 28px #34233f29}
+.video-options section{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;display:grid;gap:5px}.video-options section[hidden]{display:none}.video-options section b{font-size:14px}.readonly .board-call{display:none}.split-toggle[aria-pressed="true"]{background:var(--lav,#e9dff2)}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -1324,12 +1327,20 @@ async function openBoard(m,id,guest,shareToken=null){
   /* интерфейс */
   const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp,fm);
   const sitePanel=E('section',{className:'site-panel'});
+  let lastSite=d.siteUrl||'';
+  const splitButton=E('button',{className:'tbtn split-toggle',textContent:'◫',ariaLabel:'Раздельный экран',onclick:()=>{
+    if(d.siteUrl){applySiteUrl('');return}
+    const raw=prompt('Ссылка для совместного просмотра',lastSite);
+    if(raw!==null)applySiteUrl(raw);
+  }});
   const applySiteUrl=raw=>{
     let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}
     d.siteUrl=url;renderSite();persist();r.emit('site',{url});
   };
   const renderSite=()=>{
-    const url=d.siteUrl||'';root.classList.toggle('with-site',!!url);sitePanel.style.display=url?'flex':'none';sitePanel.replaceChildren();if(!url)return;
+    const url=d.siteUrl||'';if(url)lastSite=url;
+    splitButton.setAttribute('aria-pressed',String(!!url));splitButton.title=url?'Закрыть раздельный экран':'Раздельный экран';
+    root.classList.toggle('with-site',!!url);sitePanel.style.display=url?'flex':'none';sitePanel.replaceChildren();if(!url)return;
     const head=E('div',{className:'site-head'});
     head.append(E('b',{textContent:'Совместный просмотр'}));
     const field=E('input',{className:'site-url',type:'url',value:url,readOnly:!isOwner,placeholder:'Ссылка на Yonote',ariaLabel:'Ссылка на Yonote'});
@@ -1365,6 +1376,7 @@ async function openBoard(m,id,guest,shareToken=null){
     tb('pen','Перо',()=>setTool('pen'),'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
     tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
     tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()),tb('link','Медиа по ссылке: YouTube, Vimeo, SoundCloud, фото',addExternalLink));
+  if(isOwner)tbar.prepend(splitButton,sep());
   /* панель форматирования выбранного элемента */
   const fbar=E('div',{className:'bar fbar'}),fontSec=E('div',{className:'row nw'}),fillSec=E('div',{className:'row nw'});
   const fsel=E('select',{onchange:()=>fmt('f',fsel.value)},...FONTS.map(f=>{const o=E('option',{value:f,textContent:f});o.style.fontFamily=`'${f}'`;return o})),
@@ -1436,14 +1448,17 @@ async function openBoard(m,id,guest,shareToken=null){
     }catch{return ''}
   }
   for(const service of meetingServices){
+    service.section=E('section');
     service.join=E('a',{className:'mbtn',target:'_blank',rel:'noopener noreferrer',textContent:'Войти в '+service.name});
   }
   function refreshMeetings(){
     for(const service of meetingServices){
       const url=meetingUrl(d[service.field],service);
+      service.section.hidden=!isOwner&&!url;
       if(url)service.join.href=url;else service.join.removeAttribute('href');
       service.join.style.display=url?'inline-flex':'none';
     }
+    updateEmptyVideo();
   }
   function configureMeeting(service){
     const raw=prompt('Вставь ссылку на встречу ('+service.name+'). Чтобы убрать кнопку с доски, оставь поле пустым.',d[service.field]||'');
@@ -1453,8 +1468,19 @@ async function openBoard(m,id,guest,shareToken=null){
     d[service.field]=url;refreshMeetings();persist();
     say(url?'Ссылка на встречу добавлена.':'Ссылка на встречу убрана.');
   }
+  const videoOptions=E('div',{className:'video-options'});
+  const vtop=E('details',{className:'vtop board-video'},E('summary',{className:'tbtn',title:'Видео',ariaLabel:'Видео'},ic('video')),videoOptions);
+  videoOptions.append(B('Видеозвонок Aspace',()=>{vtop.open=false;openVideo()},'board-call'));
+  for(const service of meetingServices){
+    service.section.append(E('b',{textContent:service.name}),service.join);
+    if(isOwner)service.section.append(B('Создать встречу',()=>window.open(service.home,'_blank','noopener,noreferrer')),B('Настроить ссылку',()=>configureMeeting(service)));
+    videoOptions.append(service.section);
+  }
+  const emptyVideo=E('span',{textContent:'Ссылок на встречи пока нет.'});
+  videoOptions.append(emptyVideo);
+  function updateEmptyVideo(){emptyVideo.hidden=!root.classList.contains('readonly')||meetingServices.some(service=>!!meetingUrl(d[service.field],service))}
+  vtop.ontoggle=updateEmptyVideo;
   refreshMeetings();
-  const vtop=E('button',{className:'tbtn vtop',title:'Видеозвонок',onclick:openVideo},ic('video'));
   /* меню */
   const mp=E('div',{className:'mp'}),mi=(t,fn)=>mp.append(B(t,()=>{mp.classList.remove('open');fn()}));
   const followPanel=E('div',{className:'card',style:'padding:10px;gap:6px'},E('b',{textContent:'Участники · навигация'}),peerSelect,
@@ -1488,26 +1514,17 @@ async function openBoard(m,id,guest,shareToken=null){
   mi('⬇ Сохранить JSON-копию доски',()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);E('a',{href:url,download:(d.name||'board')+'.aspace.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000)});
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   if(isOwner)mi('📹 Видеозвонок на доске',openVideo);
-  if(isOwner)mi('🖥 Экран: доска + сайт / Yonote',()=>{const raw=prompt('Вставь постоянную ссылку на Yonote или другой сайт',d.siteUrl||'');if(raw===null)return;applySiteUrl(raw)});
   if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
-  if(isOwner){
-    for(const service of meetingServices){
-      mi(service.name+' · создать встречу',()=>window.open(service.home,'_blank','noopener,noreferrer'));
-      mi(service.name+' · настроить ссылку',()=>configureMeeting(service));
-    }
-  }
-  menu.style.flexWrap="wrap";
-  menu.append(...meetingServices.map(service=>service.join));
   root.append(menu,vtop,fbar,tbar,hist,zoom);m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();delItem(sel)}
-    else if(e.key==='Escape'){select(null);hidePops();setTool('select')}};
+    else if(e.key==='Escape'){vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
   let polling=false;
