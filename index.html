@@ -1668,24 +1668,27 @@ async function openBoard(m,id,guest,shareToken=null){
     if(!url && isOwner)url=configureMeeting(service);
     if(!url)return;
     if(isOwner&&d.entryCall!==service.field){d.entryCall=service.field;refreshMeetings();persist()}
-    const width=Math.min(480,window.innerWidth);
-    const left=Math.round(window.screenX+window.outerWidth-width);
-    const top=Math.round(window.screenY);
+    const width=Math.min(480,Math.max(320,window.innerWidth-24));
+    const height=Math.min(620,Math.max(420,window.innerHeight-80));
+    const left=Math.max(0,Math.round(window.screenX+window.outerWidth-width));
+    const top=Math.max(0,Math.round(window.screenY));
     const popup=window.open('about:blank','_blank',
-      'popup=yes,resizable=yes,scrollbars=yes,width='+width+',height='+Math.min(620,window.innerHeight)+',left='+left+',top='+top);
+      'popup=yes,resizable=yes,scrollbars=yes,width='+width+',height='+height+',left='+left+',top='+top);
     if(!popup){showCallInvitation(service,url);return}
     entryPrompt?.remove();entryPrompt=null;
-    popup.opener=null;
-    popup.location.replace(url);
+    try{popup.opener=null;popup.location.replace(url)}
+    catch(error){try{popup.close()}catch{}showCallInvitation(service,url);return}
     vtop.open=false;
   }
   let entryPrompt=null;
   function showCallInvitation(service,url){
     entryPrompt?.remove();
     const dismiss=()=>{entryPrompt?.remove();entryPrompt=null};
-    const join=E('a',{className:'mbtn',href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Войти в '+service.name,onclick:dismiss});
     entryPrompt=E('div',{className:'board-entry-call',role:'dialog',ariaLabel:'Звонок этой доски'},
-      E('strong',{textContent:'Звонок этой доски'}),join,B('Остаться на доске',dismiss));
+      E('strong',{textContent:'Браузер заблокировал отдельное окно звонка.'}),
+      E('p',{textContent:'Разреши всплывающие окна для Aspace и нажми кнопку ещё раз. Звонок откроется в отдельном окне, если настройки браузера это позволяют.'}),
+      B('Повторить открытие отдельного окна',()=>launchMeeting(service),'mbtn'),
+      B('Остаться на доске',dismiss));
     root.append(entryPrompt);
   }
   const defaultCall=E('select',{ariaLabel:'Звонок при входе ученика',onchange:()=>{d.entryCall=defaultCall.value;persist()}});
