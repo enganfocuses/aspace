@@ -76,3 +76,29 @@ test('external meeting providers request compact popup windows and offer retry w
  assert.ok(launch.includes('Если браузер или телефон не поддерживает отдельное окно'));
  assert.match(index,/if\(service\)launchMeeting\(service\)/);
 });
+
+
+test('opening a shared board never starts a meeting automatically',()=>{
+ assert.doesNotMatch(index,/if\(!isOwner&&!persistentCallSession\)\{const service=entryService\(\);if\(service\)launchMeeting\(service\);else openVideo\(true\)\}/);
+ assert.match(index,/Opening the board itself must never start a call/);
+});
+
+test('student video button opens the channel selected by the owner',()=>{
+ assert.match(index,/Канал по кнопке видео ученика/);
+ assert.match(index,/vtop\.querySelector\('summary'\)\.addEventListener\('click'/);
+ assert.match(index,/const service=entryService\(\);\s*if\(service\)launchMeeting\(service\);else openVideo\(true\)/);
+});
+
+test('student chat is visible when the shared board opens',()=>{
+ assert.match(index,/chat\.open=!isOwner/);
+ assert.match(index,/r\.on\('chat',event=>showChat\(event\.data,false\)\)/);
+});
+
+test('shared announcements can refresh from Firebase without the standby runtime',()=>{
+ assert.match(index,/boardTransport\?await boardTransport\.read\(\):\s*boardShareToken\?\{value:await shareRead\(boardShareToken,'board'\)\}:null/);
+ assert.match(index,/d\.announcement=value\.announcement&&typeof value\.announcement\.text==='string'\?value\.announcement:null/);
+});
+
+test('Firebase signaling waits through transient EventSource reconnects',()=>{
+ assert.match(index,/if\(es\.readyState!==EventSource\.CLOSED\)return/);
+});
