@@ -1228,7 +1228,7 @@ async function openBoard(m,id,guest,shareToken=null){
   };
   const wires=svgNode('svg',{'class':'board-wires','aria-hidden':'true'});
   wrap.append(wires);
-  let wireFrame=0,wireSource=null;
+  let wireFrame=0,wireSource=null,wireMode=null,wireDrag=null,wirePreview=null;
   function drawWires(){
     if(disposed)return;
     wireFrame=0;const nodes=new Map(items.map(n=>[n.id,n])),drawing=document.createDocumentFragment();
@@ -1472,7 +1472,10 @@ async function openBoard(m,id,guest,shareToken=null){
   const setTool=t=>{tool=t;tbar.querySelectorAll('[data-t]').forEach(x=>{const k=x.dataset.t;x.classList.toggle('on',k===t||(k==='shape'&&SHAPES.includes(t))||(k==='line'&&t==='arrow'))});cv.style.cursor=t==='select'?'default':t==='hand'?'grab':t==='pen'||t==='marker'||t==='eraser'||t==='line'||t==='arrow'?'crosshair':'copy'};
   const shp=mkpop(),shg=E('div',{className:'shgrid'});shp.append(shg);
   SHAPES.forEach(k=>shg.append(E('button',{title:SHL[k],onclick:()=>{hidePops();setTool(k)}},E('span',{className:'sp k-'+k+' '+k}))));
-  const lnp=mkpop();lnp.append(E('div',{className:'row'},B('Линия',()=>{hidePops();setTool('line')}),B('Стрелка →',()=>{hidePops();setTool('arrow')})));
+  const lnp=mkpop();
+  const startWire=mode=>{wireMode=mode;wireSource=null;hidePops();say(mode==='straight'?'Потяни от одной фигуры к другой — прямая стрелка.':'Потяни от одной фигуры к другой — гибкая стрелка.');};
+  lnp.append(E('div',{className:'row'},B('Линия',()=>{hidePops();setTool('line')}),B('Стрелка на рисунке',()=>{hidePops();setTool('arrow')})));
+  lnp.append(E('div',{className:'row'},B('Прямая стрелка между фигурами',()=>startWire('straight')),B('Гибкая стрелка между фигурами',()=>startWire('curved'))));
   const clp=mkpop(),cw=E('div',{className:'cgrid'}),wr=E('input',{type:'range',min:2,max:24,value:width,oninput:()=>{width=+wr.value}});
   const cdot=E('button',{className:'cdot',title:'Цвет и толщина',onclick:()=>showPop(clp)});cdot.style.background=color;
   const paletteKey='aspace-pen-palette',storedPens=ls.g(paletteKey,[]);
@@ -1566,6 +1569,29 @@ async function openBoard(m,id,guest,shareToken=null){
         B('×',()=>{n.arrows=n.arrows.filter(q=>q!==link);save();wireControls(n)}));
     }
   }
+  const wirePoint=e=>{const r=wrap.getBoundingClientRect();return[(e.clientX-r.left)/z,(e.clientY-r.top)/z]};
+  wrap.addEventListener('pointerdown',e=>{
+    if(!wireMode||guest)return;
+    const source=items.find(n=>n.id===e.target.closest('.it')?.dataset.itemId);
+    if(!source||!SHAPES.includes(source.k)||source.locked)return;
+    e.preventDefault();e.stopPropagation();const [x,y]=wirePoint(e);wireDrag={source,pointerId:e.pointerId,x,y};
+    wrap.setPointerCapture(e.pointerId);
+    wirePreview=svgNode('path',{fill:'none',stroke:'#71384f','stroke-width':3,'stroke-dasharray':'7 5','pointer-events':'none'});wires.append(wirePreview);
+  },true);
+  wrap.addEventListener('pointermove',e=>{
+    if(!wireDrag||e.pointerId!==wireDrag.pointerId)return;
+    const [x,y]=wirePoint(e),a=wireDrag.source,ax=a.x+a.w/2,ay=a.y+a.h/2,bend=wireMode==='curved'?100:0,dx=x-ax,dy=y-ay,len=Math.hypot(dx,dy)||1,cx=(ax+x)/2-dy/len*bend,cy=(ay+y)/2+dx/len*bend;
+    wirePreview?.setAttribute('d','M '+ax+' '+ay+' Q '+cx+' '+cy+' '+x+' '+y);
+  },true);
+  const finishWire=e=>{
+    if(!wireDrag||e.pointerId!==wireDrag.pointerId)return;
+    const targetEl=document.elementFromPoint(e.clientX,e.clientY),target=items.find(n=>n.id===targetEl?.closest?.('.it')?.dataset.itemId),source=wireDrag.source;
+    if(target&&target!==source&&SHAPES.includes(target.k)&&!target.locked){
+      (source.arrows||=[]).push({to:target.id,color:'#71384f',bend:wireMode==='curved'?100:0});queueWires();push(source);select(source);say('Стрелка добавлена.');
+    }else say('Стрелка не создана: отпусти её на другой фигуре.');
+    wirePreview?.remove();wirePreview=null;wireDrag=null;wireMode=null;
+  };
+  wrap.addEventListener('pointerup',finishWire,true);wrap.addEventListener('pointercancel',finishWire,true);
   wrap.addEventListener('pointerdown',e=>{
     if(!wireSource||guest)return;if(wireSource.locked){wireSource=null;return}
     e.stopPropagation();e.preventDefault();
@@ -1823,7 +1849,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
-    else if(e.key==='Escape'){wireSource=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
+    else if(e.key==='Escape'){wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
   let polling=false;
