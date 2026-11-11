@@ -285,6 +285,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .board-wires{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:1}.wrap .it{z-index:2}.it.emo .bgl{display:grid;place-items:center;line-height:1}
 .selection-box{position:absolute;z-index:15;pointer-events:none;border:1px solid #8055a2;background:#a079c633}
 .it.locked.sel .g,.it.locked.sel .sb{display:none}.it.locked.sel{outline-style:dashed}.center-board{white-space:nowrap}
+.telemost-preview{position:fixed;z-index:38;right:12px;top:22vh;width:min(360px,calc(100vw - 24px));max-width:95vw;max-height:70dvh;min-width:min(220px,90vw);padding:10px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 32px #34233f30;resize:both;overflow:auto;display:flex;flex-direction:column;gap:8px}.preview-header{display:flex;align-items:center;justify-content:space-between;cursor:move;touch-action:none}.telemost-preview video{width:100%;min-height:0;flex:1 1 auto;object-fit:contain;background:#201920}.telemost-preview [hidden]{display:none}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -1648,6 +1649,44 @@ async function openBoard(m,id,guest,shareToken=null){
     service.section=E('section');
     service.join=B('Войти в '+service.name,()=>launchMeeting(service),'mbtn');
   }
+  let telemostPanel=null,stopTelemostPanel=()=>{};
+  function showTelemostPanel(){
+    if(telemostPanel)return;
+    const panel=E('section',{className:'telemost-preview',ariaLabel:'Телемост на доске'});
+    telemostPanel=panel;
+    const title=E('strong',{textContent:'Телемост на доске'});
+    const status=E('small',{role:'status',textContent:'Выбери вкладку или окно встречи. Звук и управление останутся в Телемосте.'});
+    const video=E('video',{autoplay:true,muted:true,playsInline:true,hidden:true});
+    let stream=null;
+    function stop(){
+      if(stream)for(const track of stream.getTracks())track.stop();
+      stream=null;video.srcObject=null;video.hidden=true;
+    }
+    stopTelemostPanel=()=>{stop();panel.remove();telemostPanel=null};
+    const header=E('div',{className:'preview-header'},title,B('Закрыть',()=>stopTelemostPanel()));
+    header.onpointerdown=e=>{
+      if(e.button||e.target.closest('button'))return;
+      const rect=panel.getBoundingClientRect(),dx=e.clientX-rect.left,dy=e.clientY-rect.top;
+      header.setPointerCapture(e.pointerId);
+      header.onpointermove=ev=>{panel.style.right='auto';panel.style.left=Math.max(0,Math.min(innerWidth-panel.offsetWidth,ev.clientX-dx))+'px';panel.style.top=Math.max(0,Math.min(innerHeight-header.offsetHeight,ev.clientY-dy))+'px'};
+      header.onlostpointercapture=()=>{header.onpointermove=null};
+    };
+    const pick=B('Выбрать окно Телемоста',async()=>{
+      pick.disabled=true;
+      try{
+        const next=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false,selfBrowserSurface:'exclude'});
+        if(telemostPanel!==panel){next.getTracks().forEach(t=>t.stop());return}
+        stop();stream=next;video.srcObject=next;video.hidden=false;
+        next.getVideoTracks()[0].onended=()=>{if(stream!==next)return;stop();status.textContent='Показ окна завершён.';pick.hidden=false};
+        await video.play();
+        pick.hidden=true;status.textContent='Звук и микрофон — в Телемосте.';
+      }catch(error){
+        stop();status.textContent=error.name==='NotAllowedError'?'Выбор отменён или доступ запрещён. Можно выбрать окно ещё раз.':'Не удалось показать окно встречи.';
+      }finally{pick.disabled=false}
+    });
+    if(!navigator.mediaDevices?.getDisplayMedia){pick.hidden=true;status.textContent='Этот браузер не поддерживает показ окна на доске. Встреча доступна в окне Телемоста.'}
+    panel.append(header,video,status,pick);root.append(panel);
+  }
   function launchMeeting(service){
     let url=meetingUrl(d[service.field],service);
     if(!url && isOwner)url=configureMeeting(service);
@@ -1662,6 +1701,7 @@ async function openBoard(m,id,guest,shareToken=null){
     entryPrompt?.remove();entryPrompt=null;
     popup.opener=null;
     popup.location.replace(url);
+    if(service.field==='telemostUrl')showTelemostPanel();
     vtop.open=false;
     say('Звонок открыт отдельно. Нажми на доску, чтобы продолжить урок.');
   }
@@ -1669,7 +1709,7 @@ async function openBoard(m,id,guest,shareToken=null){
   function showCallInvitation(service,url){
     entryPrompt?.remove();
     const dismiss=()=>{entryPrompt?.remove();entryPrompt=null};
-    const join=E('a',{className:'mbtn',href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Войти в '+service.name,onclick:dismiss});
+    const join=E('a',{className:'mbtn',href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Войти в '+service.name,onclick:()=>{dismiss();if(service.field==='telemostUrl')showTelemostPanel()}});
     entryPrompt=E('div',{className:'board-entry-call',role:'dialog',ariaLabel:'Звонок этой доски'},
       E('strong',{textContent:'Звонок этой доски'}),join,B('Остаться на доске',dismiss));
     root.append(entryPrompt);
@@ -1705,6 +1745,7 @@ async function openBoard(m,id,guest,shareToken=null){
   videoOptions.append(B('Видеозвонок Aspace',()=>{vtop.open=false;openVideo()},'board-call'));
   for(const service of meetingServices){
     service.section.append(E('b',{textContent:service.name}),service.join);
+    if(service.field==='telemostUrl')service.section.append(B('Показать звонок на доске',()=>{vtop.open=false;showTelemostPanel()}));
     if(isOwner)service.section.append(B('Настроить ссылку',()=>configureMeeting(service)));
     videoOptions.append(service.section);
   }
@@ -1788,7 +1829,7 @@ async function openBoard(m,id,guest,shareToken=null){
       }
     }catch(error){
       if(!isOwner&&[401,403,404].includes(error.status)){
-        guest=true;clearInterval(cloudPollTimer);r.close();call?.stop();callRoom?.close();
+        guest=true;stopTelemostPanel();clearInterval(cloudPollTimer);r.close();call?.stop();callRoom?.close();
         root.replaceChildren(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доступ к доске закрыт'}))));
       }else if(!disposed)say('Доска сохранена на устройстве. Повторяем подключение…');
     }finally{polling=false}
@@ -1808,7 +1849,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
-    disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
+    disposed=true;stopTelemostPanel();cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
     call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
     r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
     window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;
