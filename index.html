@@ -262,6 +262,25 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .board-chat summary,.chat-panel{background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 18px #34233f18}
 .board-chat summary{cursor:pointer;list-style:none;width:max-content;margin-left:auto;padding:8px 13px;font-weight:600}.board-chat summary::-webkit-details-marker{display:none}
 .chat-panel{margin-top:6px;padding:10px;width:min(330px,calc(100vw - 24px));display:grid;gap:8px}.chat-log{height:min(30dvh,250px);overflow:auto;overscroll-behavior:contain}.chat-line{padding:6px 0;display:grid;overflow-wrap:anywhere}.chat-line b{font-size:.8em}.chat-line.own b{color:var(--wine)}.chat-form{display:flex;gap:6px}.chat-form input{min-width:0;flex:1}
+
+/* One background covers the entire scroll viewport at every board scale. */
+.bfull .bscroll{--board-paper:#fbfaff;--board-dot:#d9cfe7;background-color:var(--board-paper)}
+:root[data-theme="dark"] .bfull .bscroll{--board-paper:#211b29;--board-dot:#51445c}
+.bfull .bscroll.dots{background-image:radial-gradient(var(--board-dot) 1.2px,transparent 1.2px);background-size:22px 22px;background-attachment:local}
+.bfull .bscroll .wrap,.bfull .bscroll .wrap.dots{background:transparent}
+.bfull .zoom,.bfull .hist{bottom:calc(82px + env(safe-area-inset-bottom,0px))}
+.bfull .sync-indicator{bottom:calc(138px + env(safe-area-inset-bottom,0px))}
+.board-actions{position:fixed;right:12px;top:calc(14px + env(safe-area-inset-top,0px));z-index:31;display:flex;align-items:center;gap:8px}
+.bfull.with-site .board-actions{right:calc(50% + 12px)}
+.board-actions .board-video,.board-actions .board-chat{position:static;box-shadow:none}
+.board-actions summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:12px;min-height:46px;padding:0 14px;font-size:16px;font-weight:650;box-sizing:border-box;white-space:nowrap}
+.board-actions summary::-webkit-details-marker{display:none}
+.board-actions .board-video summary,.board-actions .board-chat summary{background:#71384f;color:#fff;border:1px solid #71384f}
+.board-participants summary{background:var(--card);color:var(--wine);border:1px solid var(--line)}
+.board-actions .video-options,.board-actions .chat-panel,.board-participants>.card{position:absolute;right:0;top:calc(100% + 6px);margin:0;width:min(330px,calc(100vw - 24px));max-height:55dvh;overflow:auto;box-sizing:border-box}
+.bfull .menu{max-width:calc(100% - 345px)}
+@media(max-width:760px){.board-actions,.bfull.with-site .board-actions{right:8px;top:calc(68px + env(safe-area-inset-top,0px));gap:5px}.board-actions summary{padding:0 10px}.bfull .menu{max-width:calc(100% - 24px)}}
+@media(min-width:761px) and (max-width:1320px){.bfull.with-site .board-actions{top:calc(68px + env(safe-area-inset-top,0px))}}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -1481,7 +1500,7 @@ async function openBoard(m,id,guest,shareToken=null){
     }catch{chatStatus.textContent='Не отправлено. Попробуй ещё раз.'}
     finally{chatSend.disabled=false}
   };
-  root.append(chat);
+
   const meetingServices=[
     {name:'Jazz',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']},
     {name:'Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
@@ -1554,7 +1573,12 @@ async function openBoard(m,id,guest,shareToken=null){
   const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
   const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:goHome},ic('home'),E('span',{textContent:'Домой'}));
   const menu=E('div',{className:'menu'},home,mb,mp);
-  mp.append(followPanel);refreshPeers();
+  const participants=E('details',{className:'board-participants'},E('summary',{textContent:'Участники'}),followPanel);
+  const boardActions=E('div',{className:'board-actions'},participants,vtop,chat);
+  for(const panel of [participants,vtop,chat]){
+    panel.addEventListener('toggle',()=>{if(panel.open)for(const other of [participants,vtop,chat])if(other!==panel)other.open=false});
+  }
+  refreshPeers();
   mi('⌂ Домой',goHome);
   if(isOwner)mi('← Список досок',()=>go(boardsView));
   if(isOwner)mi('🧠 Психология · КПТ',()=>go(psychologyView));
@@ -1581,7 +1605,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
-  root.append(menu,vtop,fbar,tbar,hist,zoom);m.append(root);
+  root.append(menu,boardActions,fbar,tbar,hist,zoom);m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
