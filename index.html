@@ -1088,7 +1088,7 @@ async function openBoard(m,id,guest,shareToken=null){
   }
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
-  let tool='select',color=INK[0],width=4,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
+  let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
@@ -1338,7 +1338,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if(tool==='hand'){pan={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop};cv.style.cursor='grabbing';return}
     if(PLACE.includes(tool)){add(tool,x,y);setTool('select');return}
     if(tool==='line'||tool==='arrow'){cur={id:uid(),c:color,w:width,ar:tool==='arrow'?1:0,ln:1,e:0,m:0,p:[x,y,x,y]};strokes.push(cur);redraw();flush();return}
-    const er=tool==='eraser',mk=tool==='marker';cur={id:uid(),c:er?'#000':color,w:er?32:mk?20:width,e:er?1:0,m:mk?1:0,p:[x,y]};strokes.push(cur);seg(cur,0);sent=0;flush()};
+    const er=tool==='eraser',mk=tool==='marker';cur={id:uid(),c:er?'#000':color,w:er?eraserWidth:mk?20:width,e:er?1:0,m:mk?1:0,p:[x,y]};strokes.push(cur);seg(cur,0);sent=0;flush()};
   cv.onpointercancel=endMarquee;
   cv.onpointermove=e=>{if(marquee){updateMarquee(...pt(e));return}if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
     const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>90)flush()};
@@ -1474,7 +1474,7 @@ async function openBoard(m,id,guest,shareToken=null){
     const swatch=B('',()=>penColor(c),'sw');swatch.style.background=c;swatch.title=c;swatch.ariaLabel='Цвет '+c;return swatch;
   }))}
   drawPenPalette();
-  const keepPen=B('Добавить в палитру',()=>{
+  const keepPen=B('＋ Добавить цвет',()=>{
     const c=penSpectrum.value.toLowerCase();penColor(c);penColors.add(c);
     ls.s(paletteKey,[...penColors]);drawPenPalette();
   });
@@ -1495,7 +1495,9 @@ async function openBoard(m,id,guest,shareToken=null){
       },{capture:true,once:true});return}
     try{penColor((await new EyeDropper().open()).sRGBHex)}catch(err){if(err.name!=='AbortError')say('Пипетка недоступна')}
   });
-  clp.append(cw,E('div',{className:'row'},penSpectrum,penEye,keepPen),E('div',{className:'row',style:'margin-top:10px'},E('span',{className:'mut',textContent:'Толщина'}),wr));
+  clp.append(cw,E('div',{className:'row'},E('span',{className:'mut',textContent:'Любой цвет'}),penSpectrum,penEye,keepPen),E('div',{className:'row',style:'margin-top:10px'},E('span',{className:'mut',textContent:'Толщина карандаша'}),wr));
+  const erp=mkpop(),erw=E('input',{type:'range',min:4,max:120,step:1,value:eraserWidth,oninput:()=>{eraserWidth=+erw.value;erSize.textContent=eraserWidth+' px'}}),erSize=E('span',{className:'mut',textContent:eraserWidth+' px'});
+  erp.append(E('div',{className:'row'},E('b',{textContent:'Размер ластика'}),erSize),erw,E('div',{className:'mut',textContent:'Можно менять от 4 до 120 пикселей.'}));
   const sym=mkpop(),tabs=E('div',{className:'row'}),grid=E('div',{className:'symgrid'});sym.append(tabs,grid);
   const showSyms=k=>{grid.replaceChildren(...SYMS[k].split(' ').filter(Boolean).map(symbol=>B(symbol,()=>{
     if(sel?.k==='txt'&&els[sel.id]?._t===document.activeElement){document.execCommand('insertText',false,symbol);hidePops();return}
@@ -1503,7 +1505,7 @@ async function openBoard(m,id,guest,shareToken=null){
   })));[...tabs.children].forEach(b=>b.classList.toggle('on',b.textContent===k))};
   Object.keys(SYMS).forEach(k=>tabs.append(B(k,()=>showSyms(k))));showSyms('Звёзды');
   tbar.append(tb('select','Выбрать',()=>setTool('select'),'select'),tb('hand','Рука',()=>setTool('hand'),'hand'),sep(),
-    tb('pen','Карандаш и палитра',()=>{setTool('pen');showPop(clp)},'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик',()=>setTool('eraser'),'eraser'),cdot,sep(),
+    tb('pen','Карандаш и палитра',()=>{setTool('pen');showPop(clp)},'pen'),tb('marker','Маркер',()=>setTool('marker'),'marker'),tb('eraser','Ластик · размер',()=>{setTool('eraser');showPop(erp)},'eraser'),cdot,sep(),
     tb('text','Текст',()=>setTool('txt'),'txt'),tb('note','Стикер',()=>setTool('note'),'note'),tb('shape','Фигуры',()=>showPop(shp),'shape'),tb('line','Линии и стрелки',()=>showPop(lnp),'line'),tb('frame','Рамка',()=>setTool('frame'),'frame'),tb('sym','Символы и эмодзи',()=>showPop(sym)),sep(),
     tb('img','Картинка',()=>fi.click()),tb('pdf','PDF → картинки',()=>fp.click()),tb('video','Аудио / видео',()=>fm.click()),tb('link','Медиа по ссылке: YouTube, Vimeo, SoundCloud, фото',addExternalLink));
   if(isOwner)tbar.prepend(splitButton,sep());
