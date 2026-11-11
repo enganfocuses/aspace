@@ -286,6 +286,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .selection-box{position:absolute;z-index:15;pointer-events:none;border:1px solid #8055a2;background:#a079c633}
 .it.locked.sel .g,.it.locked.sel .sb{display:none}.it.locked.sel{outline-style:dashed}.center-board{white-space:nowrap}
 
+.board-announcement{position:fixed;z-index:60;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 28px));max-height:45vh;overflow:auto;padding:14px 16px;background:#fff7d6;color:#443817;border:1px solid #dfc46c;border-radius:14px;box-shadow:0 8px 28px #34233f30}.board-announcement[hidden]{display:none}.announcement-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}.announcement-heading strong{font-size:15px}.announcement-close{flex:0 0 auto;border:0;background:transparent;color:inherit;font-size:24px;line-height:1;cursor:pointer;padding:0 3px}.announcement-message{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.45}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -1133,7 +1134,18 @@ async function openBoard(m,id,guest,shareToken=null){
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},8000);
   let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null,disposed=false,editEpoch=0,savedEpoch=0;
   let unsyncedShareDraft=Boolean(localGuestDraft),displayedBase=cloneBoard(d0);
-  const snapshot=()=>({name:d.name,strokes:cloneBoard(strokes),items:cloneBoard(items),bg,siteUrl:d.siteUrl||'',...(d.entryCall ? {entryCall:d.entryCall} : {}),...(d.jazzUrl ? {jazzUrl:d.jazzUrl} : {}),...(d.telemostUrl ? {telemostUrl:d.telemostUrl} : {}),upd:Date.now()});
+  const snapshot=()=>({name:d.name,strokes:cloneBoard(strokes),items:cloneBoard(items),bg,announcement:d.announcement||null,siteUrl:d.siteUrl||'',...(d.entryCall ? {entryCall:d.entryCall} : {}),...(d.jazzUrl ? {jazzUrl:d.jazzUrl} : {}),...(d.telemostUrl ? {telemostUrl:d.telemostUrl} : {}),upd:Date.now()});
+  let locallyDismissedAnnouncement='';
+  const announcementBox=E('aside',{className:'board-announcement',hidden:true,role:'status'});
+  function renderAnnouncement(){
+    const note=d.announcement;
+    if(!note||!note.text||locallyDismissedAnnouncement===note.id){announcementBox.hidden=true;return}
+    announcementBox.replaceChildren(
+      E('div',{className:'announcement-heading'},E('strong',{textContent:'Объявление от Анны'}),B('×',()=>{locallyDismissedAnnouncement=note.id;announcementBox.hidden=true},'announcement-close')),
+      E('div',{className:'announcement-message',textContent:note.text})
+    );
+    announcementBox.hidden=false;
+  }
   const applySnapshot=value=>{
     if(!value||disposed)return;
     const known=new Map(items.map(item=>[item.id,item]));
@@ -1145,7 +1157,7 @@ async function openBoard(m,id,guest,shareToken=null){
       const item=cloneBoard(next);upsert(item);return item;
     });
     strokes=cloneBoard(value.strokes||[]);bg=value.bg||'dots';d.name=value.name||d.name;
-    d.entryCall=value.entryCall||'';
+    d.entryCall=value.entryCall||'';\n    d.announcement=value.announcement&&typeof value.announcement.text==='string'?value.announcement:null;\n    renderAnnouncement();
     d.jazzUrl=value.jazzUrl||'';
     d.telemostUrl=value.telemostUrl||'';
     refreshMeetings();
@@ -1753,6 +1765,19 @@ async function openBoard(m,id,guest,shareToken=null){
       applySnapshot(result.value);displayedBase=cloneBoard(result.value);unsyncedShareDraft=false;savedEpoch=editEpoch;say('Конфликт разрешён, версия сохранена.');
     }catch(error){say('Версии сохранены. '+error.message)}
   });
+  if(isOwner)mi('📢 Объявление от Анны',()=>{
+    const message=prompt('Напиши важное объявление для ученика. Оно появится на его доске.');
+    if(message===null)return;
+    const text=message.trim();
+    if(!text){say('Пустое объявление не опубликовано.');return}
+    d.announcement={id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),text};
+    locallyDismissedAnnouncement='';
+    renderAnnouncement();persist();say('Объявление опубликовано для ученика.');
+  });
+  if(isOwner)mi('✕ Убрать объявление у всех',()=>{
+    if(!d.announcement)return say('Сейчас нет активного объявления.');
+    d.announcement=null;locallyDismissedAnnouncement='';renderAnnouncement();persist();say('Объявление убрано у всех.');
+  });
   mi('⬇ Сохранить JSON-копию доски',()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);E('a',{href:url,download:(d.name||'board')+'.aspace.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000)});
   mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
   if(isOwner)mi('📹 Видеозвонок на доске',openVideo);
@@ -1761,7 +1786,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
-  root.append(menu,boardActions,fbar,tbar,hist,zoom);m.append(root);
+  root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);\n  renderAnnouncement();m.append(root);
   if(!isOwner&&!persistentCallSession){const service=entryService();if(service)launchMeeting(service);else openVideo(true)}
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
