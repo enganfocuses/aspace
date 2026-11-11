@@ -1439,27 +1439,41 @@ async function openBoard(m,id,guest,shareToken=null){
       hd.onpointermove=ev=>{vw.style.right='auto';vw.style.left=Math.max(0,ev.clientX-ox)+'px';vw.style.top=Math.max(0,ev.clientY-oy)+'px'};hd.onpointerup=()=>{hd.onpointermove=hd.onpointerup=null}};
     root.append(vw)};
   const meetingServices=[
-    {name:'Jazz',field:'jazzUrl',home:'https://salutejazz.ru/',hosts:['salutejazz.ru','jazz.sberbank.ru']},
-    {name:'Телемост',field:'telemostUrl',home:'https://telemost.yandex.ru/',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
+    {name:'Jazz',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']},
+    {name:'Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
   ];
   function meetingUrl(raw,service){
     try{
       const url=new URL(raw);
       if(url.protocol!=='https:' || !service.hosts.includes(url.hostname) || url.username || url.password || url.port)return '';
-      if(service.field==='telemostUrl' ? !/^\/j\/[^/]+\/?$/.test(url.pathname) : url.pathname.length<=1 && !url.search)return '';
+      if(service.field==='telemostUrl' ? !/^\/j\/[^/]+\/?$/.test(url.pathname) : !/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(url.pathname) || /\/(?:meetings|history|conference|profile|settings|calendar)\/?$/i.test(url.pathname))return '';
       return url.href;
     }catch{return ''}
   }
   for(const service of meetingServices){
     service.section=E('section');
-    service.join=E('a',{className:'mbtn',target:'_blank',rel:'noopener noreferrer',textContent:'Войти в '+service.name});
+    service.join=B('Войти в '+service.name,()=>launchMeeting(service),'mbtn');
+  }
+  function launchMeeting(service){
+    let url=meetingUrl(d[service.field],service);
+    if(!url && isOwner)url=configureMeeting(service);
+    if(!url)return;
+    const width=Math.min(480,window.innerWidth);
+    const left=Math.round(window.screenX+window.outerWidth-width);
+    const top=Math.round(window.screenY);
+    const popup=window.open('about:blank','_blank',
+      'popup=yes,resizable=yes,scrollbars=yes,width='+width+',height='+Math.min(620,window.innerHeight)+',left='+left+',top='+top);
+    if(!popup){say('Разреши всплывающее окно для Aspace и нажми кнопку входа ещё раз.');return}
+    popup.opener=null;
+    popup.location.replace(url);
+    vtop.open=false;
+    say('Звонок открыт отдельно. Нажми на доску, чтобы продолжить урок.');
   }
   function refreshMeetings(){
     for(const service of meetingServices){
       const url=meetingUrl(d[service.field],service);
       service.section.hidden=!isOwner&&!url;
-      if(url)service.join.href=url;else service.join.removeAttribute('href');
-      service.join.style.display=url?'inline-flex':'none';
+      service.join.style.display=isOwner||url?'inline-flex':'none';
     }
     updateEmptyVideo();
   }
@@ -1467,16 +1481,17 @@ async function openBoard(m,id,guest,shareToken=null){
     const raw=prompt('Вставь ссылку на встречу ('+service.name+'). Чтобы убрать кнопку с доски, оставь поле пустым.',d[service.field]||'');
     if(raw===null)return;
     const url=meetingUrl(raw.trim(),service);
-    if(raw.trim()&&!url)return say('Проверь ссылку-приглашение на встречу ('+service.name+').');
+    if(raw.trim()&&!url){say('Вставь прямую ссылку-приглашение ('+service.name+').');return ''}
     d[service.field]=url;refreshMeetings();persist();
     say(url?'Ссылка на встречу добавлена.':'Ссылка на встречу убрана.');
+    return url;
   }
   const videoOptions=E('div',{className:'video-options'});
   const vtop=E('details',{className:'vtop board-video'},E('summary',{className:'tbtn',title:'Видео',ariaLabel:'Видео'},ic('video'),'Видео'),videoOptions);
   videoOptions.append(B('Видеозвонок Aspace',()=>{vtop.open=false;openVideo()},'board-call'));
   for(const service of meetingServices){
     service.section.append(E('b',{textContent:service.name}),service.join);
-    if(isOwner)service.section.append(B('Создать встречу',()=>window.open(service.home,'_blank','noopener,noreferrer')),B('Настроить ссылку',()=>configureMeeting(service)));
+    if(isOwner)service.section.append(B('Настроить ссылку',()=>configureMeeting(service)));
     videoOptions.append(service.section);
   }
   const emptyVideo=E('span',{textContent:'Ссылок на встречи пока нет.'});
