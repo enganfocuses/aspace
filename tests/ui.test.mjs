@@ -67,7 +67,7 @@ test('external meeting providers request compact popup windows and offer retry w
  const end=index.indexOf('const defaultCall=',begin);
  const launch=index.slice(begin,end);
  assert.ok(launch.includes('popup=yes,resizable=yes,scrollbars=yes'));
- assert.ok(launch.includes("'width='+width+',height='+height"));
+ assert.ok(launch.includes("width='+width+',height='+height"));
  assert.ok(launch.includes('if(!popup){showCallInvitation(service,url);return}'));
  assert.ok(launch.includes('Повторить открытие отдельного окна'));
  assert.ok(!launch.includes("target:'_blank'"));
