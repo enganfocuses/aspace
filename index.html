@@ -1213,6 +1213,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const persist=(remote=false)=>{if(guest||disposed)return;if(isOwner&&!remote)usageTracker.recordAction('boards/'+id);editEpoch++;clearTimeout(tm);
     tm=setTimeout(()=>{void queueSharedDraft(snapshot())},1200);
   };
+  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);void queueSharedDraft(snapshot())};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},90);persist()};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
@@ -1350,7 +1351,7 @@ async function openBoard(m,id,guest,shareToken=null){
   cv.onpointercancel=endMarquee;
   cv.onpointermove=e=>{if(marquee){updateMarquee(...pt(e));return}if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
     const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>90)flush()};
-  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;flush();rec({t:'s',s:cur});cur=null;persist()};
+  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;flush();rec({t:'s',s:cur});cur=null;persistNow()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
   // Secondary mouse buttons always pan the viewport regardless of the selected tool.
   // Capture-phase prevents right click on contenteditable objects from moving them.
@@ -1841,7 +1842,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
-  if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
+  if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
   renderAnnouncement();m.append(root);
