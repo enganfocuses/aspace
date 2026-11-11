@@ -1788,7 +1788,8 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
-  root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);\n  renderAnnouncement();m.append(root);
+  root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
+  renderAnnouncement();m.append(root);
   if(!isOwner&&!persistentCallSession){const service=entryService();if(service)launchMeeting(service);else openVideo(true)}
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
