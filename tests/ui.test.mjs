@@ -102,3 +102,12 @@ test('shared announcements can refresh from Firebase without the standby runtime
 test('Firebase signaling waits through transient EventSource reconnects',()=>{
  assert.match(index,/if\(es\.readyState!==EventSource\.CLOSED\)return/);
 });
+
+test('eraser size is adjustable and pencil accepts any custom color',()=>{
+ assert.match(index,/eraserWidth=32/);
+ assert.match(index,/min:4,max:120,step:1,value:eraserWidth/);
+ assert.match(index,/w:er\?eraserWidth/);
+ assert.match(index,/type:'color',value:color,title:'Спектр карандаша'/);
+ assert.match(index,/penColors\.add\(c\)/);
+ assert.match(index,/＋ Добавить цвет/);
+});
