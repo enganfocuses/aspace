@@ -111,3 +111,9 @@ test('eraser size is adjustable and pencil accepts any custom color',()=>{
  assert.match(index,/penColors\.add\(c\)/);
  assert.match(index,/＋ Добавить цвет/);
 });
+
+test('Firebase owner login persists across board page refreshes',()=>{
+ assert.match(index,/auth\.setPersistence\(firebase\.auth\.Auth\.Persistence\.LOCAL\)/);
+ assert.match(index,/\.then\(\(\)=>auth\.onAuthStateChanged\(async user=>\{/);
+ assert.match(index,/const h=location\.hash;shell\(h\.startsWith\('#b-'\)\|\|h\.startsWith\('#c-'\)\)/);
+});
