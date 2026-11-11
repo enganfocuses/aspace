@@ -95,6 +95,7 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
     const estimate=downloadEstimate(state);
     if(estimate)item.append(E('p',{className:'usage-notice',textContent:'Локальный ориентир: '+display(estimate.value)+' · расчётный остаток '+display(Math.max(0,row.limit-estimate.value))+'. К показанию добавлено '+size(estimate.extra)+' наблюдаемого входящего трафика после ввода. Это оценка, не показания Firebase.'}));
    }
+   if(row.id==='firebaseConnections')item.append(link('Открыть график подключений в Firebase','https://console.firebase.google.com/u/0/project/myspace-5d573/database/usage/current-billing/connections?utm_source=chatgpt.com'));
    inputFor(row,state,item);grid.append(item);
   }
   section.append(E('div',{className:'row usage-links'},
