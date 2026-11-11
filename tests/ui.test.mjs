@@ -125,3 +125,16 @@ test('Firebase owner login persists across board page refreshes',()=>{
  assert.match(index,/\.then\(\(\)=>auth\.onAuthStateChanged\(async user=>\{/);
  assert.match(index,/const h=location\.hash;shell\(h\.startsWith\('#b-'\)\|\|h\.startsWith\('#c-'\)\)/);
 });
+
+
+test('element formatting panel stays below top controls and remains scrollable',()=>{
+ assert.match(index,/\.fbar\{position:fixed;top:calc\(68px/);
+ assert.match(index,/max-height:34dvh;overflow:auto/);
+});
+
+test('drawing palettes use four fixed base colors and allow custom colors to be removed',()=>{
+ assert.match(index,/const INK=\['#1f1f2b','#800020','#4f86b3','#f2c94c'\]/);
+ assert.match(index,/const FILLS=\['#1f1f2b','#800020','#4f86b3','#f2c94c'\]/);
+ assert.match(index,/Удалить цвет/);
+ assert.match(index,/textEye/);
+});
