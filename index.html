@@ -1685,9 +1685,10 @@ async function openBoard(m,id,guest,shareToken=null){
     entryPrompt?.remove();
     const dismiss=()=>{entryPrompt?.remove();entryPrompt=null};
     entryPrompt=E('div',{className:'board-entry-call',role:'dialog',ariaLabel:'Звонок этой доски'},
-      E('strong',{textContent:'Браузер заблокировал отдельное окно звонка.'}),
-      E('p',{textContent:'Разреши всплывающие окна для Aspace и нажми кнопку ещё раз. Звонок откроется в отдельном окне, если настройки браузера это позволяют.'}),
+      E('strong',{textContent:'Не удалось открыть отдельное окно звонка.'}),
+      E('p',{textContent:'Можно разрешить всплывающие окна для Aspace и повторить попытку. Если браузер или телефон не поддерживает отдельное окно, открой звонок в новой вкладке.'}),
       B('Повторить открытие отдельного окна',()=>launchMeeting(service),'mbtn'),
+      E('a',{className:'mbtn',href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Открыть звонок в отдельной вкладке'}),
       B('Остаться на доске',dismiss));
     root.append(entryPrompt);
   }
