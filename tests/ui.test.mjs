@@ -60,3 +60,16 @@ test('quota-safe board sync does not post oversized catch-up snapshots',()=>{
  assert.match(index,/if\(!isOwner\|\|x\.data\?\.from===r\.id/);
  assert.match(index,/Date\.now\(\)-lastStateReply<6000/);
 });
+
+
+test('external meeting providers request compact popup windows and offer retry when blocked',()=>{
+ const begin=index.indexOf('function launchMeeting(service){');
+ const end=index.indexOf('const defaultCall=',begin);
+ const launch=index.slice(begin,end);
+ assert.match(launch,/popup=yes,resizable=yes,scrollbars=yes/);
+ assert.match(launch,/width=\\x27\\+width\\+\\x27,height=\\x27\\+height/);
+ assert.match(launch,/if\\(!popup\\)\\{showCallInvitation\\(service,url\\);return\\}/);
+ assert.match(launch,/Повторить открытие отдельного окна/);
+ assert.doesNotMatch(launch,/target:\\x27_blank\\x27/);
+ assert.match(index,/if\\(service\\)launchMeeting\\(service\\)/);
+});
