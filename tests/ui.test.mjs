@@ -138,3 +138,12 @@ test('drawing palettes use four fixed base colors and allow custom colors to be 
  assert.match(index,/Удалить цвет/);
  assert.match(index,/textEye/);
 });
+
+
+test('shape connectors offer draggable straight and curved arrows',()=>{
+ assert.match(index,/Прямая стрелка между фигурами/);
+ assert.match(index,/Гибкая стрелка между фигурами/);
+ assert.match(index,/wrap\.addEventListener\('pointermove',e=>\{\s*if\(!wireDrag/);
+ assert.match(index,/bend:wireMode==='curved'\?100:0/);
+ assert.match(index,/Стрелка добавлена/);
+});
