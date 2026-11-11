@@ -258,6 +258,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .board-video summary,.split-toggle{width:auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;white-space:nowrap}
 .board-video summary{background:var(--card,#fff);color:var(--ink);border-radius:10px}
 .bfull .menu{max-width:calc(100% - 112px)}.menu .mbtn>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-chat{position:fixed;right:12px;top:calc(64px + env(safe-area-inset-top,0px));z-index:29;color:var(--ink)}
+.board-chat summary,.chat-panel{background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;box-shadow:0 5px 18px #34233f18}
+.board-chat summary{cursor:pointer;list-style:none;width:max-content;margin-left:auto;padding:8px 13px;font-weight:600}.board-chat summary::-webkit-details-marker{display:none}
+.chat-panel{margin-top:6px;padding:10px;width:min(330px,calc(100vw - 24px));display:grid;gap:8px}.chat-log{height:min(30dvh,250px);overflow:auto;overscroll-behavior:contain}.chat-line{padding:6px 0;display:grid;overflow-wrap:anywhere}.chat-line b{font-size:.8em}.chat-line.own b{color:var(--wine)}.chat-form{display:flex;gap:6px}.chat-form input{min-width:0;flex:1}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -1438,6 +1442,46 @@ async function openBoard(m,id,guest,shareToken=null){
     hd.onpointerdown=e=>{if(e.target.closest('button'))return;hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
       hd.onpointermove=ev=>{vw.style.right='auto';vw.style.left=Math.max(0,ev.clientX-ox)+'px';vw.style.top=Math.max(0,ev.clientY-oy)+'px'};hd.onpointerup=()=>{hd.onpointermove=hd.onpointerup=null}};
     root.append(vw)};
+  const chat=E('details',{className:'board-chat'});
+  const chatTab=E('summary',{textContent:'Чат'});
+  const chatLog=E('div',{className:'chat-log',role:'log',ariaLabel:'Сообщения урока'});
+  const chatStatus=E('small',{role:'status',textContent:roomWarning?'Связь недоступна':'Чат текущего урока'});
+  const chatInput=E('input',{type:'text',maxLength:1000,placeholder:'Сообщение',ariaLabel:'Сообщение',disabled:!!roomWarning});
+  const chatSend=E('button',{type:'submit',textContent:'Отправить',disabled:!!roomWarning});
+  const chatForm=E('form',{className:'chat-form'},chatInput,chatSend);
+  chat.append(chatTab,E('div',{className:'chat-panel'},chatLog,chatStatus,chatForm));
+  const chatIds=new Set();
+  let unreadChat=0;
+  function showChat(message,mine){
+    if(!message||typeof message.id!=='string'||message.id.length>100||chatIds.has(message.id)||
+       typeof message.text!=='string'||!message.text.trim()||message.text.length>1000)return;
+    chatIds.add(message.id);
+    const row=E('div',{className:mine?'chat-line own':'chat-line'},E('b',{textContent:mine?'Вы':String(message.name||'Участник').slice(0,60)}),E('span',{textContent:message.text}));
+    const atEnd=chatLog.scrollHeight-chatLog.scrollTop-chatLog.clientHeight<32;
+    chatLog.append(row);
+    if(chatLog.children.length>200){chatLog.firstElementChild.remove();chatIds.delete(chatIds.values().next().value)}
+    if(atEnd||mine)chatLog.scrollTop=chatLog.scrollHeight;
+    if(!mine&&!chat.open)chatTab.textContent='Чат · '+(++unreadChat);
+  }
+  chat.ontoggle=()=>{
+    if(chat.open){unreadChat=0;chatTab.textContent='Чат';chatLog.scrollTop=chatLog.scrollHeight;chatInput.focus()}
+  };
+  r.on('chat',event=>showChat(event.data,false));
+  chatForm.onsubmit=async event=>{
+    event.preventDefault();
+    const text=chatInput.value.trim();
+    if(!text||chatSend.disabled)return;
+    const message={id:crypto.randomUUID(),name:myName,text};
+    chatSend.disabled=true;
+    try{
+      if(!await r.emit('chat',message))throw Error();
+      showChat(message,true);
+      if(chatInput.value.trim()===text)chatInput.value='';
+      chatStatus.textContent='Отправлено';
+    }catch{chatStatus.textContent='Не отправлено. Попробуй ещё раз.'}
+    finally{chatSend.disabled=false}
+  };
+  root.append(chat);
   const meetingServices=[
     {name:'Jazz',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']},
     {name:'Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
