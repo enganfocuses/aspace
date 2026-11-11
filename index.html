@@ -255,6 +255,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .board-video summary{list-style:none;cursor:pointer}.board-video summary::-webkit-details-marker{display:none}
 .board-video .video-options{position:absolute;top:calc(100% + 6px);right:0;width:min(290px,calc(100vw - 28px));max-height:60dvh;overflow:auto;padding:12px;background:var(--card,#fff);color:var(--ink);border-radius:12px;box-shadow:0 8px 28px #34233f29}
 .video-options section{border-top:1px solid var(--line);margin-top:8px;padding-top:8px;display:grid;gap:5px}.video-options section[hidden]{display:none}.video-options section b{font-size:14px}.readonly .board-call{display:none}.split-toggle[aria-pressed="true"]{background:var(--lav,#e9dff2)}
+.board-video summary,.split-toggle{width:auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;white-space:nowrap}
+.board-video summary{background:var(--card,#fff);color:var(--ink);border-radius:10px}
+.bfull .menu{max-width:calc(100% - 112px)}.menu .mbtn>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -1328,7 +1331,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const root=E('div',{className:'bfull'+(guest?' readonly':'')},sc,toast,fi,fp,fm);
   const sitePanel=E('section',{className:'site-panel'});
   let lastSite=d.siteUrl||'';
-  const splitButton=E('button',{className:'tbtn split-toggle',textContent:'◫',ariaLabel:'Раздельный экран',onclick:()=>{
+  const splitButton=E('button',{className:'tbtn split-toggle',textContent:'◫ Раздельный экран',ariaLabel:'Раздельный экран',onclick:()=>{
     if(d.siteUrl){applySiteUrl('');return}
     const raw=prompt('Ссылка для совместного просмотра',lastSite);
     if(raw!==null)applySiteUrl(raw);
@@ -1469,7 +1472,7 @@ async function openBoard(m,id,guest,shareToken=null){
     say(url?'Ссылка на встречу добавлена.':'Ссылка на встречу убрана.');
   }
   const videoOptions=E('div',{className:'video-options'});
-  const vtop=E('details',{className:'vtop board-video'},E('summary',{className:'tbtn',title:'Видео',ariaLabel:'Видео'},ic('video')),videoOptions);
+  const vtop=E('details',{className:'vtop board-video'},E('summary',{className:'tbtn',title:'Видео',ariaLabel:'Видео'},ic('video'),'Видео'),videoOptions);
   videoOptions.append(B('Видеозвонок Aspace',()=>{vtop.open=false;openVideo()},'board-call'));
   for(const service of meetingServices){
     service.section.append(E('b',{textContent:service.name}),service.join);
