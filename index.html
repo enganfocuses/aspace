@@ -1080,6 +1080,9 @@ async function openBoard(m,id,guest,shareToken=null){
   if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   if(isOwner)guest=false;
+  // Keep the current board in the address bar without firing hashchange/reloading.
+  const boardRoute=shareToken?'#s-'+shareToken:'#b-'+id+'-'+(guest?'view':'edit');
+  history.replaceState(null,'',location.pathname+location.search+boardRoute);
   const cloneBoard=value=>JSON.parse(JSON.stringify(value));
   const boardShareToken=activeShareToken;
   const stopUsage=isOwner?usageTracker.trackBoard('boards/'+id,boardShareToken):()=>{};

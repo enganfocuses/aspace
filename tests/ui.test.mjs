@@ -112,6 +112,14 @@ test('eraser size is adjustable and pencil accepts any custom color',()=>{
  assert.match(index,/＋ Добавить цвет/);
 });
 
+test('opening a board stores its route so refresh restores that board',()=>{
+ const begin=index.indexOf('async function openBoard(m,id,guest,shareToken=null){');
+ const end=index.indexOf('const cloneBoard=value=>JSON.parse(JSON.stringify(value));',begin);
+ const open=index.slice(begin,end);
+ assert.match(open,/const boardRoute=shareToken\?'#s-'\+shareToken:'#b-'\+id\+'-'\+\(guest\?'view':'edit'\)/);
+ assert.match(open,/history\.replaceState\(null,'',location\.pathname\+location\.search\+boardRoute\)/);
+});
+
 test('Firebase owner login persists across board page refreshes',()=>{
  assert.match(index,/auth\.setPersistence\(firebase\.auth\.Auth\.Persistence\.LOCAL\)/);
  assert.match(index,/\.then\(\(\)=>auth\.onAuthStateChanged\(async user=>\{/);
