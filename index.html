@@ -1099,7 +1099,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},8000);
   let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null,disposed=false,editEpoch=0,savedEpoch=0;
   let unsyncedShareDraft=Boolean(localGuestDraft),displayedBase=cloneBoard(d0);
-  const snapshot=()=>({name:d.name,strokes:cloneBoard(strokes),items:cloneBoard(items),bg,siteUrl:d.siteUrl||'',...(d.jazzUrl ? {jazzUrl:d.jazzUrl} : {}),upd:Date.now()});
+  const snapshot=()=>({name:d.name,strokes:cloneBoard(strokes),items:cloneBoard(items),bg,siteUrl:d.siteUrl||'',...(d.jazzUrl ? {jazzUrl:d.jazzUrl} : {}),...(d.telemostUrl ? {telemostUrl:d.telemostUrl} : {}),upd:Date.now()});
   const applySnapshot=value=>{
     if(!value||disposed)return;
     const known=new Map(items.map(item=>[item.id,item]));
@@ -1112,7 +1112,8 @@ async function openBoard(m,id,guest,shareToken=null){
     });
     strokes=cloneBoard(value.strokes||[]);bg=value.bg||'dots';d.name=value.name||d.name;
     d.jazzUrl=value.jazzUrl||'';
-    refreshJazz();
+    d.telemostUrl=value.telemostUrl||'';
+    refreshMeetings();
     const siteChanged=(d.siteUrl||'')!==(value.siteUrl||'');d.siteUrl=value.siteUrl||'';
     sc.className='bscroll '+bg;wrap.className='wrap '+bg;redraw();fit();
     if(siteChanged)renderSite();
@@ -1422,30 +1423,37 @@ async function openBoard(m,id,guest,shareToken=null){
     hd.onpointerdown=e=>{if(e.target.closest('button'))return;hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
       hd.onpointermove=ev=>{vw.style.right='auto';vw.style.left=Math.max(0,ev.clientX-ox)+'px';vw.style.top=Math.max(0,ev.clientY-oy)+'px'};hd.onpointerup=()=>{hd.onpointermove=hd.onpointerup=null}};
     root.append(vw)};
-  function meetingUrl(raw){
+  const meetingServices=[
+    {name:'Jazz',field:'jazzUrl',home:'https://salutejazz.ru/',hosts:['salutejazz.ru','jazz.sberbank.ru']},
+    {name:'Телемост',field:'telemostUrl',home:'https://telemost.yandex.ru/',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
+  ];
+  function meetingUrl(raw,service){
     try{
       const url=new URL(raw);
-      const domains=['salutejazz.ru','jazz.sberbank.ru'];
-      if(url.protocol==='https:' && domains.includes(url.hostname) && !url.username && !url.password &&
-         !url.port && (url.pathname.length>1 || url.search))return url.href;
-    }catch{}
-    return '';
+      if(url.protocol!=='https:' || !service.hosts.includes(url.hostname) || url.username || url.password || url.port)return '';
+      if(service.field==='telemostUrl' ? !/^\/j\/[^/]+\/?$/.test(url.pathname) : url.pathname.length<=1 && !url.search)return '';
+      return url.href;
+    }catch{return ''}
   }
-  const jazzJoin=E('a',{className:'mbtn',target:'_blank',rel:'noopener noreferrer',textContent:'Войти в Jazz'});
-  function refreshJazz(){
-    const url=meetingUrl(d.jazzUrl);
-    if(url)jazzJoin.href=url;else jazzJoin.removeAttribute('href');
-    jazzJoin.style.display=url?'inline-flex':'none';
+  for(const service of meetingServices){
+    service.join=E('a',{className:'mbtn',target:'_blank',rel:'noopener noreferrer',textContent:'Войти в '+service.name});
   }
-  function configureJazz(){
-    const raw=prompt('Вставь ссылку на встречу из SaluteJazz. Чтобы убрать звонок с доски, оставь поле пустым.',d.jazzUrl||'');
+  function refreshMeetings(){
+    for(const service of meetingServices){
+      const url=meetingUrl(d[service.field],service);
+      if(url)service.join.href=url;else service.join.removeAttribute('href');
+      service.join.style.display=url?'inline-flex':'none';
+    }
+  }
+  function configureMeeting(service){
+    const raw=prompt('Вставь ссылку на встречу ('+service.name+'). Чтобы убрать кнопку с доски, оставь поле пустым.',d[service.field]||'');
     if(raw===null)return;
-    const url=meetingUrl(raw.trim());
-    if(raw.trim()&&!url)return say('Нужна HTTPS-ссылка на встречу SaluteJazz.');
-    d.jazzUrl=url;refreshJazz();persist();
-    say(url?'Вернись на доску после входа в Jazz, чтобы продолжить урок.':'Ссылка Jazz убрана.');
+    const url=meetingUrl(raw.trim(),service);
+    if(raw.trim()&&!url)return say('Проверь ссылку-приглашение на встречу ('+service.name+').');
+    d[service.field]=url;refreshMeetings();persist();
+    say(url?'Ссылка на встречу добавлена.':'Ссылка на встречу убрана.');
   }
-  refreshJazz();
+  refreshMeetings();
   const vtop=E('button',{className:'tbtn vtop',title:'Видеозвонок',onclick:openVideo},ic('video'));
   /* меню */
   const mp=E('div',{className:'mp'}),mi=(t,fn)=>mp.append(B(t,()=>{mp.classList.remove('open');fn()}));
@@ -1487,10 +1495,13 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persist()});
   if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
   if(isOwner){
-    mi('Jazz · создать встречу',()=>window.open('https://salutejazz.ru/','_blank','noopener,noreferrer'));
-    mi('Jazz · настроить ссылку',configureJazz);
+    for(const service of meetingServices){
+      mi(service.name+' · создать встречу',()=>window.open(service.home,'_blank','noopener,noreferrer'));
+      mi(service.name+' · настроить ссылку',()=>configureMeeting(service));
+    }
   }
-  menu.append(jazzJoin);
+  menu.style.flexWrap="wrap";
+  menu.append(...meetingServices.map(service=>service.join));
   root.append(menu,vtop,fbar,tbar,hist,zoom);m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
