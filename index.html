@@ -1806,7 +1806,7 @@ async function openBoard(m,id,guest,shareToken=null){
   };
 
   const meetingServices=[
-    {name:'Jazz',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']},
+    {name:'SaluteJazz',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']},
     {name:'Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
   ];
   function meetingUrl(raw,service){
@@ -1850,14 +1850,20 @@ async function openBoard(m,id,guest,shareToken=null){
       B('Остаться на доске',dismiss));
     root.append(entryPrompt);
   }
-  const defaultCall=E('select',{ariaLabel:'Звонок при входе ученика',onchange:()=>{d.entryCall=defaultCall.value;persist()}});
+  const defaultCall=E('select',{ariaLabel:'Звонок при входе ученика',onchange:()=>{
+    const selected=defaultCall.value;
+    const service=meetingServices.find(service=>service.field===selected);
+    if(service&&!meetingUrl(d[service.field],service)&&!configureMeeting(service)){refreshMeetings();return}
+    d.entryCall=selected;refreshMeetings();persist();
+  }});
   function entryService(){
     const ready=meetingServices.filter(service=>meetingUrl(d[service.field],service));
     return d.entryCall==='aspace'?null:ready.find(service=>service.field===d.entryCall)||ready[0];
   }
   function refreshMeetings(){
-    const ready=meetingServices.filter(service=>meetingUrl(d[service.field],service));
-    defaultCall.replaceChildren(E('option',{value:'aspace',textContent:'Aspace'}),...ready.map(service=>E('option',{value:service.field,textContent:service.name})));
+    defaultCall.replaceChildren(E('option',{value:'aspace',textContent:'Aspace'}),...meetingServices.map(service=>E('option',{
+      value:service.field,textContent:service.name+(meetingUrl(d[service.field],service)?'':' — добавить ссылку')
+    })));
     defaultCall.value=entryService()?.field||'aspace';
     for(const service of meetingServices){
       const url=meetingUrl(d[service.field],service);
