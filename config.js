@@ -1,5 +1,6 @@
 // Заполните адрес вашей базы Firebase Realtime Database (см. README.md)
 window.CFG = {
+  yonote: {workspace:'https://anesterovna.yonote.ru/home'},
   reserve: {enabled:true,url:'https://aspace-fallback-api.anncodes001.workers.dev'},
   // UID владельца будет добавлен после создания учётной записи в Firebase Authentication.
   ownerUid: 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2',

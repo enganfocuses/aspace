@@ -19,7 +19,7 @@ jobs:
       - name: Fetch the isolated standby implementation
         uses: actions/checkout@v4
         with:
-          ref: feature/cloudflare-fallback-foundation
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Set up Node
         uses: actions/setup-node@v4

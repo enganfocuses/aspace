@@ -137,3 +137,12 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .timer-expired .bgl{border-color:#71384f!important}.timer-expired .timer-caption{font-weight:700}
 
 .it.retro-timer.sel{border-radius:50%}.retro-timer .timer-readout{position:absolute;top:57%}.retro-timer .timer-caption{position:absolute;top:73%;font-size:clamp(8px,4cqw,11px);line-height:1.2}
+/* Private Yonote reader uses the same paper surfaces as the workspace. */
+.yonote-host{flex:1;min-height:0;overflow:hidden}.yonote-reader{display:grid;grid-template-columns:minmax(130px,32%) 1fr;grid-template-rows:auto 1fr;background:#fdfbf6;color:#3b2934;gap:0;height:100%}
+.yonote-status{grid-column:1/-1;margin:0;padding:8px 12px;font-size:13px;background:#ede4f3;color:#3b2934}.yonote-status:empty{display:none}
+.yonote-sidebar{min-height:0;overflow:auto;padding:10px;border-right:1px solid #c6b3a6;background:#f2eadf}.yonote-sidebar input{width:100%;min-width:0;background:#fffaf2!important;color:#3b2934!important;padding:8px;font-size:13px}
+.yonote-pages{display:flex;flex-direction:column;gap:5px;margin-top:10px}.yonote-pages .yonote-page{background:#e7dcf0!important;color:#49354f!important;border:1px solid #c1aecb;border-radius:12px;text-align:left;padding:9px;font-size:13px;white-space:normal;overflow-wrap:anywhere;line-height:1.4;min-height:40px}
+.yonote-pages .yonote-page[aria-current=page]{background:#71384f!important;color:#fff4e5!important}
+.yonote-document{margin:0;padding:18px;overflow:auto;min-width:0;color:#3b2934;background:#fdfbf6;line-height:1.65}.yonote-document :is(h1,h2,h3,h4,h5,h6,p,pre,code){color:#3b2934!important;overflow-wrap:anywhere}.yonote-document h2{margin-top:0;font:26px Georgia,serif}.yonote-document p{white-space:pre-wrap;margin:0 0 12px}.yonote-document img{max-width:100%;height:auto;border-radius:12px}.yonote-document pre{white-space:pre-wrap;background:#ede5f2!important;border-radius:12px;padding:12px}.yonote-document a{color:#71384f}
+@media(max-width:760px){.yonote-reader{grid-template-columns:minmax(110px,34%) 1fr}.yonote-document{padding:12px}.yonote-document h2{font-size:21px}.yonote-sidebar{padding:7px}.yonote-pages .yonote-page{font-size:12px;padding:7px}}
+.yonote-sidebar,.yonote-document{grid-row:2;padding-bottom:115px}

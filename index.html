@@ -358,7 +358,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 @media(max-width:480px){#main.home-menu{padding:24px 12px}.home-masthead{gap:12px}.home-sections{gap:9px}.home-sections .section-card{min-height:285px;padding:19px 10px}.section-copy strong{font-size:25px}.section-copy>span{font-size:12px}.section-copy{gap:10px}.section-calls .section-copy,.section-education .section-copy{padding:16px 9px}.home-sections .section-usage:before{font-size:80px}.bfull .fbar{top:118px}}
 .bfull .fbar{top:auto;bottom:calc(145px + env(safe-area-inset-bottom,0px))}
 </style>
-<link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
+<link rel="stylesheet" href="workspace-theme.css?v=5"></head><body>
 <div id="root"></div>
 <script>
 const $=s=>document.querySelector(s);
@@ -1558,17 +1558,18 @@ async function openBoard(m,id,guest,shareToken=null){
   /* интерфейс */
   const root=E('div',{className:'bfull'+(guest?' readonly':'')+(isOwner?' owner-board':'')},sc,toast,fi,fp,fm);if(isOwner){guest=false;root.classList.remove('readonly')}
   const sitePanel=E('section',{className:'site-panel'});
-  let lastSite=d.siteUrl||'';
+  let lastSite=d.siteUrl||CFG.yonote?.workspace||'',siteEpoch=0,stopSite=()=>{};
   const splitButton=E('button',{className:'tbtn split-toggle',title:'Раздельный экран',ariaLabel:'Раздельный экран',onclick:()=>{
     if(d.siteUrl){applySiteUrl('');return}
     const raw=prompt('Ссылка для совместного просмотра',lastSite);
     if(raw!==null)applySiteUrl(raw);
   }},ic('split'));
   const applySiteUrl=raw=>{
-    let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}
+    let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol)||u.username||u.password||u.searchParams.has('token'))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}
     d.siteUrl=url;renderSite();persist();r.emit('site',{url});
   };
   const renderSite=()=>{
+    const epoch=++siteEpoch;stopSite();stopSite=()=>{};
     const url=d.siteUrl||'';if(url)lastSite=url;
     splitButton.setAttribute('aria-pressed',String(!!url));splitButton.title=url?'Закрыть раздельный экран':'Раздельный экран';
     root.classList.toggle('with-site',!!url);sitePanel.style.display=url?'flex':'none';sitePanel.replaceChildren();if(!url)return;
@@ -1579,9 +1580,19 @@ async function openBoard(m,id,guest,shareToken=null){
     if(isOwner)head.append(B('Применить',()=>applySiteUrl(field.value)));
     head.append(B('Копировать ссылку',()=>copyLink(url)),B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')));
     if(isOwner)head.append(B('✕ Скрыть сайт',()=>applySiteUrl('')));
-    const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});
-    const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, используй «Открыть отдельно». Разделение экрана и ссылка синхронизируются с учеником.'});
-    sitePanel.append(head,frame,note);
+    const isYonote=(()=>{try{const u=new URL(url);return u.protocol==='https:'&&/(^|\.)yonote\.(ru|site|dev)$/.test(u.hostname)}catch{return false}})();
+    if(isYonote){
+      const host=E('div',{className:'yonote-host',textContent:'Загружаем страницы Yonote…'});sitePanel.append(head,host);
+      import('./yonote-view.js?v=1').then(async module=>{
+        if(epoch!==siteEpoch||disposed)return;
+        const stop=await module.renderYonote(host,{baseUrl:CFG.reserve.url,getIdToken:async()=>isOwner?await currentUser.getIdToken():null,shareToken:boardShareToken||'',sourceUrl:url,E});
+        if(epoch!==siteEpoch||disposed)stop();else stopSite=stop;
+      }).catch(()=>{if(epoch===siteEpoch&&!disposed)host.textContent='Не удалось открыть материалы Yonote. Попробуй ещё раз.'});
+    }else{
+      const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});
+      const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, используй «Открыть отдельно». Разделение экрана и ссылка синхронизируются с учеником.'});
+      sitePanel.append(head,frame,note);
+    }
   };
   renderSite();root.append(sitePanel);
   const tb=(icon,lb,fn,t)=>{const b=E('button',{className:'tbtn',title:lb,'aria-label':lb,onclick:fn},ic(icon));if(t)b.dataset.t=t;return b};
@@ -2086,7 +2097,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
-    formatObserver.disconnect();cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
+    siteEpoch++;stopSite();formatObserver.disconnect();cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
     call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
     r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
     window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;
