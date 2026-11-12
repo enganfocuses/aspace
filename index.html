@@ -330,6 +330,32 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .grid>.card.new{background:#f1ebf7;border:1px dashed #ad97bd;min-height:230px;font-family:'Playfair Display',Georgia,serif;font-size:23px;color:var(--wine)}
 [data-theme=dark] #main{background-color:#241f29}[data-theme=dark] .home-hero,[data-theme=dark] .grid>.card{background:#302735;color:#eee2e8;border-color:#685364}[data-theme=dark] .home-hero h1,[data-theme=dark] .board-card-title,[data-theme=dark] #main>h2{color:#e7c8d7}[data-theme=dark] .home-hero p{color:#c6b4c2}[data-theme=dark] .board-search{background:#302735;color:#eee2e8}
 @media(max-width:600px){.home-hero{padding:30px 23px;min-height:270px}.home-hero button{width:100%}.home-hero:before{width:30%;opacity:.5}.board-preview{height:120px}}
+
+#app:has(>.home-menu)>header{display:none}
+.home-sections .section-copy strong{overflow-wrap:normal;word-break:normal;font-family:'Oswald','Arial Narrow',sans-serif}
+@media(max-width:480px){.home-sections .section-copy strong{font-size:18px;letter-spacing:-.02em}}
+/* Bottom dock on every screen */
+.bfull .tbar{left:50%;right:auto;top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);flex-direction:row;flex-wrap:nowrap;width:max-content;max-width:calc(100vw - 24px);max-height:64px;overflow-x:auto;overflow-y:hidden;padding:7px;gap:5px}
+.bfull .tbar .sep{width:1px;height:28px;margin:0 4px}.bfull .tbar .tbtn{width:42px;height:42px;flex:none}
+.bfull .hist{left:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px))!important}.bfull .zoom{right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px))!important}
+.bfull .pop{left:50%;top:auto;bottom:calc(145px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-height:calc(100dvh - 270px);max-width:calc(100vw - 24px)}
+.bfull .fbar{left:12px;right:12px;max-width:calc(100vw - 24px)}
+/* Velvet, antique paper and museum collage */
+#main.home-menu{background-color:#360b16;background-image:repeating-linear-gradient(90deg,#16030d66 0px,#82263b22 3px,#a8515822 5px,#1b050c77 8px,#64182c22 12px),radial-gradient(ellipse at top,#75273a88,transparent 75%);padding:35px clamp(16px,4vw,70px) 45px}
+.home-masthead{display:flex;align-items:center;justify-content:center;gap:35px;color:#f2ead8;padding:0 0 26px}.home-masthead h1{font-family:'Oswald',Georgia,serif;font-weight:400;font-size:clamp(54px,8vw,110px);letter-spacing:.12em;line-height:1.1;margin:0;color:inherit}.home-masthead>span{font-size:22px;color:#c4a88b}
+.home-sections{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:1120px;margin:auto}
+.home-sections .section-card{position:relative;isolation:isolate;min-height:370px;border-radius:0;overflow:hidden;padding:28px 22px;display:flex;align-items:flex-end;text-align:center;justify-content:center;background:#eee8d6;color:#29251f;border:1px solid #dbcdbb;box-shadow:0 8px 24px #0004;transition:transform .2s}
+.home-sections .section-card:hover{transform:translateY(-5px);background:#eee8d6;box-shadow:0 14px 30px #0006}
+.section-art{position:absolute;inset:0;z-index:-2;background-size:cover;background-position:center;filter:saturate(.55) sepia(.15)}
+.section-copy{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:100%}.section-copy strong{font-family:'Oswald',Georgia,serif;font-stretch:condensed;font-weight:400;text-transform:uppercase;font-size:clamp(26px,2.8vw,40px);line-height:1.12;overflow-wrap:anywhere}.section-copy>span{font-size:13px;font-weight:400;line-height:1.4;max-width:210px}.section-enter{position:absolute;right:13px;top:8px;font-size:22px}
+.section-boards .section-art,.section-education .section-art{background-image:linear-gradient(0deg,#151b16ee,transparent 80%),url('assets/home/art-436535.jpg')}.home-sections .section-boards{color:#fff9e9}.section-education .section-copy{background:#f5efdded;padding:20px 12px;outline:1px solid #6b7155;outline-offset:-6px}
+.section-calls .section-art,.section-psychology .section-art{background-image:url('assets/home/art-436105.jpg')}.section-calls .section-art{background-position:35% center}.section-calls .section-copy{background:#f8f1e1ed;padding:18px 14px;clip-path:polygon(0 3%,97% 0,100% 97%,2% 100%)}
+.home-sections .section-psychology{color:#f9f2df}.section-psychology .section-art{background-image:linear-gradient(0deg,#1b0a16ee,transparent),url('assets/home/art-436105.jpg');background-position:78% center}
+.home-sections .section-usage{background:radial-gradient(ellipse at 50% 28%,#827d70 0,#252829 26%,#9c8d73 27%,#c9bca2 28%,#514b40 30%,transparent 31%),#e8e0cc;align-items:flex-end}.section-usage:before{content:'☾';position:absolute;top:11%;left:0;right:0;font-family:Georgia,serif;font-size:100px;color:#eee8d0;text-shadow:0 3px 18px #fff7}
+.home-sections .section-reserve{background:radial-gradient(ellipse at 50% 25%,#7b3344 0,transparent 45%),#360c1a;color:#f5e8d3;border-color:#a18068}.section-reserve:before{content:'❦';position:absolute;top:6%;font-family:Georgia,serif;font-size:140px;line-height:1.2;color:#bfad8a;text-shadow:0 4px 5px #0008}.section-reserve:after{content:'';position:absolute;inset:10px;border:1px solid #b49c77;pointer-events:none}
+.home-footer{display:flex;justify-content:center;gap:10px;margin-top:28px}.home-footer button{background:var(--lav);color:#49354f}
+@media(max-width:900px){.home-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.home-sections .section-card{min-height:330px}}
+@media(max-width:480px){#main.home-menu{padding:24px 12px}.home-masthead{gap:12px}.home-sections{gap:9px}.home-sections .section-card{min-height:285px;padding:19px 10px}.section-copy strong{font-size:25px}.section-copy>span{font-size:12px}.section-copy{gap:10px}.section-calls .section-copy,.section-education .section-copy{padding:16px 9px}.home-sections .section-usage:before{font-size:80px}.bfull .fbar{top:118px}}
 </style></head><body>
 <div id="root"></div>
 <script>
@@ -636,7 +662,7 @@ const say2=t=>{const e=E('div',{className:'toast',textContent:t});e.style.displa
 addEventListener('hashchange',()=>location.reload());
 let cleanup=()=>{};
 const main=()=>$('#main');
-const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';await fn(main())};
+const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
 function loginView(message=''){
@@ -671,7 +697,7 @@ function goHome(){
   if(location.hash.startsWith('#s-')){say2('Это гостевая доска. Для повторного входа используй ту же ссылку.');return}
   if(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid){
     history.replaceState(null,'',location.pathname+location.search);
-    shell(false);
+    shell(false);go(homeView);
   }else go(boardsView);
 }
 function shell(guest){
@@ -685,7 +711,7 @@ function shell(guest){
   else if(h==='#psychology'&&currentUser?.uid===CFG.ownerUid)go(psychologyView);
   else if(h.startsWith('#usage?reading=')&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h.startsWith('#c-'))go(m=>roomUI(m,h.slice(3),'Видеозвонок',false));
-  else go(boardsView);
+  else go(guest?boardsView:homeView);
 }
 
 async function usageView(m){
@@ -937,6 +963,24 @@ async function callView(m){
 }
 
 /* ---------- доски ---------- */
+
+function homeView(m){
+  m.className='home-menu';
+  const sections=[
+    ['Доски','Все ваши рабочие пространства',()=>go(boardsView),'boards'],
+    ['Видеозвонки','Встречи и совместные занятия',()=>go(callView),'calls'],
+    ['Образование','Курсы и материалы для уроков',()=>go(eduView),'education'],
+    ['Психология','КПТ · курс, дневник и практики',()=>go(psychologyView),'psychology'],
+    ['Лимиты','Использование пространства',()=>go(usageView),'usage'],
+    ['Резерв Cloudflare','Проверка и подготовка копий',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'),'reserve']
+  ];
+  const grid=E('nav',{className:'home-sections',ariaLabel:'Разделы Aspace'});
+  for(const [title,description,action,key] of sections){
+    const card=E('button',{className:'section-card section-'+key,onclick:action},E('span',{className:'section-art',ariaHidden:'true'}),E('span',{className:'section-copy'},E('strong',{textContent:title}),E('span',{textContent:description})),E('span',{className:'section-enter',textContent:'↗',ariaHidden:'true'}));grid.append(card);
+  }
+  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},B(themeIsDark()?'Светлая тема':'Тёмная тема',()=>{toggleTheme();go(homeView)}),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()})));
+}
+
 async function boardsView(m){
   const idx=(await load('meta/boards'))||{items:[]};
   const g=E('div',{className:'grid'});
@@ -1005,7 +1049,7 @@ async function boardsView(m){
     card.append(actions);g.append(card);
   });
   const search=E('input',{className:'board-search',type:'search',placeholder:'Найти доску по названию…',ariaLabel:'Поиск досок',oninput:()=>{for(const card of g.children)if(card!==nw)card.hidden=!card.dataset.name.includes(search.value.trim().toLocaleLowerCase())}});
-  m.append(E('section',{className:'home-hero'},E('div',{},E('span',{className:'atelier-kicker',textContent:'Aspace · личное ателье идей'}),E('h1',{textContent:'Здесь рождаются ваши идеи'}),E('p',{textContent:'Все доски, занятия и совместная работа — в одном месте.'})),B('＋ Создать доску',()=>nw.click())),E('h2',{textContent:'Мои доски · '+idx.items.length}),search,g);
+  m.append(E('div',{className:'row',style:'justify-content:space-between;margin-bottom:20px'},E('h2',{textContent:'Мои доски · '+idx.items.length}),B('＋ Создать доску',()=>nw.click())),search,g);
   if(currentUser?.uid===CFG.ownerUid)m.append(
     E('div',{className:'row',style:'margin-top:16px;align-items:center'},
       B('🧠 Психология · КПТ',()=>go(psychologyView)),
