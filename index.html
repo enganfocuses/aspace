@@ -358,7 +358,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 @media(max-width:480px){#main.home-menu{padding:24px 12px}.home-masthead{gap:12px}.home-sections{gap:9px}.home-sections .section-card{min-height:285px;padding:19px 10px}.section-copy strong{font-size:25px}.section-copy>span{font-size:12px}.section-copy{gap:10px}.section-calls .section-copy,.section-education .section-copy{padding:16px 9px}.home-sections .section-usage:before{font-size:80px}.bfull .fbar{top:118px}}
 .bfull .fbar{top:auto;bottom:calc(145px + env(safe-area-inset-bottom,0px))}
 </style>
-<link rel="stylesheet" href="workspace-theme.css?v=2"></head><body>
+<link rel="stylesheet" href="workspace-theme.css?v=3"></head><body>
 <div id="root"></div>
 <script>
 const $=s=>document.querySelector(s);
@@ -366,9 +366,16 @@ const E=(t,p={},...k)=>{const e=document.createElement(t);Object.assign(e,p);e.a
 const B=(t,f,c='')=>E('button',{textContent:t,onclick:f,className:c});
 const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
-const themeIsDark=()=>ls.g('aspace-theme','light')==='dark';
-function applyTheme(){document.documentElement.dataset.theme=themeIsDark()?'dark':'light';const b=document.querySelector('.theme-toggle');if(b)b.textContent=themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема'}
-function toggleTheme(){ls.s('aspace-theme',themeIsDark()?'light':'dark');applyTheme()}
+const THEMES=[['beige','Бежевая'],['lavender','Лавандовая'],['dark','Тёмная · винная']];
+const currentTheme=()=>{const value=ls.g('aspace-theme','beige');return THEMES.some(([key])=>key===value)?value:'beige'};
+const themeIsDark=()=>currentTheme()==='dark';
+function applyTheme(){
+  const theme=currentTheme();document.documentElement.dataset.theme=theme;
+  document.querySelectorAll('.theme-select').forEach(select=>select.value=theme);
+  document.querySelectorAll('iframe').forEach(frame=>{try{frame.contentWindow.postMessage({type:'aspace-theme',theme},'*')}catch{}});
+}
+function themeControl(){return E('label',{className:'theme-control'},E('span',{textContent:'Тема'}),E('select',{className:'theme-select',ariaLabel:'Оформление Aspace',value:currentTheme(),onchange:event=>{ls.s('aspace-theme',event.target.value);applyTheme()}},...THEMES.map(([value,textContent])=>E('option',{value,textContent,selected:value===currentTheme()}))))}
+
 applyTheme();
 if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Aspace offline shell:',e)));}
 const CAPS=Promise.resolve();
@@ -664,7 +671,7 @@ const say2=t=>{const e=E('div',{className:'toast',textContent:t});e.style.displa
 addEventListener('hashchange',()=>location.reload());
 let cleanup=()=>{};
 const main=()=>$('#main');
-const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Образование',psychologyView:'Психология',usageView:'Лимиты'};const title=sections[fn.name];if(title){main().className='workspace-view';main().append(E('nav',{className:'section-breadcrumb',ariaLabel:'Навигация раздела'},B('⌂ Домой',goHome),E('span',{textContent:'ASPACE / '+title})))}await fn(main())};
+const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Образование',psychologyView:'Психология',usageView:'Лимиты'};const title=sections[fn.name];if(title){main().className='workspace-view';main().append(E('nav',{className:'section-breadcrumb',ariaLabel:'Навигация раздела'},B('⌂ Домой',goHome),E('span',{textContent:'ASPACE / '+title})))}await fn(main())};
 
 /* ---------- старт / пароль ---------- */
 function loginView(message=''){
@@ -703,8 +710,9 @@ function goHome(){
   }else go(boardsView);
 }
 function shell(guest){
-  const hd=E('header',{},E('b',{textContent:'Aspace'}),B(themeIsDark()?'☀️ Светлая тема':'🌙 Тёмная тема',toggleTheme,'theme-toggle'),B('⌂ Домой',goHome));
-  if(!guest){hd.append(B('📹 Видеозвонок',()=>go(callView)),B('🗂 Доски',()=>go(boardsView)),B('🎓 Образование',()=>go(eduView)),B('🧠 Психология',()=>go(psychologyView)),B('📊 Лимиты',()=>go(usageView)),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}))}
+  const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
+  const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
+  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Образование',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Лимиты',usageView,'V'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout')));
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -732,7 +740,7 @@ async function usageView(m){
 async function psychologyView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
  history.replaceState(null,'',location.pathname+location.search+'#psychology');
- const url='./psychology/index.html?v=2';
+ const url='./psychology/index.html?v=2&theme='+currentTheme();
  m.append(E('h2',{textContent:'Психология · самоучитель навыков КПТ'}),
   E('p',{className:'mut',textContent:'24 модуля, 16 рабочих форм, тренажёр ситуаций и библиотека. Личные ответы хранятся в локальном зашифрованном дневнике; они не отправляются в базы Aspace.'}),
   E('div',{className:'row',style:'margin:12px 0'},B('↗ Открыть на весь экран',()=>window.open(url,'_blank','noopener,noreferrer'))));
@@ -980,7 +988,7 @@ function homeView(m){
   for(const [title,description,action,key] of sections){
     const card=E('button',{className:'section-card section-'+key,onclick:action},E('span',{className:'section-art',ariaHidden:'true'}),E('span',{className:'section-copy'},E('strong',{textContent:title}),E('span',{textContent:description})),E('span',{className:'section-enter',textContent:'↗',ariaHidden:'true'}));grid.append(card);
   }
-  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},B(themeIsDark()?'Светлая тема':'Тёмная тема',()=>{toggleTheme();go(homeView)}),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()})));
+  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()})));
 }
 
 async function boardsView(m){
@@ -1114,6 +1122,7 @@ const ICONS={
  vote:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-7"/>',
  comment:'<path d="M20 11a8 8 0 01-11 8l-6 2 2-6A8 8 0 1120 11zM9 11h6M12 8v6"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
+ split:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/>',
  home:'<path d="M3 10.5L12 3l9 7.5M5.5 9v11h13V9M9.5 20v-6h5v6"/>',
  align:'<path d="M4 5h16M4 12h10M4 19h16M18 9l3 3-3 3"/>',
  full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'};
@@ -1536,11 +1545,11 @@ async function openBoard(m,id,guest,shareToken=null){
   const root=E('div',{className:'bfull'+(guest?' readonly':'')+(isOwner?' owner-board':'')},sc,toast,fi,fp,fm);if(isOwner){guest=false;root.classList.remove('readonly')}
   const sitePanel=E('section',{className:'site-panel'});
   let lastSite=d.siteUrl||'';
-  const splitButton=E('button',{className:'tbtn split-toggle',textContent:'◫ Раздельный экран',ariaLabel:'Раздельный экран',onclick:()=>{
+  const splitButton=E('button',{className:'tbtn split-toggle',title:'Раздельный экран',ariaLabel:'Раздельный экран',onclick:()=>{
     if(d.siteUrl){applySiteUrl('');return}
     const raw=prompt('Ссылка для совместного просмотра',lastSite);
     if(raw!==null)applySiteUrl(raw);
-  }});
+  }},ic('split'));
   const applySiteUrl=raw=>{
     let url='';if(raw.trim()){try{const u=new URL(raw.trim());if(!['http:','https:'].includes(u.protocol))throw new Error();url=u.href}catch{alert('Нужна полная ссылка, начинающаяся с https:// или http://');return}}
     d.siteUrl=url;renderSite();persist();r.emit('site',{url});
@@ -1904,14 +1913,18 @@ async function openBoard(m,id,guest,shareToken=null){
     if(service)launchMeeting(service);else openVideo(true);
   });
   /* меню */
-  const mp=E('div',{className:'mp'}),mi=(t,fn)=>mp.append(B(t,()=>{mp.classList.remove('open');fn()}));
+  const mp=E('div',{className:'mp'});
+  const menuAction=(container,t,fn)=>{const button=B(t,()=>{mp.classList.remove('open');mb.setAttribute('aria-expanded','false');fn()});container.append(button);return button};
+  const mi=(t,fn)=>menuAction(mp,t,fn);
+  const saveOptions=E('div',{className:'menu-suboptions'}),saveMenu=E('details',{className:'menu-group'},E('summary',{textContent:'Сохранить как'}),saveOptions);
+  const saveFormat=(t,fn)=>menuAction(saveOptions,t,fn);
   const followPanel=E('div',{className:'card',style:'padding:10px;gap:6px'},E('b',{textContent:'Участники · навигация'}),peerSelect,
     B('⇢ Подтянуть к себе',()=>{const id0=peerSelect.value;if(!id0||!peers[id0])return say('Участник не найден. Обнови список и выбери его снова.');r.emit('bring',{to:id0,from:r.id,name:myName,v:myViewport()});say('Отправляю участнику текущую область доски…')}),
     B('◎ Следовать за ним',()=>{const id0=peerSelect.value,p=peers[id0];if(!id0||!p)return say('Участник не найден. Обнови список и выбери его снова.');if(!p.v)return say('Жду, пока участник передаст своё положение на доске…');followId=id0;applyViewport(p.v);say('Следуешь за '+(p.name||'участником'))}),
     B('↪ Прикрепить ко мне',()=>{const id0=peerSelect.value;if(!id0||!peers[id0])return say('Участник не найден. Обнови список и выбери его снова.');r.emit('followme',{to:id0,from:r.id,name:myName,v:myViewport()});say('Отправляю запрос: участник будет следовать за тобой')}),
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
   const bgb=k=>{bg=k;wrap.className='wrap '+k;sc.className='bscroll '+k;r.emit('bg',{bg:k});persist()};
-  const mb=E('button',{className:'mbtn',onclick:()=>mp.classList.toggle('open')},ic('menu'),E('span',{textContent:d.name}));
+  const mb=E('button',{className:'mbtn',ariaLabel:'Меню доски',ariaExpanded:'false',onclick:()=>{mp.classList.toggle('open');mb.setAttribute('aria-expanded',String(mp.classList.contains('open')))}},ic('menu'),E('span',{textContent:d.name}));
   const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:goHome},ic('home'),E('span',{textContent:'Домой'}));
   const centerBoard=B('Центр доски',()=>{
     sc.scrollLeft=Math.max(0,(W*z-sc.clientWidth)/2);
@@ -1930,6 +1943,7 @@ async function openBoard(m,id,guest,shareToken=null){
   sc.addEventListener('pointermove',e=>{if(Date.now()-lastCursorSent<80)return;lastCursorSent=Date.now();const rect=wrap.getBoundingClientRect();r.emit('cursor',{id:r.id,name:myName,x:(e.clientX-rect.left)/z,y:(e.clientY-rect.top)/z})});
   r.on('cursor',event=>{const p=event.data;if(!p||p.id===r.id||!Number.isFinite(p.x)||!Number.isFinite(p.y))return;let node=cursorNodes.get(p.id);if(!node){node=E('span',{className:'remote-pointer'});cursorNodes.set(p.id,node);cursorLayer.append(node)}node.textContent='↖ '+(p.name||'Участник');node.style.left=p.x+'px';node.style.top=p.y+'px';clearTimeout(node._expiry);node._expiry=setTimeout(()=>{node.remove();cursorNodes.delete(p.id)},5000)});
   mi('Поделиться',async()=>{const ix=await load('meta/boards'),board=ix?.items?.find(b=>b.id===id);if(board?.shareToken)copyLink(location.origin+location.pathname+'#s-'+board.shareToken);else say('Создай публичную ссылку в разделе «Домой → Мои доски».')});
+  mp.append(saveMenu);
   mi('Скрыть / показать курсоры участников',()=>{hideCursors=!hideCursors;cursorLayer.hidden=hideCursors});
   mi('⏱ Таймер',()=>{if(!guest)createTimer()});
   mi('☑ Голосование',()=>{if(!guest)createVote()});
@@ -1947,7 +1961,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('← Список досок',()=>go(boardsView));
   if(isOwner)mi('🧠 Психология · КПТ',()=>go(psychologyView));
   if(isOwner)mi('📊 Лимиты пространства',()=>go(usageView));
-  if(boardTransport)mi('Скачать все версии JSON',async()=>{
+  if(boardTransport)saveFormat('Все версии · JSON',async()=>{
     try{const versions=await boardTransport.inspect(),url=URL.createObjectURL(new Blob([JSON.stringify(versions,null,2)],{type:'application/json'}));
       E('a',{href:url,download:(d.name||'board')+'.versions.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);
     }catch(error){alert(error.message)}
@@ -1974,21 +1988,21 @@ async function openBoard(m,id,guest,shareToken=null){
     if(!d.announcement)return say('Сейчас нет активного объявления.');
     d.announcement=null;locallyDismissedAnnouncement='';renderAnnouncement();persist();say('Объявление убрано у всех.');
   });
-  mi('⬇ Сохранить JSON-копию доски',()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);E('a',{href:url,download:(d.name||'board')+'.aspace.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000)});
-  mi('⬇ Экспорт SVG (Miro)',exportSvg);mi('⬇ Экспорт PNG (универсальный)',exportPng);mi('⬇ Печать / сохранить PDF',exportPdf);mi('⬇ Экспорт CSV (текст)',exportCsv);
-  if(isOwner)mi('📹 Видеозвонок на доске',openVideo);
+  saveFormat('JSON · копия доски',()=>{const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);E('a',{href:url,download:(d.name||'board')+'.aspace.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000)});
+  saveFormat('SVG · векторное изображение',exportSvg);saveFormat('PNG · изображение',exportPng);saveFormat('PDF · печать',exportPdf);saveFormat('CSV · текст',exportCsv);
   if(isOwner){mi('⚬ Фон: в точку',()=>bgb('dots'));mi('▫ Фон: чистый',()=>bgb('clean'));
   mi('🖼 Загрузить картинку',()=>fi.click());mi('📄 PDF → картинки',()=>fp.click())}
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
-  if(isOwner){mi('📹 Раздел «Видеозвонки»',()=>go(callView));mi('🎓 Раздел «Образование»',()=>go(eduView))}
+  if(isOwner)mi('🎓 Раздел «Образование»',()=>go(eduView));
+  mp.append(themeControl());
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
   renderAnnouncement();m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
-    else if(e.key==='Escape'){wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
+    else if(e.key==='Escape'){mp.classList.remove('open');mb.setAttribute('aria-expanded','false');saveMenu.open=false;wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
   let polling=false;
@@ -2075,19 +2089,15 @@ function build(text,topic,N=18){
 async function eduView(m){
   // This section is a static local HTML course builder, without load(), save(),
   // Firebase, Worker APIs, shared storage, or server-side processing.
-  const courseUrl='./education/speakout-b1plus-builder.html';
+  const courseUrl='./education/speakout-b1plus-builder.html?theme='+currentTheme();
   const title=E('h2',{textContent:'Образование · HTML-сборщик Speakout B1+'});
-  const info=E('div',{className:'card',style:'padding:16px'},
-    E('b',{textContent:'8 юнитов · 32 урока · EN/RU · индивидуальная практика'}),
-    E('p',{textContent:'Преподавательский сборщик работает в браузере без наших баз данных. Можно пользоваться материалами, выбирать упражнения и собирать рабочие листы для печати или PDF.'}),
-    E('p',{className:'mut',textContent:'Для полностью автономной работы открой HTML-файл напрямую на устройстве. На сайте требуется только разовая загрузка самой страницы.'}));
   const open=B('↗ Открыть сборщик на весь экран',()=>window.open(courseUrl,'_blank','noopener,noreferrer'));
-  const download=E('a',{href:courseUrl,download:'Speakout-B1plus-Course-Builder.html',textContent:'⬇ Скачать локальный HTML-сборщик',style:'display:inline-block;padding:12px;color:#795779'});
+  const download=E('a',{href:courseUrl,download:'Speakout-B1plus-Course-Builder.html',className:'course-download',textContent:'⬇ Скачать локальный HTML-сборщик',style:'display:inline-block;padding:12px;color:#795779'});
   const frame=E('iframe',{src:courseUrl,title:'Speakout B1+ — локальный HTML-сборщик',
     loading:'lazy',referrerPolicy:'no-referrer',
     style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
   frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads');
-  m.append(title,info,E('div',{className:'row',style:'margin:12px 0'},open,download),frame);
+  m.append(title,E('div',{className:'row',style:'margin:12px 0'},open,download),frame);
 }
 
 start();
