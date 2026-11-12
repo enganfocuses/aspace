@@ -11,3 +11,14 @@ The owner authenticates with the existing Firebase ID token. A student authentic
 The server offers only list/read routes. It never sends the Yonote API key to a browser and never logs provider error bodies. The reader shows text, code and public HTTPS images, and links to originals for interactive databases or private attachments. It is not an editor or a replacement for Yonote's interactive views. Each reader request rechecks access. Pagination covers the entire accessible library, not just the first page.
 
 Do not reuse the older workflow's foundation branch: deploy the current main revision to include `yonote.js`. Configure the secret in the Cloudflare dashboard, rather than passing it as a workflow input. An unset secret returns `yonote_not_configured` after access checks.
+
+## Deployment prerequisite
+
+The manual GitHub workflow checks these repository Actions secrets before changing the Worker:
+
+- `CLOUDFLARE_API_TOKEN`: the account's deployment credential for this existing Worker and D1 readiness checks.
+- `CLOUDFLARE_ACCOUNT_ID`: the account containing `aspace-fallback-api`.
+
+Without either, it stops before installing/deploying or changing any cloud resource. Configure these through GitHub Settings → Secrets and variables → Actions, not through chat or a workflow input. Dispatch the workflow from this implementation's branch/revision. Its checkout uses the exact trigger commit (`github.sha`). Existing bindings and variables are retained through `keep_vars = true`.
+
+`YONOTE_API_TOKEN` remains a **Cloudflare Worker Secret**, not a repository variable or a client-side setting. No deployment credential or provider key is included in this PR.
