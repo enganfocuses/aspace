@@ -1,3 +1,4 @@
+import { handleYonote } from "./yonote.js";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const FIREBASE_JWKS = createRemoteJWKSet(
@@ -127,6 +128,7 @@ export default {
     if (!env.DB || !env.FIREBASE_PROJECT_ID || !env.OWNER_UID) {
       return json({ error: "fallback_not_configured" }, 503);
     }
+    if (url.pathname.startsWith("/v1/yonote/")) return handleYonote(request, env, { requireOwner, shareTokenHash, json });
     // Guest access works without a Firebase account. Its capability token is never
     // accepted for owner endpoints and is verified against a SHA-256 hash in D1.
     if (url.pathname === "/v1/shared") {
