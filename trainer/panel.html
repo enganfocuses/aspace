@@ -1,0 +1,1746 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Панель владельца — Слушаю, говорите</title>
+<style>
+  :root{--bg:#4f0e1d;--card:rgba(255,255,255,.08);--bd:rgba(255,255,255,.22);--tx:#faecc4;--mut:rgba(250,236,196,.65);--ac:#92acdd;--acx:#1f2a44;--ok:#9fe3a8;--bad:#ffb4b4;--warn:#ffd28a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:18px 14px 60px}
+  .wrap{max-width:820px;margin:0 auto}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  p.sub{margin:0 0 14px;color:var(--mut);font-size:.9rem}
+  .tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tabs button{padding:10px 16px;border-radius:12px;border:2px solid var(--bd);background:transparent;color:var(--tx);font-size:1rem;font-weight:700;cursor:pointer}
+  .tabs button.on{background:var(--ac);border-color:var(--ac);color:var(--acx)}
+  .tab{display:none}.tab.on{display:block}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:14px}
+  h2{font-size:1.05rem;margin:0 0 8px}
+  label{display:block;font-size:.85rem;color:var(--mut);margin:12px 0 4px}
+  input[type=text],input[type=password],input[type=number],select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:var(--tx);font:inherit;font-size:.95rem}
+  textarea{min-height:90px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--ac);outline-offset:1px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}.row>div{flex:1 1 220px}
+  .sec{padding:9px 14px;border-radius:12px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:.9rem}
+  .sec:disabled{opacity:.55;cursor:wait}
+  .primary{padding:12px 18px;border-radius:14px;border:0;background:var(--ac);color:var(--acx);font-size:1rem;font-weight:800;cursor:pointer}
+  .primary:disabled{opacity:.55;cursor:wait}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+  .hint{font-size:.82rem;color:var(--mut);margin-top:8px}
+  .meta{color:var(--mut);font-size:.88rem}
+  .msg{padding:10px 12px;border-radius:12px;margin-top:10px;font-size:.92rem}
+  .msg.err{background:rgba(255,120,120,.16);border:1px solid rgba(255,150,150,.5);color:var(--bad)}
+  .msg.okk{background:rgba(120,220,140,.14);border:1px solid rgba(150,230,160,.45);color:var(--ok)}
+  .msg.warn{background:rgba(255,200,120,.13);border:1px solid rgba(255,210,140,.45);color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th,td{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+  th{color:var(--mut);font-weight:600}
+  code{background:rgba(0,0,0,.25);padding:1px 5px;border-radius:5px;font-size:.88em}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--mut);font-size:.9rem}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--bd);font-size:.8rem;margin-right:6px}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+  .g{background:#59d27a}.r{background:#ff6b6b}.y{background:#ffc857}.n{background:#888}
+  .ptable td.x{width:34px;text-align:center}
+  .imgprev{max-width:220px;max-height:160px;border-radius:10px;margin-top:8px;display:block}
+  pre.out{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.25);border-radius:10px;padding:10px;font-size:.82rem;max-height:260px;overflow:auto}
+  a{color:var(--ac)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="acts" aria-label="Инструменты тренажера" style="margin-bottom:14px"><a href="panel.html">Панель сайта</a><a href="issue-code.html">Выдача кодов</a><a href="https://speechcoach-anfocuses.com/" target="_blank" rel="noopener noreferrer">Открыть тренажер ↗</a></nav>
+  <h1>Панель владельца</h1>
+  <p class="sub">Сборщик новых тем, вопросов и картин и монитор связок сайта, Telegram и MAX. Всё работает без ИИ. Секретные значения на этой странице не вводятся (кроме ключа владельца, он хранится только в вашем браузере).</p>
+
+  <div class="tabs">
+    <button class="on" data-tab="builder" type="button">🧩 Сборщик</button>
+    <button data-tab="monitor" type="button">🩺 Монитор</button>
+    <button data-tab="release" type="button">🚀 Обновление программы</button>
+    <button data-tab="editor" type="button">✏️ Исправить записи</button>
+    <button data-tab="check" type="button">🔍 Проверка сборки</button>
+    <button data-tab="problems" type="button">🔘 Тексты и кнопки сайта</button>
+    <button data-tab="docs" type="button">📄 Документы</button>
+  </div>
+
+  <!-- ===================== СБОРЩИК ===================== -->
+  <div class="tab on" id="tab-builder">
+    <div class="card">
+      <details>
+        <summary style="font-weight:700;font-size:1.05rem">📘 Как добавить темы и записи: пошаговая инструкция</summary>
+        <ol class="hint" style="margin:8px 0 0 18px;padding:0">
+          <li><b>Основа.</b> Ниже, в шаге 1, загрузите файл функции <code>function-….zip</code>, который сейчас работает в Яндексе. Если файла нет: GitHub → репозиторий <code>enganfocuses/speechcoach-api</code> → вкладка <b>Actions</b> → последний запуск «Проверка данных и сборка function.zip» (зелёная галочка) → внизу страницы раздел <b>Artifacts</b> → <b>function-zip</b> (скачивается архив; внутри будет <code>function.zip</code>, его и загрузите сюда).</li>
+          <li><b>Что добавить.</b> В шаге 2 выберите, <b>в какой блок</b> идут записи: «Темы» (режим «Темы», выбирается категория), «Дебаты», «Интервью», «Переговоры», «Конфликт» (реплики, выбирается сфера), «Литературно», «Речевые приёмы», «Артикуляция», «Дикция», а также все блоки сторителлинга: «Картины», «Отрывки для пересказа», «Словарный запас», «Простые слова», «Продолжи мысль», «Красивая речь» (цитаты и планы). Заполните поля и нажмите «Добавить в пакет». Так можно набрать много записей из разных блоков. <b>Поправить или удалить уже имеющееся</b> можно во вкладке «✏️ Исправить записи».</li>
+          <li><b>Собрать.</b> Шаг 3, «Проверить и собрать»: страница проверит записи (поровну по-русски и по-английски, нет повторов и пустых строк) и выдаст файлы. Если нашла ошибку, напишет какую и где.</li>
+          <li><b>Яндекс (сайт и MAX).</b> Нажмите «⬇ Функция для Яндекса». Откройте console.yandex.cloud → <b>Cloud Functions</b> → ваша функция → вкладка <b>«Редактор»</b> → способ «ZIP-архив» → выберите скачанный файл → <b>«Сохранить изменения»</b> (внизу). Подождите минуту и проверьте: <code>…/d4e55siamfqcav7kct0l?p=ping</code> должно показать версию. Переменные окружения трогать не нужно.</li>
+          <li><b>GitHub (Telegram и резерв).</b> Telegram-бот работает на Cloudflare и берёт данные из репозитория. Чтобы он тоже получил новое, нажмите в шаге 4 «📤 Отправить в GitHub» (нужен токен, инструкция там же): страница создаст Pull request. Откройте его по ссылке и нажмите зелёную кнопку <b>«Merge pull request»</b> → «Confirm merge». Через 1–2 минуты Cloudflare сам обновит бота. <u>Вручную, без токена:</u> GitHub → <code>speechcoach-api</code> → папка <code>src/additions</code> → <b>Add file → Upload files</b> → перетащите файл <code>….json</code> из «Пакета для Claude» → Commit changes (создайте новую ветку и Pull request, затем Merge). Новые картины — в репозиторий <code>enganfocuses/speechcoach</code>, папка <code>paintings</code>, и затем новый архив сайта на хостинг.</li>
+          <li><b>Проверка.</b> Откройте бота и сайт, нажмите «Тема» в изменённом блоке. Если что-то не так, откройте <code>issue-code.html</code> → «Диагностика».</li>
+        </ol>
+        <div class="hint">Важно: пока вы не загрузили функцию в Яндекс <u>и</u> не слили Pull request в GitHub, новые записи видны только на одной из сторон. Делайте оба шага.</div>
+      </details>
+    </div>
+    <div class="card">
+      <h2>1. Основа: предыдущие сборки</h2>
+      <div class="hint" style="margin-top:0">Загрузите один раз файлы, которые сейчас работают. Страница запомнит их в этом браузере, а после каждой сборки новая версия станет основой для следующей.</div>
+      <label for="baseFn">Функция для Яндекса (<code>function-….zip</code>)</label>
+      <input id="baseFn" type="file" accept=".zip">
+      <div class="meta" id="baseFnInfo">не загружена</div>
+      <label for="baseSite">Сайт для хостинга (<code>site-for-hosting.zip</code>), нужен только для новых картин</label>
+      <input id="baseSite" type="file" accept=".zip">
+      <div class="meta" id="baseSiteInfo">не загружен</div>
+      <div class="acts"><button class="sec" id="baseForget" type="button">Забыть основу</button></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Что добавляем</h2>
+      <select id="kind"></select>
+      <div class="hint" id="kindHelp"></div>
+      <div id="form"></div>
+      <div class="acts"><button class="primary" id="addBtn" type="button">Добавить в пакет</button><span class="meta" id="addMsg"></span></div>
+    </div>
+
+    <div class="card">
+      <h2>Пакет изменений <span class="meta" id="packCount"></span></h2>
+      <div id="packList" class="meta">пока пусто</div>
+      <div class="acts"><button class="sec" id="packClear" type="button">Очистить пакет</button></div>
+    </div>
+
+    <div class="card">
+      <h2>3. Сборка</h2>
+      <div class="acts" style="margin-top:0"><button class="primary" id="buildBtn" type="button">Проверить и собрать</button></div>
+      <label class="meta" style="margin-top:12px"><input type="checkbox" id="makeBase" checked> Сделать новую сборку основой для следующих добавок</label>
+      <div id="buildOut"></div>
+      <div id="ghBox" style="display:none">
+        <h2 style="margin-top:16px">4. Внести в репозиторий (без ИИ)</h2>
+        <div class="hint" style="margin-top:0">Кнопка сама создаст в GitHub запрос на слияние (Pull request) с вашими добавками: файл с темами в закрытый репозиторий <code>speechcoach-api</code> и новые картины в репозиторий сайта <code>speechcoach</code>. Вам останется нажать «Merge» в GitHub: после этого Cloudflare обновит Telegram-бот сам.</div>
+        <label for="ghToken">Токен GitHub (нужен один раз, хранится только в вашем браузере)</label>
+        <input id="ghToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+        <div class="row">
+          <div><label for="ghApi">Репозиторий с данными (закрытый)</label><input id="ghApi" type="text" value="enganfocuses/speechcoach-api" autocomplete="off"></div>
+          <div><label for="ghSite">Репозиторий сайта (картины)</label><input id="ghSite" type="text" value="enganfocuses/speechcoach" autocomplete="off"></div>
+        </div>
+        <label class="meta" style="margin-top:8px"><input type="checkbox" id="ghRemember"> запомнить токен в этом браузере</label>
+        <label class="meta" style="margin-top:4px"><input type="checkbox" id="ghMerge"> сразу слить без ожидания (тогда обновление уйдёт в рабочую систему сразу)</label>
+        <div class="acts"><button class="primary" id="ghGo" type="button">📤 Отправить в GitHub</button></div>
+        <div id="ghOut"></div>
+        <details><summary>Как получить токен (один раз)</summary>
+          <ol class="hint" style="margin:6px 0 0 18px;padding:0">
+            <li>GitHub → ваш аватар → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>
+            <li>Название: «панель владельца». Срок: 90 дней.</li>
+            <li>Repository access: <b>Only select repositories</b> → выберите <code>speechcoach-api</code> и <code>speechcoach</code>.</li>
+            <li>Permissions → Repository permissions: <b>Contents: Read and write</b> и <b>Pull requests: Read and write</b> (больше ничего).</li>
+            <li>Нажмите Generate token, скопируйте значение (оно показывается один раз) и вставьте сюда. Токен нельзя отправлять в чат; если он засветился, удалите его в GitHub и создайте новый.</li>
+          </ol>
+        </details>
+      </div>
+      <div class="hint">Что куда: <b>функцию</b> загрузите в Яндекс (Cloud Functions → Редактор → архив → «Сохранить изменения», переменные не трогать). <b>Сайт</b> загрузите на хостинг, если добавляли картины. <b>Пакет</b> (запасной вариант) разложен по папкам репозиториев: <code>speechcoach-api/src/additions/…json</code> и <code>speechcoach/paintings/…jpg</code>. Основной путь: кнопка «Отправить в GitHub» ниже, ИИ для этого не нужен. Пока добавки не внесены в репозиторий, бот в Telegram и MAX работает со старыми списками, а следующая сборка из репозитория не будет знать о ваших добавках.</div>
+    </div>
+  </div>
+
+  <!-- ===================== МОНИТОР ===================== -->
+  <div class="tab" id="tab-monitor">
+    <div class="card">
+      <h2>Монитор связок</h2>
+      <div class="hint" style="margin-top:0">По расписанию (сейчас раз в сутки в 09:00 по Москве; расписание задаётся в файле wrangler.toml) воркер Cloudflare проверяет связки сайта, Telegram, MAX и Яндекса и присылает вам в Telegram сообщение, только когда что-то сломалось или починилось. Здесь можно проверить сразу, увидеть историю и нажать «Исправить».</div>
+      <label for="mKey">Ключ владельца (ADMIN_KEY)</label>
+      <input id="mKey" type="password" autocomplete="off" spellcheck="false" placeholder="не короче 16 знаков">
+      <label for="mApi">Функция в Яндексе</label>
+      <input id="mApi" type="text" autocomplete="off" spellcheck="false">
+      <label for="mWorker">Воркер Cloudflare</label>
+      <input id="mWorker" type="text" autocomplete="off" spellcheck="false">
+      <label class="meta" style="margin-top:10px"><input type="checkbox" id="mRemember"> запомнить ключ и адреса в этом браузере</label>
+      <label class="meta" style="margin-top:6px"><input type="checkbox" id="mAlert"> при ручной проверке отправлять оповещения в Telegram</label>
+      <div class="acts"><button class="primary" id="mGo" type="button">Проверить сейчас</button><button class="sec" id="mHist" type="button">Показать журнал</button><button class="sec" id="mCopy" type="button" style="display:none">Скопировать отчёт для Claude</button></div>
+      <div class="hint" id="mHint"></div>
+      <div id="mOut"></div>
+    </div>
+    <div class="card" id="mHistCard" style="display:none"><h2>Журнал изменений</h2><div id="mHistOut"></div></div>
+    <div class="card">
+      <h2>Предложить замену: новый адрес сайта</h2>
+      <div class="hint" style="margin-top:0">Если сайт переезжает на другой адрес или хостинг, функция должна его разрешить, иначе сайт получит ошибку 403. Введите адрес: страница выдаст готовую замену в коде и шаги.</div>
+      <label for="oDom">Новый адрес сайта (например https://example.com)</label>
+      <input id="oDom" type="text" autocomplete="off" spellcheck="false" placeholder="https://…">
+      <div class="acts"><button class="sec" id="oGo" type="button">Показать замену</button></div>
+      <div id="oOut"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ОБНОВЛЕНИЕ ПРОГРАММЫ ===================== -->
+  <div class="tab" id="tab-release">
+    <div class="card">
+      <h2>🚀 Обновление программы</h2>
+      <div class="hint" style="margin-top:0">Для новых кнопок, режимов, рассылки, текстов сайта и других изменений в самой программе. Загрузите файл <code>speechcoach-release-….zip</code>, который вам прислал Claude: страница покажет, что в нём, сама внесёт изменения в GitHub (Pull request в оба репозитория), отдаст готовую функцию для Яндекса и архив сайта для хостинга и сделает их основой для «Сборщика».</div>
+      <label for="rFile">Файл обновления</label>
+      <input id="rFile" type="file" accept=".zip">
+      <div id="rInfo" class="meta">файл не выбран</div>
+    </div>
+
+    <div class="card" id="rCard" style="display:none">
+      <h2>Что в обновлении</h2>
+      <div id="rDetails"></div>
+      <div class="acts" id="rDl"></div>
+      <label for="rToken" style="margin-top:14px">Токен GitHub (тот же, что во вкладке «Сборщик»; хранится только в вашем браузере)</label>
+      <input id="rToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      <div class="row">
+        <div><label for="rRepoApi">Закрытый репозиторий (бот, функция, панель)</label><input id="rRepoApi" type="text" autocomplete="off"></div>
+        <div><label for="rRepoSite">Репозиторий сайта</label><input id="rRepoSite" type="text" autocomplete="off"></div>
+      </div>
+      <label class="meta" style="margin-top:8px"><input type="checkbox" id="rRemember"> запомнить токен в этом браузере</label>
+      <label class="meta" style="margin-top:4px"><input type="checkbox" id="rMerge"> сразу слить без ожидания (тогда обновление уйдёт в рабочую систему сразу)</label>
+      <div class="acts"><button class="sec" id="rCheck" type="button">🔎 Проверить, что изменится в GitHub</button><button class="primary" id="rGo" type="button">📤 Отправить в GitHub</button></div>
+      <div id="rOut"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ИСПРАВЛЕНИЕ ЗАПИСЕЙ ===================== -->
+  <div class="tab" id="tab-editor">
+    <div class="card">
+      <h2>✏️ Все записи: просмотр, исправление, удаление, добавление</h2>
+      <div class="hint" style="margin-top:0">Здесь видны <b>все записи, которые сейчас есть в программе</b>, по всем режимам: темы по категориям, дебаты, интервью, переговоры, «Конфликт», речевые приёмы, артикуляция, дикция и все режимы сторителлинга. Любую запись можно найти по слову, <b>исправить</b>, <b>удалить</b> или <b>добавить</b> новую. Правки собираются в общий <b>пакет изменений</b> (он виден во вкладке «Сборщик»); сам список обновится после сборки.<br>
+        <b>Для работы нужна основа:</b> во вкладке «Сборщик» (шаг 1) загрузите файл функции, который сейчас работает в Яндексе (версия 2026-10-09.57 или новее), и тогда здесь появятся все списки. Дальше см. «Сборщик» → «Что делать после сборки».</div>
+      <div class="row">
+        <div><label for="edSec">Раздел</label><select id="edSec"></select></div>
+        <div id="edSubWrap" style="display:none"><label for="edSub" id="edSubLab">Категория</label><select id="edSub"></select></div>
+      </div>
+      <label for="edFind">Найти по слову</label>
+      <input id="edFind" type="text" autocomplete="off" placeholder="часть слова, автора, цитаты…">
+      <div id="edInfo" class="meta" style="margin-top:8px"></div>
+      <div class="acts"><button class="sec" id="edAdd" type="button">➕ Добавить запись в этот список</button><button class="sec" id="edCsv" type="button">⬇ Скачать весь список таблицей (CSV)</button></div>
+      <div id="edTable"></div>
+      <div class="acts"><button class="sec" id="edMore" type="button" style="display:none">Показать ещё 100</button></div>
+    </div>
+    <div class="card" id="edFormCard" style="display:none">
+      <h2 id="edFormTitle">Изменить запись</h2>
+      <div id="edForm"></div>
+      <div class="acts"><button class="primary" id="edSave" type="button">Добавить правку в пакет</button><button class="sec" id="edCancel" type="button">Отмена</button></div>
+      <div id="edMsg" class="meta"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ПРОВЕРКА СБОРКИ ===================== -->
+  <div class="tab" id="tab-check">
+    <div class="card">
+      <h2>🔍 Проверка файлов перед загрузкой</h2>
+      <div class="hint" style="margin-top:0">Загрузите сюда файл, который собираетесь выложить, и страница проверит его <b>до</b> загрузки в Яндекс или на хостинг: читаются ли файлы, нет ли синтаксических ошибок, проходят ли данные проверку (поровну по-русски и по-английски, нет пустых строк), один ли и тот же адрес функции, на месте ли документы и шрифты. Файл никуда не отправляется.</div>
+      <label for="ckFn">Функция для Яндекса (<code>function-….zip</code>)</label>
+      <input type="file" id="ckFn" accept=".zip">
+      <div id="ckFnOut"></div>
+      <label for="ckSite">Сайт для хостинга (<code>site-for-hosting.zip</code>)</label>
+      <input type="file" id="ckSite" accept=".zip">
+      <div id="ckSiteOut"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ПРОБЛЕМЫ ===================== -->
+  <div class="tab" id="tab-problems">
+    <div class="card">
+      <h2>Тексты и кнопки сайта</h2>
+      <div class="hint" style="margin-top:0"><b>Если что-то не работает (оплата, доступ, рассылка), откройте <code>issue-code.html</code> → «Диагностика» или вкладку «🩺 Монитор»: эта вкладка только для правки надписей и ссылок.</b> Выберите, что нужно поправить в коде сайта, заполните поля и нажмите кнопку: страница сама создаст в GitHub запрос на слияние (Pull request) с правкой. Вам останется открыть его и нажать «Merge pull request», затем загрузить свежий архив сайта на хостинг. Без ИИ, ничего не ломается: правится только одна строка.</div>
+      <label for="pToken">Токен GitHub (тот же, что во вкладке «Сборщик»; хранится только в вашем браузере)</label>
+      <input id="pToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      <div class="row">
+        <div><label for="pRepo">Репозиторий сайта</label><input id="pRepo" type="text" value="enganfocuses/speechcoach" autocomplete="off"></div>
+        <div><label for="pFile">Файл</label><input id="pFile" type="text" value="index.html" autocomplete="off"></div>
+      </div>
+      <label class="meta" style="margin-top:8px"><input type="checkbox" id="pRemember"> запомнить токен в этом браузере</label>
+    </div>
+
+    <div class="card" id="pBtnCard">
+      <h2>🔘 Изменить текст на кнопках</h2>
+      <div class="hint" style="margin-top:0">Надпись на кнопке сайта по-русски и по-английски. Нажмите «Показать текущий текст», чтобы подтянуть то, что сейчас написано.</div>
+      <label for="pBtn">Кнопка</label>
+      <select id="pBtn"></select>
+      <div class="row">
+        <div><label for="pRu">Текст по-русски</label><input id="pRu" type="text" maxlength="60" autocomplete="off"></div>
+        <div><label for="pEn">Текст по-английски</label><input id="pEn" type="text" maxlength="60" autocomplete="off"></div>
+      </div>
+      <div class="acts"><button class="sec" id="pBtnLoad" type="button">Показать текущий текст</button><button class="primary" id="pBtnGo" type="button">📤 Создать Pull request с новым текстом</button></div>
+      <div id="pBtnOut"></div>
+    </div>
+
+    <div class="card" id="pMoreCard">
+      <h2>✨ Тексты в блоке «Больше режимов»</h2>
+      <div class="hint" style="margin-top:0">Пояснения, которые видны, когда на сайте нажимают «Больше режимов» и «Поддержать». Выберите текст, нажмите «Показать текущий текст», поправьте по-русски и по-английски. В тексте можно использовать кавычки «ёлочки» и знак ₽; переносы строки и угловые скобки нельзя.</div>
+      <label for="pMore">Какой текст</label>
+      <select id="pMore"></select>
+      <label for="pMoreRu">По-русски</label>
+      <textarea id="pMoreRu" rows="3" maxlength="600" autocomplete="off"></textarea>
+      <label for="pMoreEn">По-английски</label>
+      <textarea id="pMoreEn" rows="3" maxlength="600" autocomplete="off"></textarea>
+      <div class="acts"><button class="sec" id="pMoreLoad" type="button">Показать текущий текст</button><button class="primary" id="pMoreGo" type="button">📤 Создать Pull request с новым текстом</button></div>
+      <div id="pMoreOut"></div>
+    </div>
+
+    <div class="card" id="pLinkCard">
+      <h2>🔗 Изменить ссылки кнопок</h2>
+      <div class="hint" style="margin-top:0">Куда ведут круглые кнопки Telegram и MAX возле «Собрать тренировку» и ссылка автора в нижней строке. Адрес должен начинаться с https://.</div>
+      <label for="pLink">Ссылка</label>
+      <select id="pLink"></select>
+      <label for="pUrl">Новый адрес</label>
+      <input id="pUrl" type="text" autocomplete="off" spellcheck="false" placeholder="https://…">
+      <div class="acts"><button class="sec" id="pLinkLoad" type="button">Показать текущий адрес</button><button class="primary" id="pLinkGo" type="button">📤 Создать Pull request с новой ссылкой</button></div>
+      <div id="pLinkOut"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ДОКУМЕНТЫ ===================== -->
+  <div class="tab" id="tab-docs">
+    <div class="card">
+      <h2>📄 Документы сайта: оферта, политика, согласие</h2>
+      <div class="hint" style="margin-top:0"><b>Как это работает.</b> Документы лежат на сайте тремя файлами: <code>offer.html</code> (оферта), <code>privacy.html</code> (политика), <code>consent.html</code> (согласие). Здесь их можно поменять двумя способами:<br>
+        <b>А. Править текст по абзацам.</b> Страница достаёт текущий документ из GitHub и показывает каждый абзац, пункт и ячейку таблицы в отдельном окошке. Меняете нужное, остальное не трогаете.<br>
+        <b>Б. Загрузить готовый файл целиком.</b> Если вам прислали новую версию документа файлом .html (например, от юриста или от Claude), загрузите его.<br>
+        Дальше в обоих случаях кнопка «Сохранить» делает две вещи: создаёт в GitHub запрос на слияние (Pull request), чтобы правка не потерялась, и собирает <b>новый архив сайта</b> для хостинга (на основе архива во вкладке «Сборщик», карточка «Основа»).</div>
+      <ol class="hint" style="margin:6px 0 0 18px;padding:0">
+        <li>Вставьте токен GitHub (тот же, что в «Сборщике»; хранится только в вашем браузере).</li>
+        <li>Выберите документ и нажмите «Открыть документ» (способ А) или выберите файл (способ Б).</li>
+        <li>Поправьте текст. Изменённые абзацы подсвечиваются. Не удаляйте знаки вида &lt;a …&gt;, &lt;b&gt;, &lt;br&gt;: это ссылки и выделение, их можно оставлять как есть.</li>
+        <li>Не забудьте дату: кнопка «Поставить сегодняшнюю дату редакции» меняет «Редакция от …» в шапке документа.</li>
+        <li>Нажмите «Сохранить: Pull request и архив сайта». Откройте Pull request в GitHub и нажмите «Merge pull request».</li>
+        <li>Скачайте «Архив сайта с этим документом» и загрузите его на хостинг (так же, как обычный <code>site-for-hosting.zip</code>). Страница запомнит этот архив как новую основу.</li>
+        <li>Откройте документ на сайте и проверьте, что изменения видны (в браузере нажмите Ctrl+F5).</li>
+      </ol>
+      <div class="hint">Важно: перед следующей правкой всегда сливайте предыдущий Pull request. Если в тексте документа изменились цены, реквизиты или условия оплаты, поменяйте их и в боте/на сайте (раздел «Платные режимы»), иначе документ и программа разойдутся.</div>
+    </div>
+
+    <div class="card">
+      <h2>1. Доступ</h2>
+      <label for="dToken">Токен GitHub</label>
+      <input id="dToken" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      <div class="row">
+        <div><label for="dRepo">Репозиторий сайта</label><input id="dRepo" type="text" value="enganfocuses/speechcoach" autocomplete="off"></div>
+        <div><label for="dFile">Документ</label><select id="dFile"><option value="offer.html">Публичная оферта (offer.html)</option><option value="privacy.html">Политика конфиденциальности (privacy.html)</option><option value="consent.html">Согласие на обработку данных (consent.html)</option></select></div>
+      </div>
+      <label class="meta" style="margin-top:8px"><input type="checkbox" id="dRemember"> запомнить токен в этом браузере</label>
+    </div>
+
+    <div class="card">
+      <h2>2А. Править текст по абзацам</h2>
+      <div class="acts"><button class="sec" id="dOpen" type="button">Открыть документ</button><button class="sec" id="dToday" type="button" disabled>Поставить сегодняшнюю дату редакции</button></div>
+      <input id="dFind" type="text" placeholder="Найти абзац по слову…" autocomplete="off" style="display:none;margin-top:10px">
+      <div id="dBlocks"></div>
+    </div>
+
+    <div class="card">
+      <h2>2Б. Или загрузить новый файл целиком</h2>
+      <div class="hint" style="margin-top:0">Файл .html — полная замена выбранного выше документа. Проверка: это страница с заголовком, главным блоком и без скриптов.</div>
+      <input type="file" id="dUpload" accept=".html,.htm,text/html">
+      <div id="dUpInfo" class="hint"></div>
+    </div>
+
+    <div class="card">
+      <h2>3. Сохранить</h2>
+      <div class="acts"><button class="primary" id="dSave" type="button">📤 Сохранить: Pull request и архив сайта</button></div>
+      <div id="dOut"></div>
+    </div>
+  </div>
+</div>
+
+<script type="text/plain" id="coreSrc">// Общая логика добавления новых тем, вопросов, упражнений и картин. Без внешних библиотек и без ИИ.
+// Используется в трёх местах (один и тот же код): сборка функции и воркера (yandex/build.mjs), страница-сборщик admin/panel.html
+// и проверки (tools/check-additions.mjs). Копия в admin/panel.html между маркерами //<core> и //</core> проверяется тестом.
+// Каждая добавка — это операция вида { op: "topics", cat: "travel", items: [["по-русски", "in English"], ...] }.
+// Повторное применение безопасно: уже существующие записи пропускаются (сравнение без учёта регистра, пробелов и «ё»).
+//<core>
+(function (root) {
+  var key = function (s) { return String(s == null ? "" : s).replace(/\u0301/g, "").toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim(); }; // без знака ударения: слова с ударениями и без считаются одинаковыми
+  var ne = function (x) { return typeof x === "string" && x.trim().length > 0; };
+  var pair = function (p) { return Array.isArray(p) && p.length === 2 && ne(p[0]) && ne(p[1]); };
+  var clean = function (a) { return a.map(function (x) { return String(x).trim(); }); };
+
+  // Как называются типы и куда они складываются
+  var KINDS = {
+    topics: "Темы (режим «Темы», тренировка)",
+    debate: "Дебаты (тезисы)",
+    interview: "Интервью (вопрос + пример ответа)",
+    nego: "Переговоры (кейс + решение)",
+    conflict: "Конфликт (реплики-нападения)",
+    trick: "Речевые приёмы",
+    articulation: "Артикуляция",
+    diction: "Дикция (скороговорки)",
+    vocab: "Словарный запас",
+    simple: "Простые слова",
+    excerpt: "Отрывки для пересказа",
+    painting: "Картины",
+    thought: "Сторителлинг: «Продолжи мысль» (мысль)",
+    speechquote: "Сторителлинг: «Тренировка красивой речи» (цитата)",
+    speechplan: "Сторителлинг: «Тренировка красивой речи» (план речи)",
+    conflictlit: "Конфликт: реакция «Литературно» (цитата писателя)",
+    edit: "Исправление записи",
+    remove: "Удаление записи",
+  };
+  // Списки, записи которых можно исправлять и удалять (режимы сторителлинга и «Литературно»). key — по чему запись находится; check — правила для новой версии записи
+  var LISTS = {
+    vocab: { name: "Словарный запас", get: function (D) { return D.VOCAB; }, key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && x.every(ne) ? "" : "нужно 4 строки (слово RU, значение RU, слово EN, значение EN)"; } },
+    simple: { name: "Простые слова", get: function (D) { return D.SIMPLE_WORDS; }, key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && x.every(ne) ? "" : "нужно 4 строки (слово RU, слово EN, описание RU, описание EN)"; } },
+    thought: { name: "Продолжи мысль", get: function (D) { return D.CONTINUE_THOUGHTS; }, key: function (x) { return x[0]; }, check: function (x) { return pair(x) ? "" : "нужна пара «по-русски, in English»"; } },
+    excerpt_ru: { name: "Отрывки для пересказа (русские)", get: function (D) { return D.EXCERPTS_RU; }, key: function (x) { return x.text.slice(0, 80); }, check: function (x) { return x && ne(x.text) && ne(x.author) && ne(x.source) ? "" : "нужны текст, автор и источник"; } },
+    excerpt_en: { name: "Отрывки для пересказа (английские)", get: function (D) { return D.EXCERPTS_EN; }, key: function (x) { return x.text.slice(0, 80); }, check: function (x) { return x && ne(x.text) && ne(x.author) && ne(x.source) ? "" : "нужны текст, автор и источник"; } },
+    painting: { name: "Картины", get: function (D) { return D.PAINTINGS; }, key: function (x) { return x.img; }, check: function (x) { return x && /^\d{3}$/.test(String(x.img)) && ne(x.file) && pair(x.artist) && pair(x.title) && pair(x.context) && ne(x.year) && (!x.bio || pair(x.bio)) ? "" : "нужны номер, файл, художник, название, год и описание на двух языках"; } },
+    speechquote: { name: "Красивая речь: цитаты", get: function (D) { return D.SPEECH_QUOTES; }, key: function (x) { return x[0]; }, check: function (x, D) { return Array.isArray(x) && x.length === 5 && x.slice(0, 4).every(ne) && Array.isArray(x[4]) && x[4].length && x[4].every(function (c) { return D.topics[c]; }) ? "" : "нужны цитата RU, цитата EN, автор RU, автор EN и категории из списка"; } },
+    speechplan: { name: "Красивая речь: планы речи", get: function (D) { return D.SPEECH_PLANS; }, key: function (x) { return x.id; }, noRemove: true, check: function (x) { return planProblem(x); } },
+    conflictlit: { name: "Конфликт: «Литературно»", get: function (D) { return D.CONFLICT_LIT; }, key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && x.every(ne) ? "" : "нужно 4 строки (цитата RU, цитата EN, автор RU, автор EN)"; } },
+  };
+
+  // Остальные списки: темы по категориям, дебаты, интервью, переговоры, «Конфликт» по сферам, приёмы, артикуляция, дикция.
+  // Часть данных хранится двумя параллельными списками (RU и EN, вопрос и ответ): здесь они собираются в одну запись; set/del меняют обе части.
+  var strN = function (a, n) { return Array.isArray(a) && a.length === n && a.every(ne); };
+  var CAT_LISTS = {
+    topics: function (id) { // id = topics:<категория>
+      var cat = id.slice(7);
+      return { name: "Темы · " + cat,
+        get: function (D) { var c = D.topics && D.topics[cat]; return c ? c.ru.map(function (r, i) { return [r, c.en[i]]; }) : null; },
+        key: function (x) { return x[0]; }, check: function (x) { return pair(x) ? "" : "нужна пара «по-русски, in English»"; },
+        set: function (D, i, it) { D.topics[cat].ru[i] = it[0]; D.topics[cat].en[i] = it[1]; }, del: function (D, i) { D.topics[cat].ru.splice(i, 1); D.topics[cat].en.splice(i, 1); } };
+    },
+    conflict: function (id) { // id = conflict:<сфера>
+      var dom = id.slice(9);
+      return { name: "Конфликт · реплики · " + dom,
+        get: function (D) { return D.CONFLICT_DOMAINS && D.CONFLICT_DOMAINS[dom] ? D.CONFLICT_DOMAINS[dom].attacks : null; },
+        key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && ne(x[0]) && ne(x[1]) ? "" : "нужно 4 строки (реплика RU, EN, подсказка RU, EN; подсказки можно пустыми)"; } };
+    },
+  };
+  var FIXED_LISTS = {
+    debate: { name: "Дебаты · тезисы",
+      get: function (D) { return D.debateTheses.ru.map(function (r, i) { return [r, D.debateTheses.en[i]]; }); },
+      key: function (x) { return x[0]; }, check: function (x) { return pair(x) ? "" : "нужна пара «тезис, thesis»"; },
+      set: function (D, i, it) { D.debateTheses.ru[i] = it[0]; D.debateTheses.en[i] = it[1]; }, del: function (D, i) { D.debateTheses.ru.splice(i, 1); D.debateTheses.en.splice(i, 1); } },
+    interview: { name: "Интервью · вопросы и ответы",
+      get: function (D) { return D.INTERVIEW_QUESTIONS.map(function (q, i) { return { q: q, a: D.INTERVIEW_ANSWERS[i] }; }); },
+      key: function (x) { return x.q[0]; }, check: function (x) { return x && pair(x.q) && pair(x.a) ? "" : "нужны вопрос и пример ответа на двух языках"; },
+      set: function (D, i, it) { D.INTERVIEW_QUESTIONS[i] = clean(it.q); D.INTERVIEW_ANSWERS[i] = clean(it.a); }, del: function (D, i) { D.INTERVIEW_QUESTIONS.splice(i, 1); D.INTERVIEW_ANSWERS.splice(i, 1); } },
+    nego: { name: "Переговоры · кейсы",
+      get: function (D) { return D.NEGO_CASES.map(function (c, i) { return { sit: c.sit, tool: c.tool, steps: D.NEGO_SOLUTIONS[i] }; }); },
+      key: function (x) { return x.sit[0]; }, check: function (x) { return x && pair(x.sit) && pair(x.tool) && Array.isArray(x.steps) && x.steps.length >= 3 && x.steps.every(pair) ? "" : "нужны ситуация, инструмент и не меньше 3 шагов решения на двух языках"; },
+      set: function (D, i, it) { D.NEGO_CASES[i] = { sit: clean(it.sit), tool: clean(it.tool) }; D.NEGO_SOLUTIONS[i] = it.steps.map(clean); }, del: function (D, i) { D.NEGO_CASES.splice(i, 1); D.NEGO_SOLUTIONS.splice(i, 1); } },
+    trick: { name: "Речевые приёмы", get: function (D) { return D.TRICKS; }, key: function (x) { return x.n[0]; },
+      check: function (t) { return t && (t.t === "c" || t.t === "b") && pair(t.n) && pair(t.d) && pair(t.ex) && Array.isArray(t.s) && t.s.length >= 1 && t.s.every(pair) && (!t.h || pair(t.h)) && (!t.f || pair(t.f)) ? "" : "нужны тип, название, суть, пример и хотя бы одна ситуация на двух языках"; } },
+    articulation: { name: "Артикуляция", get: function (D) { return D.ARTICULATION; }, key: function (x) { return x[0]; }, check: function (x) { return strN(x, 4) ? "" : "нужно 4 строки (название RU, как делать RU, название EN, how EN)"; } },
+    diction: { name: "Дикция · скороговорки", get: function (D) { return D.DICTION; }, key: function (x) { return x[1]; }, check: function (x) { return strN(x, 6) ? "" : "нужно 6 строк (название, текст, как делать — RU, затем EN)"; } },
+  };
+  function getList(id, D) {
+    if (LISTS[id]) return LISTS[id];
+    if (FIXED_LISTS[id]) return FIXED_LISTS[id];
+    var m = /^(topics|conflict):[a-z0-9_]+$/.exec(id || "");
+    return m ? CAT_LISTS[m[1]](id) : null;
+  }
+
+  // Добавляет запись, если такой ещё нет. exist — множество ключей, k — ключ новой записи. Возвращает true, если добавлена.
+  function put(arr, exist, k, val, rep, kind) {
+    if (exist[k]) { rep.skipped.push(kind + ": уже есть «" + String(k).slice(0, 60) + "»"); return false; }
+    exist[k] = 1; arr.push(val); rep.added[kind] = (rep.added[kind] || 0) + 1; return true;
+  }
+  function setOf(arr, f) { var o = {}; arr.forEach(function (x) { o[key(f(x))] = 1; }); return o; }
+
+  // План речи: уровень 1–3, 5 пунктов; у каждого название, подсказка, пример и 4 формулировки на обоих языках; {T} в примере — тема
+  function planProblem(p) {
+    if (!p || !/^[a-z][a-z0-9_-]{1,30}$/.test(p.id || "")) return "нужен id латиницей (например «prep2»)";
+    if ([1, 2, 3].indexOf(p.level) < 0) return "уровень должен быть 1, 2 или 3";
+    if (!(p.at >= 1 && p.at <= 5)) return "номер пункта для цитаты — от 1 до 5";
+    if (!(pair(p.n) && pair(p.d))) return "нужны название и описание на двух языках";
+    if (!Array.isArray(p.pts) || p.pts.length !== 5) return "нужно ровно 5 пунктов";
+    for (var i = 0; i < 5; i++) {
+      var q = p.pts[i];
+      if (!(q && pair(q.t) && pair(q.h) && pair(q.e) && Array.isArray(q.p) && q.p.length === 2 && q.p.every(function (l) { return Array.isArray(l) && l.length >= 2 && l.every(ne); }))) return "пункт " + (i + 1) + ": нужны название, подсказка, пример и не меньше 2 формулировок на каждом языке";
+    }
+    return "";
+  }
+  var H = {
+    topics: function (D, op, rep) {
+      var c = D.topics && D.topics[op.cat];
+      if (!c) { rep.errors.push("Темы: нет категории «" + op.cat + "»"); return; }
+      var ex = setOf(c.ru, function (x) { return x; });
+      op.items.forEach(function (p) {
+        if (!pair(p)) { rep.errors.push("Темы: нужна пара «по-русски | in English»"); return; }
+        var k = key(p[0]);
+        if (ex[k]) { rep.skipped.push("Темы: уже есть «" + p[0].slice(0, 60) + "»"); return; }
+        ex[k] = 1; c.ru.push(p[0].trim()); c.en.push(p[1].trim()); rep.added.topics = (rep.added.topics || 0) + 1;
+      });
+    },
+    debate: function (D, op, rep) {
+      var ex = setOf(D.debateTheses.ru, function (x) { return x; });
+      op.items.forEach(function (p) {
+        if (!pair(p)) { rep.errors.push("Дебаты: нужна пара «тезис | thesis»"); return; }
+        var k = key(p[0]);
+        if (ex[k]) { rep.skipped.push("Дебаты: уже есть «" + p[0].slice(0, 60) + "»"); return; }
+        ex[k] = 1; D.debateTheses.ru.push(p[0].trim()); D.debateTheses.en.push(p[1].trim()); rep.added.debate = (rep.added.debate || 0) + 1;
+      });
+    },
+    interview: function (D, op, rep) {
+      var ex = setOf(D.INTERVIEW_QUESTIONS, function (x) { return x[0]; });
+      op.items.forEach(function (it) {
+        if (!it || !pair(it.q) || !pair(it.a)) { rep.errors.push("Интервью: нужны вопрос и пример ответа на двух языках"); return; }
+        var k = key(it.q[0]);
+        if (ex[k]) { rep.skipped.push("Интервью: уже есть «" + it.q[0].slice(0, 60) + "»"); return; }
+        ex[k] = 1; D.INTERVIEW_QUESTIONS.push(clean(it.q)); D.INTERVIEW_ANSWERS.push(clean(it.a)); rep.added.interview = (rep.added.interview || 0) + 1;
+      });
+    },
+    nego: function (D, op, rep) {
+      var ex = setOf(D.NEGO_CASES, function (x) { return x.sit[0]; });
+      op.items.forEach(function (it) {
+        var ok = it && pair(it.sit) && pair(it.tool) && Array.isArray(it.steps) && it.steps.length >= 3 && it.steps.every(pair);
+        if (!ok) { rep.errors.push("Переговоры: нужны ситуация, инструмент и не меньше 3 шагов решения на двух языках"); return; }
+        var k = key(it.sit[0]);
+        if (ex[k]) { rep.skipped.push("Переговоры: уже есть «" + it.sit[0].slice(0, 60) + "»"); return; }
+        ex[k] = 1;
+        D.NEGO_CASES.push({ sit: clean(it.sit), tool: clean(it.tool) });
+        D.NEGO_SOLUTIONS.push(it.steps.map(function (s) { return clean(s); }));
+        rep.added.nego = (rep.added.nego || 0) + 1;
+      });
+    },
+    conflict: function (D, op, rep) {
+      var d = D.CONFLICT_DOMAINS && D.CONFLICT_DOMAINS[op.domain];
+      if (!d) { rep.errors.push("Конфликт: нет сферы «" + op.domain + "»"); return; }
+      var ex = setOf(d.attacks, function (x) { return x[0]; });
+      op.items.forEach(function (a) {
+        if (!Array.isArray(a) || a.length !== 4 || !ne(a[0]) || !ne(a[1])) { rep.errors.push("Конфликт: нужно 4 строки (реплика RU, EN, подсказка RU, EN; подсказки можно пустыми)"); return; }
+        var k = key(a[0]);
+        if (ex[k]) { rep.skipped.push("Конфликт: уже есть «" + a[0].slice(0, 60) + "»"); return; }
+        ex[k] = 1; d.attacks.push(a.map(function (x) { return String(x == null ? "" : x).trim(); })); rep.added.conflict = (rep.added.conflict || 0) + 1;
+      });
+    },
+    trick: function (D, op, rep) {
+      var ex = setOf(D.TRICKS, function (x) { return x.n[0]; });
+      op.items.forEach(function (t) {
+        var ok = t && (t.t === "c" || t.t === "b") && pair(t.n) && pair(t.d) && pair(t.ex) && Array.isArray(t.s) && t.s.length >= 1 && t.s.every(pair) && (!t.h || pair(t.h)) && (!t.f || pair(t.f));
+        if (!ok) { rep.errors.push("Речевые приёмы: нужны тип, название, суть, пример и хотя бы одна ситуация на двух языках"); return; }
+        var k = key(t.n[0]);
+        if (ex[k]) { rep.skipped.push("Приёмы: уже есть «" + t.n[0].slice(0, 60) + "»"); return; }
+        ex[k] = 1;
+        var o = { t: t.t, n: clean(t.n), d: clean(t.d) };
+        if (t.h) o.h = clean(t.h);
+        o.ex = clean(t.ex); o.s = t.s.map(clean);
+        if (t.f) o.f = clean(t.f);
+        D.TRICKS.push(o); rep.added.trick = (rep.added.trick || 0) + 1;
+      });
+    },
+    articulation: function (D, op, rep) {
+      var ex = setOf(D.ARTICULATION, function (x) { return x[0]; });
+      op.items.forEach(function (a) { if (!Array.isArray(a) || a.length !== 4 || !a.every(ne)) { rep.errors.push("Артикуляция: нужно 4 строки (название RU, как делать RU, название EN, how EN)"); return; } put(D.ARTICULATION, ex, key(a[0]), clean(a), rep, "articulation"); });
+    },
+    diction: function (D, op, rep) {
+      var ex = setOf(D.DICTION, function (x) { return x[1]; });
+      op.items.forEach(function (a) { if (!Array.isArray(a) || a.length !== 6 || !a.every(ne)) { rep.errors.push("Дикция: нужно 6 строк (название, текст, как делать — по-русски и по-английски)"); return; } put(D.DICTION, ex, key(a[1]), clean(a), rep, "diction"); });
+    },
+    thought: function (D, op, rep) {
+      D.CONTINUE_THOUGHTS = D.CONTINUE_THOUGHTS || [];
+      var ex = setOf(D.CONTINUE_THOUGHTS, function (x) { return x[0]; });
+      op.items.forEach(function (p) { if (!pair(p)) { rep.errors.push("Продолжи мысль: нужна пара «по-русски | in English»"); return; } put(D.CONTINUE_THOUGHTS, ex, key(p[0]), clean(p), rep, "thought"); });
+    },
+    speechquote: function (D, op, rep) {
+      D.SPEECH_QUOTES = D.SPEECH_QUOTES || [];
+      var ex = setOf(D.SPEECH_QUOTES, function (x) { return x[0]; });
+      op.items.forEach(function (a) {
+        if (!Array.isArray(a) || a.length !== 5 || !a.slice(0, 4).every(ne) || !Array.isArray(a[4]) || !a[4].length) { rep.errors.push("Цитата: нужны цитата RU, цитата EN, автор RU, автор EN и хотя бы одна категория"); return; }
+        var bad = a[4].filter(function (c) { return !D.topics[c]; });
+        if (bad.length) { rep.errors.push("Цитата: нет категории «" + bad.join(", ") + "»"); return; }
+        put(D.SPEECH_QUOTES, ex, key(a[0]), clean(a.slice(0, 4)).concat([a[4].slice()]), rep, "speechquote");
+      });
+    },
+    speechplan: function (D, op, rep) {
+      D.SPEECH_PLANS = D.SPEECH_PLANS || [];
+      var ex = setOf(D.SPEECH_PLANS, function (x) { return x.id; });
+      op.items.forEach(function (p) {
+        var why = planProblem(p);
+        if (why) { rep.errors.push("План речи: " + why); return; }
+        put(D.SPEECH_PLANS, ex, key(p.id), p, rep, "speechplan");
+      });
+    },
+    vocab: function (D, op, rep) {
+      var ex = setOf(D.VOCAB, function (x) { return x[0]; });
+      op.items.forEach(function (a) { if (!Array.isArray(a) || a.length !== 4 || !a.every(ne)) { rep.errors.push("Словарь: нужно 4 строки (слово RU, значение RU, слово EN, значение EN)"); return; } put(D.VOCAB, ex, key(a[0]), clean(a), rep, "vocab"); });
+    },
+    simple: function (D, op, rep) {
+      var ex = setOf(D.SIMPLE_WORDS, function (x) { return x[0]; });
+      op.items.forEach(function (a) { if (!Array.isArray(a) || a.length !== 4 || !a.every(ne)) { rep.errors.push("Простые слова: нужно 4 строки (слово RU, слово EN, описание RU, описание EN)"); return; } put(D.SIMPLE_WORDS, ex, key(a[0]), clean(a), rep, "simple"); });
+    },
+    excerpt: function (D, op, rep) {
+      var arr = op.lang === "en" ? D.EXCERPTS_EN : D.EXCERPTS_RU;
+      var ex = setOf(arr, function (x) { return x.text.slice(0, 80); });
+      op.items.forEach(function (e) { if (!e || !ne(e.text) || !ne(e.author) || !ne(e.source)) { rep.errors.push("Отрывки: нужны text, author, source"); return; } put(arr, ex, key(e.text.slice(0, 80)), { text: e.text.trim(), author: e.author.trim(), source: e.source.trim() }, rep, "excerpt"); });
+    },
+    painting: function (D, op, rep) {
+      var ex = setOf(D.PAINTINGS, function (x) { return x.img; });
+      op.items.forEach(function (p) {
+        var ok = p && /^\d{3}$/.test(String(p.img)) && ne(p.file) && pair(p.artist) && pair(p.title) && pair(p.context) && ne(p.year) && (!p.bio || pair(p.bio));
+        if (!ok) { rep.errors.push("Картины: нужны номер файла (3 цифры), художник, название, год и описание на двух языках"); return; }
+        var o = { img: String(p.img), file: p.file.trim(), artist: clean(p.artist), title: clean(p.title), year: String(p.year).trim(), context: clean(p.context) };
+        if (p.bio) o.bio = clean(p.bio);
+        put(D.PAINTINGS, ex, key(p.img), o, rep, "painting");
+      });
+    },
+    conflictlit: function (D, op, rep) {
+      D.CONFLICT_LIT = D.CONFLICT_LIT || [];
+      var ex = setOf(D.CONFLICT_LIT, function (x) { return x[0]; });
+      op.items.forEach(function (a) { if (!Array.isArray(a) || a.length !== 4 || !a.every(ne)) { rep.errors.push("Литературно: нужно 4 строки (цитата RU, цитата EN, автор RU, автор EN)"); return; } put(D.CONFLICT_LIT, ex, key(a[0]), clean(a), rep, "conflictlit"); });
+    },
+    // Исправление записи: { op:"edit", list:"vocab", match:"прежнее первое поле", item:<новая запись> }
+    edit: function (D, op, rep) {
+      var L = getList(op.list, D); if (!L) { rep.errors.push("Исправление: неизвестный список «" + op.list + "»"); return; }
+      var arr = L.get(D); if (!arr) { rep.errors.push(L.name + ": списка нет в данных"); return; }
+      var k = key(op.match), idx = -1;
+      arr.forEach(function (x, i) { if (idx < 0 && key(L.key(x)) === k) idx = i; });
+      if (idx < 0) { rep.errors.push(L.name + ": не найдена запись «" + String(op.match).slice(0, 50) + "»"); return; }
+      var it = op.item; if (Array.isArray(it)) it = clean(it);
+      var why = L.check(it, D); if (why) { rep.errors.push(L.name + ": " + why); return; }
+      if (op.list === "painting" && String(it.img) !== String(arr[idx].img)) { rep.errors.push("Картины: номер файла менять нельзя"); return; }
+      if (op.list === "speechplan" && it.id !== arr[idx].id) { rep.errors.push("Планы речи: id менять нельзя"); return; }
+      var nk = key(L.key(it));
+      if (nk !== k && arr.some(function (x, i) { return i !== idx && key(L.key(x)) === nk; })) { rep.errors.push(L.name + ": такая запись уже есть «" + String(L.key(it)).slice(0, 50) + "»"); return; }
+      if (L.set) L.set(D, idx, it); else arr[idx] = it;
+      rep.added.edit = (rep.added.edit || 0) + 1;
+    },
+    // Удаление записи: { op:"remove", list:"vocab", match:"первое поле" }
+    remove: function (D, op, rep) {
+      var L = getList(op.list, D); if (!L) { rep.errors.push("Удаление: неизвестный список «" + op.list + "»"); return; }
+      if (L.noRemove) { rep.errors.push(L.name + ": записи нельзя удалять (на них ссылаются настройки), только исправлять"); return; }
+      var arr = L.get(D); if (!arr) { rep.errors.push(L.name + ": списка нет в данных"); return; }
+      var k = key(op.match), idx = -1;
+      arr.forEach(function (x, i) { if (idx < 0 && key(L.key(x)) === k) idx = i; });
+      if (idx < 0) { rep.skipped.push(L.name + ": уже нет «" + String(op.match).slice(0, 50) + "»"); return; }
+      // нельзя опустошить список, на котором строится режим
+      if (arr.length <= (op.list.indexOf("topics:") === 0 || op.list === "debate" ? 5 : 1)) { rep.errors.push(L.name + ": нельзя удалить последние записи списка"); return; }
+      if (L.del) L.del(D, idx); else arr.splice(idx, 1);
+      rep.added.remove = (rep.added.remove || 0) + 1;
+    },
+  };
+
+  function applyAdditions(D, ops) {
+    var rep = { added: {}, skipped: [], errors: [] };
+    (ops || []).forEach(function (op) {
+      try {
+        if (!op || !H[op.op]) { rep.errors.push("Неизвестный тип добавки: " + (op && op.op)); return; }
+        H[op.op](D, op, rep);
+      } catch (e) { rep.errors.push("Ошибка добавки «" + (op && op.op) + "»: " + ((e && e.message) || e)); }
+    });
+    return rep;
+  }
+
+  // Проверка данных после добавок: те же правила, что в tools/check-data.mjs (поровну ru/en, нет пустых строк, длины записей)
+  function checkData(D) {
+    var bad = [];
+    Object.keys(D.topics).forEach(function (k) {
+      var v = D.topics[k];
+      if (v.ru.length !== v.en.length) bad.push("Темы «" + k + "»: на русском " + v.ru.length + ", на английском " + v.en.length + " — должно быть поровну");
+      v.ru.concat(v.en).forEach(function (t, i) { if (!ne(t)) bad.push("Темы «" + k + "»: пустая строка (№" + (i + 1) + ")"); });
+    });
+    if (D.debateTheses.ru.length !== D.debateTheses.en.length) bad.push("Дебаты: на русском " + D.debateTheses.ru.length + ", на английском " + D.debateTheses.en.length);
+    if (D.INTERVIEW_QUESTIONS.length !== D.INTERVIEW_ANSWERS.length) bad.push("Интервью: вопросов " + D.INTERVIEW_QUESTIONS.length + ", примеров ответов " + D.INTERVIEW_ANSWERS.length);
+    D.INTERVIEW_QUESTIONS.forEach(function (q, i) { if (!(q.length === 2 && q.every(ne))) bad.push("Интервью, вопрос №" + (i + 1) + ": нужна пара «по-русски, in English»"); });
+    if (D.NEGO_CASES.length !== D.NEGO_SOLUTIONS.length) bad.push("Переговоры: кейсов " + D.NEGO_CASES.length + ", вариантов решения " + D.NEGO_SOLUTIONS.length);
+    D.NEGO_CASES.forEach(function (c, i) { if (!(c.sit && c.sit.length === 2 && c.sit.every(ne) && c.tool && c.tool.length === 2)) bad.push("Переговоры, кейс №" + (i + 1) + ": нужны sit и tool на двух языках"); });
+    Object.keys(D.CONFLICT_DOMAINS).forEach(function (k) {
+      D.CONFLICT_DOMAINS[k].attacks.forEach(function (a, i) { if (!(a.length === 4 && ne(a[0]) && ne(a[1]))) bad.push("Конфликт «" + k + "», реплика №" + (i + 1) + ": нужно 4 строки"); });
+    });
+    D.ARTICULATION.forEach(function (a, i) { if (!(a.length === 4 && a.every(ne))) bad.push("Артикуляция №" + (i + 1) + ": нужно 4 строки"); });
+    D.DICTION.forEach(function (a, i) { if (a.length !== 6) bad.push("Дикция №" + (i + 1) + ": нужно 6 строк"); });
+    if (D.CONFLICT_ANSWERS) Object.keys(D.CONFLICT_DOMAINS).forEach(function (k) { // у старой основы функции этих данных ещё нет
+      var a = D.CONFLICT_ANSWERS[k];
+      if (!a || !Array.isArray(a.ok)) { bad.push("Конфликт, ответы «" + k + "»: нет списка ok"); return; }
+      a.ok.forEach(function (x, i) { if (!(x && x.ru && x.en && x.ru.length === 3 && x.en.length === 3 && x.ru.concat(x.en).every(ne))) bad.push("Конфликт, ответы «" + k + "», адекватный №" + (i + 1) + ": нужны три шага на двух языках"); });
+    });
+    (D.CONFLICT_LIT || []).forEach(function (a, i) { if (!(Array.isArray(a) && a.length === 4 && a.every(ne))) bad.push("Конфликт, «Литературно» №" + (i + 1) + ": нужно 4 строки"); });
+    (D.CONTINUE_THOUGHTS || []).forEach(function (a, i) { if (!pair(a)) bad.push("Продолжи мысль №" + (i + 1) + ": нужна пара «по-русски, in English»"); });
+    (D.SPEECH_QUOTES || []).forEach(function (a, i) { if (!(a.length === 5 && a.slice(0, 4).every(ne) && Array.isArray(a[4]) && a[4].length && a[4].every(function (c) { return D.topics[c]; }))) bad.push("Цитата №" + (i + 1) + ": нужны 4 строки и список существующих категорий"); });
+    (D.SPEECH_PLANS || []).forEach(function (p, i) { var w = planProblem(p); if (w) bad.push("План речи №" + (i + 1) + ": " + w); });
+    D.VOCAB.forEach(function (a, i) { if (!(a.length === 4 && a.every(ne))) bad.push("Словарь №" + (i + 1) + ": нужно 4 строки"); });
+    D.SIMPLE_WORDS.forEach(function (a, i) { if (!(a.length === 4 && a.every(ne))) bad.push("Простые слова №" + (i + 1) + ": нужно 4 строки"); });
+    D.PAINTINGS.forEach(function (p, i) { if (!(ne(p.file) && [p.artist, p.title, p.context].every(function (x) { return x && x.length === 2 && x.every(ne); }))) bad.push("Картина №" + (i + 1) + ": не хватает file, artist, title или context"); });
+    ["EXCERPTS_RU", "EXCERPTS_EN"].forEach(function (n) { D[n].forEach(function (e, i) { if (!(ne(e.text) && ne(e.author) && ne(e.source))) bad.push(n + " №" + (i + 1) + ": нужны text, author, source"); }); });
+    return bad;
+  }
+
+  // Следующий номер файла картины: 108 → "109"
+  function nextImg(D) {
+    var m = 0; D.PAINTINGS.forEach(function (p) { var n = parseInt(p.img, 10); if (n > m) m = n; });
+    return ("00" + (m + 1)).slice(-3);
+  }
+  var api = { applyAdditions: applyAdditions, checkData: checkData, nextImg: nextImg, key: key, KINDS: KINDS, LISTS: LISTS, getList: getList, FIXED_LISTS: FIXED_LISTS };
+  if (typeof module !== "undefined" && module.exports) module.exports = api; else root.AddCore = api;
+})(typeof self !== "undefined" ? self : this);
+//</core>
+</script>
+<script type="text/plain" id="zipSrc">// Мини-библиотека для чтения и записи zip-архивов в браузере и в Node.js (без внешних зависимостей, без ИИ).
+// Читает архивы, собранные программой zip; записи, которые не меняются, переписываются как есть (без перепаковки), поэтому
+// архив сайта на десятки мегабайт собирается быстро. Копия этого файла лежит в admin/panel.html между маркерами //<zip> и //</zip>.
+//<zip>
+(function (root) {
+  var T = null;
+  function crcTable() { if (T) return T; T = new Uint32Array(256); for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; T[n] = c >>> 0; } return T; }
+  function crc32(u8) { var t = crcTable(), c = 0xffffffff; for (var i = 0; i < u8.length; i++) c = t[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+  async function viaStream(u8, S) { var st = new S("deflate-raw"); var out = new Blob([u8]).stream().pipeThrough(st); return new Uint8Array(await new Response(out).arrayBuffer()); }
+  var inflateRaw = function (u8) { return viaStream(u8, DecompressionStream); };
+  var deflateRaw = function (u8) { return viaStream(u8, CompressionStream); };
+  var enc = new TextEncoder(), dec = new TextDecoder("utf-8");
+
+  // Читает архив. Возвращает [{ name, method, crc, csize, usize, cdata, time, date }]
+  function readZip(buf) {
+    var u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    var dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    var e = -1;
+    for (var i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw new Error("Это не zip-архив (не найден конец архива)");
+    var count = dv.getUint16(e + 10, true), cd = dv.getUint32(e + 16, true), out = [], p = cd;
+    for (var n = 0; n < count; n++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("Повреждён список файлов архива");
+      var method = dv.getUint16(p + 10, true), time = dv.getUint16(p + 12, true), date = dv.getUint16(p + 14, true), crc = dv.getUint32(p + 16, true),
+        csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      if (csize === 0xffffffff || usize === 0xffffffff || off === 0xffffffff) throw new Error("Архив zip64 не поддерживается");
+      var name = dec.decode(u8.subarray(p + 46, p + 46 + nl));
+      var lnl = dv.getUint16(off + 26, true), lel = dv.getUint16(off + 28, true), ds = off + 30 + lnl + lel;
+      out.push({ name: name, method: method, crc: crc, csize: csize, usize: usize, time: time, date: date, cdata: u8.subarray(ds, ds + csize) });
+      p += 46 + nl + el + cl;
+    }
+    return out;
+  }
+  async function entryBytes(en) { if (en.method === 0) return en.cdata; if (en.method === 8) return inflateRaw(en.cdata); throw new Error("Способ сжатия " + en.method + " не поддерживается"); }
+  function dosNow() { var d = new Date(); return { time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date: ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate() }; }
+  // Создаёт запись из байтов (сжимает, если compress=true)
+  async function makeEntry(name, bytes, compress) {
+    var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), n = dosNow(), crc = crc32(u8), method = 0, cdata = u8;
+    if (compress && u8.length > 64) { var z = await deflateRaw(u8); if (z.length < u8.length) { method = 8; cdata = z; } }
+    return { name: name, method: method, crc: crc, csize: cdata.length, usize: u8.length, time: n.time, date: n.date, cdata: cdata };
+  }
+  // Собирает архив из записей (как у readZip / makeEntry). Возвращает Uint8Array
+  function writeZip(entries) {
+    var parts = [], cds = [], off = 0;
+    entries.forEach(function (en) {
+      var nb = enc.encode(en.name), flags = 0x0800;
+      var lh = new Uint8Array(30 + nb.length), v = new DataView(lh.buffer);
+      v.setUint32(0, 0x04034b50, true); v.setUint16(4, 20, true); v.setUint16(6, flags, true); v.setUint16(8, en.method, true); v.setUint16(10, en.time, true); v.setUint16(12, en.date, true);
+      v.setUint32(14, en.crc, true); v.setUint32(18, en.csize, true); v.setUint32(22, en.usize, true); v.setUint16(26, nb.length, true); v.setUint16(28, 0, true); lh.set(nb, 30);
+      var ch = new Uint8Array(46 + nb.length), c = new DataView(ch.buffer);
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, flags, true); c.setUint16(10, en.method, true); c.setUint16(12, en.time, true); c.setUint16(14, en.date, true);
+      c.setUint32(16, en.crc, true); c.setUint32(20, en.csize, true); c.setUint32(24, en.usize, true); c.setUint16(28, nb.length, true); c.setUint32(42, off, true); ch.set(nb, 46);
+      parts.push(lh, en.cdata); cds.push(ch); off += lh.length + en.cdata.length;
+    });
+    var cdSize = 0; cds.forEach(function (x) { cdSize += x.length; });
+    var eo = new Uint8Array(22), ev = new DataView(eo.buffer);
+    ev.setUint32(0, 0x06054b50, true); ev.setUint16(8, entries.length, true); ev.setUint16(10, entries.length, true); ev.setUint32(12, cdSize, true); ev.setUint32(16, off, true);
+    var all = parts.concat(cds, [eo]), total = 0; all.forEach(function (x) { total += x.length; });
+    var res = new Uint8Array(total), q = 0; all.forEach(function (x) { res.set(x, q); q += x.length; });
+    return res;
+  }
+  var api = { crc32: crc32, readZip: readZip, entryBytes: entryBytes, makeEntry: makeEntry, writeZip: writeZip, enc: enc, dec: dec };
+  if (typeof module !== "undefined" && module.exports) module.exports = api; else root.ZipLite = api;
+})(typeof self !== "undefined" ? self : this);
+//</zip>
+</script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  // Библиотеки (тот же код, что в tools/additions-core.js и tools/zip-lite.js)
+  var CORE_SRC = $("coreSrc").textContent, ZIP_SRC = $("zipSrc").textContent;
+  (0, eval)(CORE_SRC); (0, eval)(ZIP_SRC);
+  var Core = self.AddCore, Z = self.ZipLite;
+
+  // ---------- вкладки ----------
+  Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (b) {
+    b.addEventListener("click", function () {
+      Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function (x) { x.classList.toggle("on", x === b); });
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) { t.classList.toggle("on", t.id === "tab-" + b.getAttribute("data-tab")); });
+    });
+  });
+
+  // ---------- хранилище основы (IndexedDB) ----------
+  var memKV = {};
+  function openDB() { return new Promise(function (res, rej) { try { var r = indexedDB.open("speechcoach-panel", 1); r.onupgradeneeded = function () { r.result.createObjectStore("kv"); }; r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; } catch (e) { rej(e); } }); }
+  function kv(mode, k, v) {
+    return openDB().then(function (db) {
+      return new Promise(function (res, rej) {
+        var tx = db.transaction("kv", mode === "get" ? "readonly" : "readwrite"), st = tx.objectStore("kv"), rq = mode === "get" ? st.get(k) : mode === "set" ? st.put(v, k) : st.delete(k);
+        rq.onsuccess = function () { res(rq.result); }; rq.onerror = function () { rej(rq.error); };
+      });
+    }, function () { if (mode === "get") return memKV[k]; if (mode === "set") memKV[k] = v; else delete memKV[k]; });
+  }
+  var base = { fn: null, site: null }, DATA = null, FN_INFO = null;
+
+  async function evalData(zipBuf) {
+    var es = Z.readZip(zipBuf), d = es.filter(function (e) { return e.name === "data.js"; })[0];
+    if (!d) throw new Error("В архиве нет data.js: это не архив функции");
+    var txt = Z.dec.decode(await Z.entryBytes(d));
+    var D = new Function("var module={exports:{}};" + txt + ";return module.exports;")();
+    var ix = es.filter(function (e) { return e.name === "index.js"; })[0], ver = "";
+    if (ix) { var t = Z.dec.decode(await Z.entryBytes(ix)); var m = /VERSION = "([^"]+)"/.exec(t); ver = m ? m[1] : ""; }
+    return { D: D, version: ver, counts: { topics: Object.keys(D.topics).reduce(function (a, k) { return a + D.topics[k].ru.length; }, 0), paintings: D.PAINTINGS.length } };
+  }
+  function fmtSize(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + " МБ" : Math.round(n / 1024) + " КБ"; }
+  async function showBase() {
+    $("baseFnInfo").textContent = "не загружена"; $("baseSiteInfo").textContent = "не загружен"; DATA = null; FN_INFO = null;
+    base.fn = await kv("get", "fn"); base.site = await kv("get", "site");
+    if (base.fn) {
+      try { FN_INFO = await evalData(base.fn.buf); DATA = FN_INFO.D; $("baseFnInfo").textContent = "✅ " + base.fn.name + " · " + fmtSize(base.fn.buf.byteLength) + " · версия " + (FN_INFO.version || "?") + " · тем " + FN_INFO.counts.topics + ", картин " + FN_INFO.counts.paintings + " · загружено " + new Date(base.fn.saved).toLocaleString("ru-RU"); }
+      catch (e) { $("baseFnInfo").textContent = "❌ " + base.fn.name + ": " + e.message; }
+    }
+    if (base.site) {
+      try { var es = Z.readZip(base.site.buf), n = es.filter(function (e) { return /^paintings\/\d{3}\.jpg$/.test(e.name); }).length; $("baseSiteInfo").textContent = "✅ " + base.site.name + " · " + fmtSize(base.site.buf.byteLength) + " · картин в архиве " + n + " · загружено " + new Date(base.site.saved).toLocaleString("ru-RU"); }
+      catch (e) { $("baseSiteInfo").textContent = "❌ " + base.site.name + ": " + e.message; }
+    }
+    renderForm();
+  }
+  function pickBase(inputId, k) {
+    $(inputId).addEventListener("change", async function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      var buf = await f.arrayBuffer();
+      await kv("set", k, { name: f.name, buf: buf, saved: Date.now() });
+      this.value = ""; await showBase();
+    });
+  }
+  pickBase("baseFn", "fn"); pickBase("baseSite", "site");
+  $("baseForget").addEventListener("click", async function () { if (confirm("Забыть сохранённые сборки в этом браузере?")) { await kv("del", "fn"); await kv("del", "site"); await showBase(); } });
+
+  // ---------- формы ----------
+  var CATS = { smalltalk: "Смолл-толк", cliches: "Клише и стереотипы", selfp: "Самопрезентация", travel: "Путешествия и прогулки", econ: "Экономика", philo: "Философия", health: "Здоровье", sport: "Спорт", cuisine: "Кухни мира", food: "Питание", beliefs: "Убеждения людей", faith: "Вера", rel: "Отношения", family: "Семья", relig: "Религия", cinema: "Кинематограф", edu: "Образование", psy: "Психология", hist: "Всемирная история", arch: "Архитектура", sci: "Точные науки", pol: "Политика", pers: "Личности", music: "Музыка", hobby: "Хобби", cringe: "Кринж-цитаты", consp: "Конспирология и теории заговоров" };
+  var DOMS = { family: "Семья", relationship: "Отношения", work: "На работе", gov: "Госорганы", mfc: "МФЦ" };
+  function opts(o) { return Object.keys(o).map(function (k) { return { v: k, t: o[k] + " (" + k + ")" }; }); }
+  function lines(t) { return String(t || "").split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function parsePairs(t) {
+    var out = [], bad = lines(t).some(function (l) { var i = l.indexOf("|"); if (i < 0) return true; var a = l.slice(0, i).trim(), b = l.slice(i + 1).trim(); if (!a || !b) return true; out.push([a, b]); return false; });
+    return bad ? null : out;
+  }
+  var PAIRHELP = "Каждая запись с новой строки в виде <code>по-русски | in English</code> (вертикальная черта между языками).";
+  function eqLines(ru, en, what) {
+    var a = lines(ru), b = lines(en);
+    if (!a.length) return { error: what + ": пусто" };
+    if (a.length !== b.length) return { error: what + ": по-русски " + a.length + " строк, по-английски " + b.length + ": должно быть поровну" };
+    return { list: a.map(function (x, i) { return [x, b[i]]; }) };
+  }
+  var T = function (id, label, rows) { return { id: id, type: "area", label: label, rows: rows || 3 }; };
+  var I = function (id, label) { return { id: id, type: "text", label: label }; };
+  var KINDS = {
+    topics: { help: "Темы для «Экспромта» и «Глубже» выбранной категории. " + PAIRHELP, fields: [{ id: "cat", type: "select", label: "Категория", options: opts(CATS) }, T("lines", "Темы (по строке)", 8)],
+      build: function (v) { var p = parsePairs(v.lines); if (!p || !p.length) return { error: "Нужны строки вида «по-русски | in English»: в каждой строке обе части." }; return { op: "topics", cat: v.cat, items: p }; } },
+    debate: { help: "Тезисы для дебатов. " + PAIRHELP, fields: [T("lines", "Тезисы (по строке)", 6)],
+      build: function (v) { var p = parsePairs(v.lines); if (!p || !p.length) return { error: "Нужны строки вида «тезис | thesis»." }; return { op: "debate", items: p }; } },
+    interview: { help: "Один вопрос HR и пример ответа, на двух языках.", fields: [T("qr", "Вопрос (по-русски)"), T("qe", "Question (English)"), T("ar", "Пример ответа (по-русски)", 5), T("ae", "Sample answer (English)", 5)],
+      build: function (v) { var q = [v.qr, v.qe], a = [v.ar, v.ae]; if (!q.concat(a).every(function (x) { return x.trim(); })) return { error: "Заполните все четыре поля." }; return { op: "interview", items: [{ q: q, a: a }] }; } },
+    nego: { help: "Кейс для переговоров: ситуация, инструмент и решение по шагам (не меньше 3 шагов; в обоих списках шагов поровну, шаг на строку).", fields: [T("sr", "Ситуация (по-русски)", 4), T("se", "Situation (English)", 4), T("tr", "Инструмент (по-русски)"), T("te", "Tool (English)"), T("str", "Шаги решения по-русски (по строке)", 6), T("ste", "Steps in English (one per line)", 6)],
+      build: function (v) { var s = eqLines(v.str, v.ste, "Шаги"); if (s.error) return s; if (s.list.length < 3) return { error: "Нужно не меньше 3 шагов." }; if (![v.sr, v.se, v.tr, v.te].every(function (x) { return x.trim(); })) return { error: "Заполните ситуацию и инструмент на двух языках." }; return { op: "nego", items: [{ sit: [v.sr, v.se], tool: [v.tr, v.te], steps: s.list }] }; } },
+    conflict: { help: "Реплики-нападения для режима «Конфликт». Подсказки к ответу можно оставить пустыми. Каждая реплика с новой строки; подсказки по порядку, строка на реплику (пустая строка допустима).", fields: [{ id: "dom", type: "select", label: "Сфера", options: opts(DOMS) }, T("rr", "Реплики по-русски (по строке)", 5), T("re", "Replies in English (one per line)", 5), T("hr", "Подсказки по-русски (по строке, можно пусто)", 4), T("he", "Hints in English (можно пусто)", 4)],
+      build: function (v) { var s = eqLines(v.rr, v.re, "Реплики"); if (s.error) return s; var hr = String(v.hr || "").split(/\r?\n/), he = String(v.he || "").split(/\r?\n/); var hasH = lines(v.hr).length || lines(v.he).length; if (hasH && (hr.length < s.list.length || he.length < s.list.length)) return { error: "Если заполняете подсказки, строк должно быть не меньше, чем реплик (для реплики без подсказки оставьте пустую строку)." }; return { op: "conflict", domain: v.dom, items: s.list.map(function (p, i) { return [p[0], p[1], hasH ? (hr[i] || "").trim() : "", hasH ? (he[i] || "").trim() : ""]; }) }; } },
+    trick: { help: "Речевой приём. Тип «c» — классика, «b» — чёрная риторика. Ситуации: по строке на ситуацию, русских и английских поровну.", fields: [{ id: "t", type: "select", label: "Тип", options: [{ v: "c", t: "Классическая риторика" }, { v: "b", t: "Чёрная риторика" }] }, I("nr", "Название (по-русски)"), I("ne", "Name (English)"), T("dr", "Суть (по-русски)"), T("de", "The idea (English)"), T("hr", "Как применить / как распознать (по-русски)"), T("he", "How to apply / recognise (English)"), T("er", "Пример (по-русски)"), T("ee", "Example (English)"), T("fr", "Как ответить (для чёрной риторики, по-русски, можно пусто)"), T("fe", "How to respond (English, можно пусто)"), T("sr", "Ситуации по-русски (по строке, минимум 1)", 4), T("se", "Situations in English (one per line)", 4)],
+      build: function (v) { var s = eqLines(v.sr, v.se, "Ситуации"); if (s.error) return s; var need = [v.nr, v.ne, v.dr, v.de, v.er, v.ee]; if (!need.every(function (x) { return x.trim(); })) return { error: "Заполните название, суть и пример на двух языках." }; var o = { t: v.t, n: [v.nr, v.ne], d: [v.dr, v.de], ex: [v.er, v.ee], s: s.list }; if (v.hr.trim() || v.he.trim()) { if (!(v.hr.trim() && v.he.trim())) return { error: "«Как применить» нужно на обоих языках или ни на одном." }; o.h = [v.hr, v.he]; } if (v.fr.trim() || v.fe.trim()) { if (!(v.fr.trim() && v.fe.trim())) return { error: "«Как ответить» нужно на обоих языках или ни на одном." }; o.f = [v.fr, v.fe]; } return { op: "trick", items: [o] }; } },
+    articulation: { help: "Упражнение артикуляционной гимнастики.", fields: [I("nr", "Название (по-русски)"), T("hr", "Как делать (по-русски)"), I("ne", "Name (English)"), T("he", "How to (English)")],
+      build: function (v) { var a = [v.nr, v.hr, v.ne, v.he]; if (!a.every(function (x) { return x.trim(); })) return { error: "Заполните все четыре поля." }; return { op: "articulation", items: [a] }; } },
+    diction: { help: "Скороговорка и подсказка, на двух языках.", fields: [I("nr", "Название (по-русски), например «Скороговорка: Р»"), T("tr", "Текст скороговорки (по-русски)"), T("hr", "Как делать (по-русски)"), I("ne", "Name (English)"), T("te", "Tongue twister text (English)"), T("he", "How to (English)")],
+      build: function (v) { var a = [v.nr, v.tr, v.hr, v.ne, v.te, v.he]; if (!a.every(function (x) { return x.trim(); })) return { error: "Заполните все шесть полей." }; return { op: "diction", items: [a] }; } },
+    thought: { help: "Мысль для сторителлинга «Продолжи мысль». " + PAIRHELP, fields: [T("lines", "Мысли (по строке)", 6)],
+      build: function (v) { var p = parsePairs(v.lines); if (!p || !p.length) return { error: "Нужны строки вида «мысль | thought»." }; return { op: "thought", items: p }; } },
+    speechquote: { help: "Цитата для «Тренировки красивой речи»: <code>цитата | quote | автор | author | категории через запятую</code> (ключи категорий из списка тем, например <code>philo,psy</code>; цитата подбирается к теме из этих категорий). Одна цитата на строку.", fields: [T("lines", "Цитаты (по строке)", 6)],
+      build: function (v) {
+        var out = [], bad = lines(v.lines).some(function (l) { var p = l.split("|").map(function (x) { return x.trim(); }); if (p.length !== 5 || !p.slice(0, 4).every(Boolean)) return true; var c = p[4].split(",").map(function (x) { return x.trim(); }).filter(Boolean); if (!c.length) return true; out.push(p.slice(0, 4).concat([c])); return false; });
+        return bad || !out.length ? { error: "Нужны строки из 5 частей через « | »: цитата | quote | автор | author | категории." } : { op: "speechquote", items: out };
+      } },
+    conflictlit: { help: "Цитата для реакции «Литературно» в режиме «Конфликт»: <code>цитата | quote | автор и произведение | author and work</code>, по записи на строку.", fields: [T("lines", "Цитаты (по строке)", 6)],
+      build: function (v) {
+        var out = [], bad = lines(v.lines).some(function (l) { var p = l.split("|").map(function (x) { return x.trim(); }); if (p.length !== 4 || !p.every(Boolean)) return true; out.push(p); return false; });
+        return bad || !out.length ? { error: "Нужны строки из 4 частей через « | »: цитата | quote | автор | author." } : { op: "conflictlit", items: out };
+      } },
+    speechplan: { help: "План речи для «Тренировки красивой речи»: 5 пунктов. В строке пункта 8 частей через « | »: <code>название | title | подсказка | hint | пример | example | формулировки RU через ; | формулировки EN через ;</code> (минимум 2 формулировки на язык; в примере можно писать <code>{T}</code> — туда подставится тема). Уровень: 1 — новичок, 2 — уверенный, 3 — мастер.", fields: [I("id", "Код плана (латиницей, например prep2)"), { id: "level", type: "select", label: "Уровень", options: [{ v: "1", t: "1 · Новичок" }, { v: "2", t: "2 · Уверенный" }, { v: "3", t: "3 · Мастер" }] }, { id: "at", type: "select", label: "В какой пункт вставлять цитату", options: [1, 2, 3, 4, 5].map(function (n) { return { v: String(n), t: "Пункт " + n }; }) }, I("nr", "Название плана (по-русски)"), I("ne", "Plan name (English)"), T("dr", "Описание (по-русски)", 2), T("de", "Description (English)", 2), T("pts", "Пять пунктов (по строке)", 6)],
+      build: function (v) {
+        var rows = lines(v.pts); if (rows.length !== 5) return { error: "Нужно ровно 5 строк пунктов (сейчас " + rows.length + ")." };
+        var pts = [], bad = rows.some(function (l) { var p = l.split("|").map(function (x) { return x.trim(); }); if (p.length !== 8 || !p.slice(0, 6).every(Boolean)) return true; var a = p[6].split(";").map(function (x) { return x.trim(); }).filter(Boolean), b = p[7].split(";").map(function (x) { return x.trim(); }).filter(Boolean); if (a.length < 2 || b.length < 2) return true; pts.push({ t: [p[0], p[1]], h: [p[2], p[3]], e: [p[4], p[5]], p: [a, b] }); return false; });
+        if (bad) return { error: "В каждой строке пункта должно быть 8 частей через « | » и минимум по 2 формулировки на язык." };
+        var plan = { id: v.id.trim(), level: parseInt(v.level, 10), at: parseInt(v.at, 10), n: [v.nr.trim(), v.ne.trim()], d: [v.dr.trim(), v.de.trim()], pts: pts };
+        return { op: "speechplan", items: [plan] };
+      } },
+    vocab: { help: "Слова для «Словарного запаса». Одна запись на строку: <code>слово | значение | word | meaning</code>.", fields: [T("lines", "Слова (по строке)", 6)],
+      build: function (v) { var out = []; var bad = lines(v.lines).some(function (l) { var p = l.split("|").map(function (x) { return x.trim(); }); if (p.length !== 4 || !p.every(Boolean)) return true; out.push(p); return false; }); return bad || !out.length ? { error: "Каждая строка: слово | значение | word | meaning (4 части)." } : { op: "vocab", items: out }; } },
+    simple: { help: "«Простые слова». Одна запись на строку: <code>слово | word | описание | description</code>.", fields: [T("lines", "Слова (по строке)", 6)],
+      build: function (v) { var out = []; var bad = lines(v.lines).some(function (l) { var p = l.split("|").map(function (x) { return x.trim(); }); if (p.length !== 4 || !p.every(Boolean)) return true; out.push(p); return false; }); return bad || !out.length ? { error: "Каждая строка: слово | word | описание | description (4 части)." } : { op: "simple", items: out }; } },
+    excerpt: { help: "Отрывок для пересказа (проза). Язык отрывка выбирается ниже.", fields: [{ id: "lang", type: "select", label: "Язык отрывка", options: [{ v: "ru", t: "Русский" }, { v: "en", t: "English" }] }, T("text", "Текст отрывка", 6), I("author", "Автор"), I("source", "Источник (например «Анна Каренина», начало романа)")],
+      build: function (v) { if (!v.text.trim() || !v.author.trim() || !v.source.trim()) return { error: "Заполните текст, автора и источник." }; return { op: "excerpt", lang: v.lang, items: [{ text: v.text, author: v.author, source: v.source }] }; } },
+    painting: { help: "Новая картина. Файл изображения уменьшится до 1200 пикселей и сохранится как <code>paintings/NNN.jpg</code> в сборке сайта (номер подберётся сам).", async: true, fields: [{ id: "img", type: "file", label: "Файл картины (jpg, png, webp)" }, I("ar", "Художник (по-русски)"), I("ae", "Artist (English)"), I("tr", "Название (по-русски)"), I("te", "Title (English)"), I("year", "Год (например «ок. 1503–1506»)"), T("cr", "Описание картины (по-русски)", 3), T("ce", "Description (English)", 3), T("br", "О художнике (по-русски, можно пусто)", 3), T("be", "About the artist (English, можно пусто)", 3), I("file", "Имя файла на Викискладе (необязательно: для запасной ссылки)")],
+      build: async function (v, files) {
+        var f = files.img; if (!f) return { error: "Выберите файл картины." };
+        var need = [v.ar, v.ae, v.tr, v.te, v.year, v.cr, v.ce]; if (!need.every(function (x) { return x.trim(); })) return { error: "Заполните художника, название, год и описание на двух языках." };
+        if ((v.br.trim() || v.be.trim()) && !(v.br.trim() && v.be.trim())) return { error: "«О художнике» нужно на обоих языках или ни на одном." };
+        if (!DATA) return { error: "Сначала загрузите основу (функцию): нужен следующий номер файла." };
+        var n = nextImgNum();
+        var bytes = await resizeImage(f);
+        var item = { img: n, file: (v.file || "").trim() || ("custom-" + n + ".jpg"), artist: [v.ar, v.ae], title: [v.tr, v.te], year: v.year, context: [v.cr, v.ce] };
+        if (v.br.trim()) item.bio = [v.br, v.be];
+        return { op: "painting", items: [item], image: { name: "paintings/" + n + ".jpg", bytes: bytes } };
+      } },
+  };
+  var ORDER = ["topics", "debate", "interview", "nego", "conflict", "trick", "articulation", "diction", "vocab", "simple", "excerpt", "painting", "thought", "speechquote", "speechplan", "conflictlit"];
+  $("kind").innerHTML = ORDER.map(function (k) { return "<option value='" + k + "'>" + esc(Core.KINDS[k]) + "</option>"; }).join("");
+  var pack = []; // { op, items, image? } либо { op:"edit"|"remove", list, match, item? }
+  function opClean(o) { var c = {}; Object.keys(o).forEach(function (k) { if (k !== "image" && o[k] !== undefined) c[k] = o[k]; }); return c; }
+  function nextImgNum() {
+    var m = 0;
+    if (DATA) DATA.PAINTINGS.forEach(function (p) { m = Math.max(m, parseInt(p.img, 10) || 0); });
+    pack.forEach(function (o) { if (o.op === "painting") o.items.forEach(function (p) { m = Math.max(m, parseInt(p.img, 10) || 0); }); });
+    return ("00" + (m + 1)).slice(-3);
+  }
+  async function resizeImage(file) {
+    var bmp = await createImageBitmap(file), max = 1200, k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    var c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    var blob = await new Promise(function (r) { c.toBlob(r, "image/jpeg", 0.85); });
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+  var curFiles = {};
+  function renderForm() {
+    var k = $("kind").value, def = KINDS[k]; curFiles = {};
+    $("kindHelp").innerHTML = def.help + (k === "painting" && !DATA ? " <b>Нужна загруженная основа (функция).</b>" : "");
+    $("form").innerHTML = def.fields.map(function (f) {
+      var lab = "<label for='f_" + f.id + "'>" + esc(f.label) + "</label>";
+      if (f.type === "select") return lab + "<select id='f_" + f.id + "'>" + f.options.map(function (o) { return "<option value='" + esc(o.v) + "'>" + esc(o.t) + "</option>"; }).join("") + "</select>";
+      if (f.type === "area") return lab + "<textarea id='f_" + f.id + "' rows='" + (f.rows || 3) + "' spellcheck='false'></textarea>";
+      if (f.type === "file") return lab + "<input type='file' id='f_" + f.id + "' accept='image/*'><img class='imgprev' id='prev_" + f.id + "' alt='' style='display:none'>";
+      return lab + "<input type='text' id='f_" + f.id + "' autocomplete='off' spellcheck='false'>";
+    }).join("");
+    def.fields.forEach(function (f) {
+      if (f.type !== "file") return;
+      $("f_" + f.id).addEventListener("change", function () { var fl = this.files && this.files[0]; curFiles[f.id] = fl || null; var pv = $("prev_" + f.id); if (fl) { pv.src = URL.createObjectURL(fl); pv.style.display = "block"; } else pv.style.display = "none"; });
+    });
+    $("addMsg").textContent = "";
+  }
+  $("kind").addEventListener("change", renderForm);
+  function msg(t, kind) { var e = $("addMsg"); e.textContent = t; e.style.color = kind === "err" ? "var(--bad)" : "var(--ok)"; }
+  $("addBtn").addEventListener("click", async function () {
+    var k = $("kind").value, def = KINDS[k], v = {};
+    def.fields.forEach(function (f) { if (f.type !== "file") v[f.id] = $("f_" + f.id).value; });
+    try {
+      var r = await def.build(v, curFiles);
+      if (r.error) return msg(r.error, "err");
+      pack.push(r); renderPack(); msg("Добавлено в пакет.", "ok");
+      def.fields.forEach(function (f) { if (f.type === "file") { $("f_" + f.id).value = ""; curFiles[f.id] = null; $("prev_" + f.id).style.display = "none"; } else if (f.type !== "select") $("f_" + f.id).value = ""; });
+    } catch (e) { msg("Не вышло: " + e.message, "err"); }
+  });
+  function opTitle(o) {
+    if (o.op === "edit" || o.op === "remove") { var LN = (Core.LISTS[o.list] || {}).name || o.list; return esc((o.op === "edit" ? "Исправление" : "Удаление") + " · " + LN) + ": <span class='meta'>" + esc(String(o.match).slice(0, 70)) + "</span>"; }
+    var n = o.items.length, t = Core.KINDS[o.op] || o.op;
+    var d = o.op === "topics" ? " · " + (CATS[o.cat] || o.cat) : o.op === "conflict" ? " · " + (DOMS[o.domain] || o.domain) : o.op === "excerpt" ? " · " + o.lang : "";
+    var sample = o.items[0]; sample = Array.isArray(sample) ? sample[0] : sample && (sample.q ? sample.q[0] : sample.sit ? sample.sit[0] : sample.n ? sample.n[0] : sample.title ? sample.title[0] + " (" + sample.img + ")" : sample.text || "");
+    return esc(t + d) + ": <b>" + n + "</b> · <span class='meta'>" + esc(String(sample || "").slice(0, 70)) + "</span>" + (o.image ? " <span class='pill'>+ " + esc(o.image.name) + "</span>" : "");
+  }
+  function renderPack() {
+    $("packCount").textContent = pack.length ? "(" + pack.length + ")" : "";
+    $("packList").innerHTML = pack.length ? "<table class='ptable'>" + pack.map(function (o, i) { return "<tr><td>" + opTitle(o) + "</td><td class='x'><button class='sec' data-del='" + i + "' type='button'>✕</button></td></tr>"; }).join("") + "</table>" : "пока пусто";
+  }
+  $("packList").addEventListener("click", function (e) { var b = e.target.closest("button[data-del]"); if (!b) return; pack.splice(parseInt(b.getAttribute("data-del"), 10), 1); renderPack(); });
+  $("packClear").addEventListener("click", function () { if (!pack.length || confirm("Очистить пакет?")) { pack = []; renderPack(); } });
+
+
+  // ---------- просмотр, исправление и удаление существующих записей ----------
+  var Tm = function (x) { return String(x == null ? "" : x).trim(); };
+  var linesOf = function (t) { return String(t || "").split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); };
+  // Описание формы для каждого типа записей: подписи полей, высота полей, как превратить запись в поля и обратно
+  var ED = {
+    topics: { labels: ["Тема (RU)", "Topic (EN)"], rows: [2, 2], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
+    debate: { labels: ["Тезис (RU)", "Thesis (EN)"], rows: [2, 2], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
+    interview: { labels: ["Вопрос (RU)", "Question (EN)", "Пример ответа (RU)", "Sample answer (EN)"], rows: [2, 2, 7, 7], toF: function (x) { return [x.q[0], x.q[1], x.a[0], x.a[1]]; }, fromF: function (f) { return { q: [Tm(f[0]), Tm(f[1])], a: [Tm(f[2]), Tm(f[3])] }; }, prev: function (x) { return x.q[0]; } },
+    nego: { labels: ["Ситуация (RU)", "Situation (EN)", "Инструмент (RU)", "Tool (EN)", "Шаги решения (RU): по шагу на строку", "Solution steps (EN): one per line"], rows: [4, 4, 2, 2, 8, 8],
+      toF: function (x) { return [x.sit[0], x.sit[1], x.tool[0], x.tool[1], x.steps.map(function (z) { return z[0]; }).join("\n"), x.steps.map(function (z) { return z[1]; }).join("\n")]; },
+      fromF: function (f) { var a = linesOf(f[4]), b = linesOf(f[5]); if (a.length !== b.length) throw new Error("шагов по-русски " + a.length + ", по-английски " + b.length + ": должно быть поровну"); return { sit: [Tm(f[0]), Tm(f[1])], tool: [Tm(f[2]), Tm(f[3])], steps: a.map(function (z, i) { return [z, b[i]]; }) }; },
+      prev: function (x) { return x.sit[0]; } },
+    conflict: { labels: ["Реплика (RU)", "Line (EN)", "Подсказка к ответу (RU, можно пусто)", "Hint (EN, можно пусто)"], rows: [3, 3, 3, 3], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
+    conflictlit: { labels: ["Цитата (RU)", "Quote (EN)", "Автор и произведение (RU)", "Author and work (EN)"], rows: [3, 3, 1, 1], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[2] + ": " + x[0]; } },
+    trick: { labels: ["Тип: c — классическая риторика, b — чёрная", "Название (RU)", "Name (EN)", "Суть (RU)", "The idea (EN)", "Как применить/распознать (RU, можно пусто)", "How to (EN, можно пусто)", "Пример (RU)", "Example (EN)", "Ситуации (RU): по строке на ситуацию", "Situations (EN): one per line", "Подсказка/защита (RU, можно пусто)", "Defence (EN, можно пусто)"], rows: [1, 1, 1, 3, 3, 3, 3, 4, 4, 8, 8, 3, 3],
+      toF: function (x) { return [x.t, x.n[0], x.n[1], x.d[0], x.d[1], x.h ? x.h[0] : "", x.h ? x.h[1] : "", x.ex[0], x.ex[1], x.s.map(function (z) { return z[0]; }).join("\n"), x.s.map(function (z) { return z[1]; }).join("\n"), x.f ? x.f[0] : "", x.f ? x.f[1] : ""]; },
+      fromF: function (f) { var a = linesOf(f[9]), b = linesOf(f[10]); if (a.length !== b.length) throw new Error("ситуаций по-русски " + a.length + ", по-английски " + b.length + ": должно быть поровну"); var o = { t: Tm(f[0]), n: [Tm(f[1]), Tm(f[2])], d: [Tm(f[3]), Tm(f[4])] }; if (Tm(f[5]) || Tm(f[6])) o.h = [Tm(f[5]), Tm(f[6])]; o.ex = [Tm(f[7]), Tm(f[8])]; o.s = a.map(function (z, i) { return [z, b[i]]; }); if (Tm(f[11]) || Tm(f[12])) o.f = [Tm(f[11]), Tm(f[12])]; return o; },
+      prev: function (x) { return x.n[0]; } },
+    articulation: { labels: ["Название (RU)", "Как делать (RU)", "Name (EN)", "How to (EN)"], rows: [1, 4, 1, 4], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
+    diction: { labels: ["Название (RU)", "Текст скороговорки (RU)", "Как делать (RU)", "Name (EN)", "Tongue twister (EN)", "How to (EN)"], rows: [1, 3, 3, 1, 3, 3], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0] + " — " + x[1]; } },
+    vocab: { labels: ["Слово (RU)", "Значение (RU)", "Word (EN)", "Meaning (EN)"], rows: [1, 3, 1, 3], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0] + " — " + x[1]; } },
+    simple: { labels: ["Слово (RU)", "Word (EN)", "Описание (RU)", "Description (EN)"], rows: [1, 1, 3, 3], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0] + " — " + x[2]; } },
+    thought: { labels: ["Мысль (RU)", "Thought (EN)"], rows: [3, 3], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
+    excerpt_ru: { labels: ["Текст отрывка", "Автор", "Источник"], rows: [9, 1, 1], toF: function (x) { return [x.text, x.author, x.source]; }, fromF: function (f) { return { text: Tm(f[0]), author: Tm(f[1]), source: Tm(f[2]) }; }, prev: function (x) { return x.author + ": " + x.text; } },
+    excerpt_en: { labels: ["Text of the excerpt", "Author", "Source"], rows: [9, 1, 1], toF: function (x) { return [x.text, x.author, x.source]; }, fromF: function (f) { return { text: Tm(f[0]), author: Tm(f[1]), source: Tm(f[2]) }; }, prev: function (x) { return x.author + ": " + x.text; } },
+    painting: { labels: ["Файл (имя на Викискладе или custom-NNN.jpg)", "Год", "Художник (RU)", "Artist (EN)", "Название (RU)", "Title (EN)", "Описание картины (RU)", "Description (EN)", "О художнике (RU, можно пусто)", "About the artist (EN, можно пусто)"], rows: [1, 1, 1, 1, 1, 1, 5, 5, 3, 3],
+      toF: function (x) { return [x.file, x.year, x.artist[0], x.artist[1], x.title[0], x.title[1], x.context[0], x.context[1], x.bio ? x.bio[0] : "", x.bio ? x.bio[1] : ""]; },
+      fromF: function (f, old) { var t = f.map(Tm); var o = { img: old.img, file: t[0], artist: [t[2], t[3]], title: [t[4], t[5]], year: t[1], context: [t[6], t[7]] }; if (t[8] || t[9]) o.bio = [t[8], t[9]]; return o; },
+      prev: function (x) { return "№" + x.img + " · " + x.artist[0] + " — " + x.title[0]; } },
+    speechquote: { labels: ["Цитата (RU)", "Quote (EN)", "Автор (RU)", "Author (EN)", "Категории через запятую (ключи из списка тем)"], rows: [3, 3, 1, 1, 1], toF: function (x) { return x.slice(0, 4).concat([x[4].join(",")]); }, fromF: function (f) { return f.slice(0, 4).map(Tm).concat([f[4].split(",").map(Tm).filter(Boolean)]); }, prev: function (x) { return x[2] + ": " + x[0]; } },
+    speechplan: { labels: ["План целиком (формат JSON; меняйте только тексты внутри кавычек, остальное не трогайте)"], rows: [24], toF: function (x) { return [JSON.stringify(x, null, 1)]; }, fromF: function (f) { return JSON.parse(f[0]); }, prev: function (x) { return x.id + " · уровень " + x.level + " · " + x.n[0]; } },
+  };
+  // Разделы: sub — второй выбор (категория тем или сфера «Конфликта»); add — тип в «Сборщике»
+  var SEC = [
+    { id: "topics", name: "Темы (режим «Темы», тренировка)", sub: "cat", add: "topics" },
+    { id: "debate", name: "Дебаты · тезисы", add: "debate" },
+    { id: "interview", name: "Интервью · вопросы и ответы", add: "interview" },
+    { id: "nego", name: "Переговоры · кейсы", add: "nego" },
+    { id: "conflict", name: "Конфликт · реплики по сферам", sub: "dom", add: "conflict" },
+    { id: "conflictlit", name: "Конфликт · «Литературно» (цитаты писателей)", add: "conflictlit" },
+    { id: "trick", name: "Речевые приёмы", add: "trick" },
+    { id: "articulation", name: "Артикуляция", add: "articulation" },
+    { id: "diction", name: "Дикция · скороговорки", add: "diction" },
+    { id: "painting", name: "Сторителлинг · Картины", add: "painting" },
+    { id: "excerpt_ru", name: "Сторителлинг · Пересказ: русские отрывки", add: "excerpt", lang: "ru" },
+    { id: "excerpt_en", name: "Сторителлинг · Пересказ: английские отрывки", add: "excerpt", lang: "en" },
+    { id: "vocab", name: "Сторителлинг · Словарный запас", add: "vocab" },
+    { id: "simple", name: "Сторителлинг · Простые слова (описать слово, придумать историю)", add: "simple" },
+    { id: "thought", name: "Сторителлинг · Продолжи мысль", add: "thought" },
+    { id: "speechquote", name: "Сторителлинг · Красивая речь: цитаты", add: "speechquote" },
+    { id: "speechplan", name: "Сторителлинг · Красивая речь: планы речи", add: "speechplan" },
+  ];
+  $("edSec").innerHTML = SEC.map(function (x) { return "<option value='" + x.id + "'>" + esc(x.name) + "</option>"; }).join("");
+  var edCur = null, edPage = 100;
+  function edSec() { return SEC.filter(function (x) { return x.id === $("edSec").value; })[0]; }
+  function edListId() { var sc = edSec(); return sc.sub ? sc.id + ":" + $("edSub").value : sc.id; }
+  function edSubFill() {
+    var sc = edSec(), w = $("edSubWrap");
+    if (!sc.sub) { w.style.display = "none"; return; }
+    var map = sc.sub === "cat" ? CATS : DOMS, keys = DATA ? Object.keys(sc.sub === "cat" ? DATA.topics : DATA.CONFLICT_DOMAINS || {}) : Object.keys(map), cur = $("edSub").value;
+    $("edSubLab").textContent = sc.sub === "cat" ? "Категория тем" : "Сфера";
+    $("edSub").innerHTML = keys.map(function (k) {
+      var n = DATA ? (sc.sub === "cat" ? (DATA.topics[k] ? DATA.topics[k].ru.length : 0) : (DATA.CONFLICT_DOMAINS[k] ? DATA.CONFLICT_DOMAINS[k].attacks.length : 0)) : "";
+      return "<option value='" + esc(k) + "'>" + esc(map[k] || k) + (n !== "" ? " (" + n + ")" : "") + "</option>";
+    }).join("");
+    if (cur && keys.indexOf(cur) >= 0) $("edSub").value = cur;
+    w.style.display = "block";
+  }
+  function edItems() { var L = Core.getList(edListId(), DATA); return DATA && L ? (L.get(DATA) || null) : null; }
+  function edStaged(list, k) { return pack.some(function (o) { return o.list === list && Core.key(o.match) === Core.key(k); }); }
+  function edRender(reset) {
+    if (reset !== false) edPage = 100;
+    var sc = edSec(), list = edListId(), D = ED[sc.id], arr = edItems(), info = $("edInfo"), box = $("edTable");
+    $("edFormCard").style.display = "none"; edCur = null; $("edMore").style.display = "none";
+    $("edAdd").disabled = !DATA; $("edCsv").disabled = !DATA;
+    if (!DATA) { info.innerHTML = "<b>Сначала загрузите основу:</b> вкладка «Сборщик» → шаг 1 → файл функции, который сейчас работает в Яндекс."; box.innerHTML = ""; return; }
+    if (!arr) { info.innerHTML = "В загруженной основе этого списка нет: загрузите свежую функцию (версия 2026-10-09.57 или новее)."; box.innerHTML = ""; return; }
+    var q = Core.key($("edFind").value), rows = [], total = 0, L = Core.getList(list, DATA);
+    arr.forEach(function (x, i) { var hay = Core.key(D.toF(x).join(" ")); if (q && hay.indexOf(q) < 0) return; total++; if (rows.length < edPage) rows.push([i, D.prev(x)]); });
+    info.textContent = "Всего в списке: " + arr.length + (q ? "; найдено: " + total : "") + (total > rows.length ? "; показано " + rows.length : "; показаны все") + ".";
+    if (total > rows.length) $("edMore").style.display = "inline-block";
+    box.innerHTML = "<table class='ptable'>" + rows.map(function (r) { var st = edStaged(list, L.key(arr[r[0]])); return "<tr><td>" + esc(String(r[1]).slice(0, 220)) + (st ? " <span class='pill'>в пакете</span>" : "") + "</td><td class='x' style='white-space:nowrap'><button class='sec' data-ed='" + r[0] + "' type='button'>Изменить</button> " + (L.noRemove ? "" : "<button class='sec' data-edel='" + r[0] + "' type='button'>Удалить</button>") + "</td></tr>"; }).join("") + "</table>";
+  }
+  function edAll() { edSubFill(); edRender(); }
+  $("edSec").addEventListener("change", edAll); $("edSub").addEventListener("change", function () { edRender(); }); $("edFind").addEventListener("input", function () { edRender(); });
+  $("edMore").addEventListener("click", function () { edPage += 100; edRender(false); });
+  document.querySelector("[data-tab=editor]").addEventListener("click", edAll);
+  $("edCsv").addEventListener("click", function () {
+    var arr = edItems(), D = ED[edSec().id]; if (!arr) return;
+    var q = function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; };
+    var rows = [D.labels.map(q).join(";")].concat(arr.map(function (x) { return D.toF(x).map(q).join(";"); }));
+    download("spisok-" + edListId().replace(/[^a-z0-9_-]/gi, "_") + ".csv", "﻿" + rows.join("\r\n"), "text/csv;charset=utf-8");
+  });
+  $("edAdd").addEventListener("click", function () {
+    var sc = edSec(); document.querySelector("[data-tab=builder]").click();
+    $("kind").value = sc.add; renderForm();
+    if (sc.sub === "cat" && $("f_cat")) $("f_cat").value = $("edSub").value;
+    if (sc.sub === "dom" && $("f_dom")) $("f_dom").value = $("edSub").value;
+    if (sc.lang && $("f_lang")) $("f_lang").value = sc.lang;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("edTable").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    var sc = edSec(), list = edListId(), arr = edItems(), L = Core.getList(list, DATA), D = ED[sc.id];
+    if (b.hasAttribute("data-edel")) {
+      var it = arr[parseInt(b.getAttribute("data-edel"), 10)]; if (!it) return;
+      if (!confirm("Удалить запись из списка?\n\n" + String(D.prev(it)).slice(0, 200))) return;
+      pack.push({ op: "remove", list: list, match: L.key(it) }); renderPack(); edRender(false); $("edInfo").textContent += " Удаление добавлено в пакет: соберите его во вкладке «Сборщик».";
+      return;
+    }
+    if (b.hasAttribute("data-ed")) {
+      var idx = parseInt(b.getAttribute("data-ed"), 10), it2 = arr[idx]; if (!it2) return;
+      edCur = { list: list, idx: idx, sec: sc.id }; var vals = D.toF(it2);
+      $("edFormTitle").textContent = "Изменить запись · " + sc.name;
+      $("edForm").innerHTML = D.labels.map(function (lab, i) { return "<label for='edf" + i + "'>" + esc(lab) + "</label>" + (D.rows[i] > 1 ? "<textarea id='edf" + i + "' rows='" + D.rows[i] + "' spellcheck='false'>" + esc(vals[i]) + "</textarea>" : "<input type='text' id='edf" + i + "' autocomplete='off' value='" + esc(vals[i]).replace(/'/g, "&#39;") + "'>"); }).join("");
+      $("edMsg").textContent = ""; $("edFormCard").style.display = "block"; $("edFormCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+  $("edCancel").addEventListener("click", function () { $("edFormCard").style.display = "none"; edCur = null; });
+  $("edSave").addEventListener("click", function () {
+    if (!edCur) return; var list = edCur.list, D = ED[edCur.sec], L = Core.getList(list, DATA), arr = edItems(), old = arr[edCur.idx], msgEl = $("edMsg");
+    try {
+      var vals = D.labels.map(function (l, i) { return $("edf" + i).value; });
+      var item = D.fromF(vals, old), why = L.check(item, DATA);
+      if (why) { msgEl.style.color = "var(--bad)"; msgEl.textContent = "Не подходит: " + why; return; }
+      if (JSON.stringify(item) === JSON.stringify(old)) { msgEl.style.color = "var(--bad)"; msgEl.textContent = "Вы ничего не изменили."; return; }
+      pack.push({ op: "edit", list: list, match: L.key(old), item: item }); renderPack();
+      $("edFormCard").style.display = "none"; edCur = null; edRender(false);
+      $("edInfo").textContent += " Правка добавлена в пакет: соберите его во вкладке «Сборщик» («Проверить и собрать»).";
+    } catch (e) { msgEl.style.color = "var(--bad)"; msgEl.textContent = "Не вышло: " + (e && e.message || e); }
+  });
+
+  // ---------- проверка собранных файлов до загрузки ----------
+  var FN_ID = "d4e55siamfqcav7kct0l"; // единственный верный адрес функции: functions.yandexcloud.net/<этот идентификатор>
+  function ckRow(level, t, d) { var c = level === "ok" ? "g" : level === "warn" ? "y" : "r"; return "<div class='card' style='margin:6px 0;padding:10px'><span class='dot " + c + "'></span><b>" + esc(t) + "</b>" + (d ? "<div class='meta'>" + d + "</div>" : "") + "</div>"; }
+  function jsSyntax(name, txt) { try { new Function("module", "exports", "require", "__dirname", txt); return ""; } catch (e) { return name + ": " + (e && e.message || e); } }
+  $("ckFn").addEventListener("change", async function () {
+    var f = this.files && this.files[0], out = $("ckFnOut"); if (!f) return; out.innerHTML = "<div class='meta'>Проверяю…</div>";
+    var rows = [];
+    try {
+      var buf = await f.arrayBuffer(), es = Z.readZip(buf), names = es.map(function (e) { return e.name; });
+      var need = ["index.js", "data.js", "telegram.js", "max.js", "quota.js", "monitor.js", "botimg.js", "package.json"], miss = need.filter(function (n) { return names.indexOf(n) < 0; });
+      rows.push(miss.length ? ckRow("bad", "Не хватает файлов в архиве: " + miss.join(", "), "Яндекс не запустит такую функцию. Соберите архив заново (кнопка «Функция для Яндекса» в «Сборщике»).") : ckRow("ok", "Состав архива в порядке", esc(names.join(", ")) + " · " + fmtSize(buf.byteLength)));
+      if (names.indexOf("function.zip") >= 0 || names.some(function (n) { return n.indexOf("/") >= 0; })) rows.push(ckRow("bad", "Файлы лежат внутри папки или архив вложен в архив", "Файлы должны лежать в корне архива (index.js рядом с data.js), а не в папке. Распакуйте и упакуйте только сами файлы."));
+      var texts = {}, errs = [], ids = {};
+      for (var i = 0; i < es.length; i++) { if (/\.js$/.test(es[i].name)) { texts[es[i].name] = Z.dec.decode(await Z.entryBytes(es[i])); var er = jsSyntax(es[i].name, texts[es[i].name]); if (er) errs.push(er); (texts[es[i].name].match(/functions\.yandexcloud\.net\/[a-z0-9]+/g) || []).forEach(function (m) { ids[m.split("/")[1]] = 1; }); } }
+      rows.push(errs.length ? ckRow("bad", "Синтаксические ошибки в коде", esc(errs.join("; ")) + ". Такой архив нельзя загружать.") : ckRow("ok", "Код читается без синтаксических ошибок", Object.keys(texts).length + " файлов .js"));
+      var idl = Object.keys(ids);
+      rows.push(idl.length === 1 && idl[0] === FN_ID ? ckRow("ok", "Адрес функции один и верный", "functions.yandexcloud.net/" + FN_ID) : ckRow(idl.length ? "bad" : "warn", idl.length ? "В коде разные адреса функции: " + idl.join(", ") : "Адрес функции в коде не найден", "Верный адрес: functions.yandexcloud.net/" + FN_ID + ". Если вы меняли адрес функции в Яндексе, его нужно обновить в трёх местах: код, сайт (index.html) и wrangler.toml."));
+      var v = /VERSION = "([^"]+)"/.exec(texts["index.js"] || ""); rows.push(ckRow(v ? "ok" : "bad", "Версия программы: " + (v ? v[1] : "не найдена"), "После загрузки проверьте, что <code>?p=ping</code> показывает именно эту версию."));
+      var ex = await evalData(buf), bad = Core.checkData(ex.D);
+      rows.push(bad.length ? ckRow("bad", "Данные не прошли проверку (" + bad.length + ")", esc(bad.slice(0, 8).join(" · "))) : ckRow("ok", "Данные в порядке", "тем: " + ex.counts.topics + ", картин: " + ex.counts.paintings + ". Русские и английские списки поровну, пустых строк нет."));
+      var lit = (ex.D.CONFLICT_LIT || []).length; rows.push(ckRow(lit ? "ok" : "warn", "Цитаты «Литературно»: " + lit, lit ? "" : "В этой сборке нет цитат (старая версия данных)."));
+      var sec = /ROBOKASSA_TEST|MASTER_CODE\s*=\s*["'][^"']{6,}/.test(Object.keys(texts).map(function (k) { return texts[k]; }).join("\n")) && /MASTER_CODE\s*=\s*["'][^"']{6,}/.test(texts["index.js"] || ""); if (sec) rows.push(ckRow("bad", "В коде зашит секрет (MASTER_CODE)", "Секреты должны быть только в переменных окружения."));
+      rows.push(ckRow("info" === "x" ? "ok" : "ok", "Напоминание", "Переменные окружения в Яндексе при загрузке не меняются. После загрузки откройте <code>issue-code.html</code> → «Диагностика»."));
+    } catch (e) { rows.push(ckRow("bad", "Не удалось прочитать архив", esc(e && e.message || e) + ". Это не архив функции или он повреждён.")); }
+    out.innerHTML = rows.join("");
+  });
+  $("ckSite").addEventListener("change", async function () {
+    var f = this.files && this.files[0], out = $("ckSiteOut"); if (!f) return; out.innerHTML = "<div class='meta'>Проверяю…</div>";
+    var rows = [];
+    try {
+      var buf = await f.arrayBuffer(), es = Z.readZip(buf), by = {}; es.forEach(function (e) { by[e.name] = e; });
+      rows.push(ckRow(buf.byteLength < 30 * 1048576 ? "ok" : "bad", "Размер архива: " + fmtSize(buf.byteLength), buf.byteLength < 30 * 1048576 ? "Меньше лимита хостинга (30 МБ)." : "Больше 30 МБ: хостинг не примет."));
+      var need = ["index.html", "offer.html", "privacy.html", "consent.html"], miss = need.filter(function (n) { return !by[n]; });
+      rows.push(miss.length ? ckRow("bad", "Не хватает файлов: " + miss.join(", "), "В корне архива должны лежать index.html и три документа.") : ckRow("ok", "Главная страница и документы на месте", ""));
+      var pic = es.filter(function (e) { return /^paintings\/\d{3}\.jpg$/.test(e.name); }).length, fonts = es.filter(function (e) { return /^fonts\//.test(e.name) && !/\/$/.test(e.name); }).length;
+      rows.push(ckRow(pic >= 100 ? "ok" : "warn", "Картин: " + pic + ", шрифтов: " + fonts, pic >= 100 ? "" : "Картин меньше обычного: возможно, архив собран без папки paintings."));
+      if (by["index.html"]) {
+        var t = Z.dec.decode(await Z.entryBytes(by["index.html"])), errs = [], sm = [], re = /<script>([\s\S]*?)<\/script>/g, m;
+        while ((m = re.exec(t))) { var er = jsSyntax("скрипт сайта", m[1]); if (er) errs.push(er); }
+        rows.push(errs.length ? ckRow("bad", "Ошибка в программе сайта", esc(errs.join("; ")) + ". Такой архив нельзя загружать: сайт не будет работать.") : ckRow("ok", "Программа сайта читается без ошибок", ""));
+        var api = /API_BASE = "([^"]+)"/.exec(t), fb = /API_FALLBACK = "([^"]+)"/.exec(t);
+        rows.push(api && api[1].indexOf("/" + FN_ID) > 0 ? ckRow("ok", "Сайт обращается к верной функции", esc(api[1])) : ckRow("bad", "Адрес функции в index.html неверный или не найден", "Верный: https://functions.yandexcloud.net/" + FN_ID + (api ? " (сейчас: " + esc(api[1]) + ")" : "")));
+        rows.push(fb ? ckRow("ok", "Резервный адрес (Cloudflare): " + fb[1], "Сайт переключится на него, если Яндекс не отвечает.") : ckRow("warn", "Резервного адреса в сайте нет", "Старая версия сайта: при сбое Яндекса сайт не заработает."));
+        var csp = /connect-src ([^;"]+)/.exec(t); if (csp && fb && csp[1].indexOf("workers.dev") < 0) rows.push(ckRow("bad", "Политика безопасности не разрешает резервный адрес", "В <code>connect-src</code> должен быть <code>https://*.workers.dev</code>."));
+      }
+      ["offer.html", "privacy.html", "consent.html"].forEach(function (n) { /* редакции документов должны совпадать */ });
+      var ed = []; for (var k = 0; k < 3; k++) { var nm = ["offer.html", "privacy.html", "consent.html"][k]; if (by[nm]) { var tt = Z.dec.decode(await Z.entryBytes(by[nm])), mm = /Редакция от (\d\d\.\d\d\.\d{4})/.exec(tt); ed.push(nm.replace(".html", "") + ": " + (mm ? mm[1] : "дата не найдена")); } }
+      rows.push(ckRow("ok", "Редакции документов", esc(ed.join(" · ")) + ". Они должны совпадать."));
+    } catch (e) { rows.push(ckRow("bad", "Не удалось прочитать архив", esc(e && e.message || e))); }
+    out.innerHTML = rows.join("");
+  });
+
+  // ---------- сборка ----------
+  function stamp() { var d = new Date(), p = function (n) { return ("0" + n).slice(-2); }; return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes()); }
+  function download(name, bytes, type) { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes], { type: type || "application/zip" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
+  var lastBuild = null;
+  function injectOps(txt, newOps) {
+    var m = /\/\*OPS\*\/([\s\S]*?)\/\*ENDOPS\*\//.exec(txt);
+    if (m) { var old = JSON.parse(m[1]); return txt.replace(m[0], function () { return "/*OPS*/" + JSON.stringify(old.concat(newOps)) + "/*ENDOPS*/"; }); }
+    var ex = /\nmodule\.exports = \{([^}]*)\};/.exec(txt);
+    if (!ex) throw new Error("В data.js не найден список экспортов: это не архив функции");
+    var names = ex[1].split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    var block = "\n/*ADDITIONS-BEGIN*/\n(function () { var module = { exports: {} };\n" + CORE_SRC + "\nvar rep = module.exports.applyAdditions({ " + names.join(", ") + " }, /*OPS*/" + JSON.stringify(newOps) + "/*ENDOPS*/); if (rep.errors.length) console.log('additions:', rep.errors.slice(0, 5).join('; ')); })();\n/*ADDITIONS-END*/\n";
+    return txt.slice(0, ex.index) + block + txt.slice(ex.index);
+  }
+  $("buildBtn").addEventListener("click", async function () {
+    var btn = this, out = $("buildOut"); out.innerHTML = ""; lastBuild = null;
+    function show(t, k) { out.insertAdjacentHTML("beforeend", "<div class='msg " + k + "'>" + t + "</div>"); }
+    if (!pack.length) return show("Пакет пуст: сначала добавьте записи.", "err");
+    if (!base.fn || !DATA) return show("Загрузите основу: файл функции (шаг 1).", "err");
+    var hasPic = pack.some(function (o) { return o.op === "painting"; });
+    if (hasPic && !base.site) return show("Для новых картин загрузите основу сайта (шаг 1).", "err");
+    btn.disabled = true; btn.textContent = "Собираю…";
+    try {
+      // 1) проверка на копии данных
+      var D2 = typeof structuredClone === "function" ? structuredClone(DATA) : JSON.parse(JSON.stringify(DATA)), rows = [], errors = [];
+      pack.forEach(function (o) {
+        var rep = Core.applyAdditions(D2, [opClean(o)]);
+        var added = Object.keys(rep.added).reduce(function (a, k) { return a + rep.added[k]; }, 0);
+        rows.push("<tr><td>" + opTitle(o) + "</td><td>добавлено <b>" + added + "</b>" + (rep.skipped.length ? ", пропущено (уже есть) <b>" + rep.skipped.length + "</b>" : "") + "</td></tr>");
+        errors = errors.concat(rep.errors);
+      });
+      errors = errors.concat(Core.checkData(D2));
+      show("<table>" + rows.join("") + "</table>", "okk");
+      if (errors.length) { show("<b>Найдено проблем: " + errors.length + ".</b> Сборка остановлена.<br>" + errors.slice(0, 15).map(function (x) { return "• " + esc(x); }).join("<br>"), "err"); return; }
+      // 2) новая функция: добавляем операции в data.js
+      var ops = pack.map(opClean);
+      var es = Z.readZip(base.fn.buf), outEs = [];
+      for (var i = 0; i < es.length; i++) {
+        if (es[i].name === "data.js") { var t = Z.dec.decode(await Z.entryBytes(es[i])); outEs.push(await Z.makeEntry("data.js", Z.enc.encode(injectOps(t, ops)), true)); } else outEs.push(es[i]);
+      }
+      var fnZip = Z.writeZip(outEs);
+      // проверка собранного архива: data.js читается, добавки на месте
+      var chk = await evalData(fnZip), bad2 = Core.checkData(chk.D);
+      if (bad2.length) { show("Собранный архив не прошёл проверку: " + esc(bad2[0]), "err"); return; }
+      // 3) сайт: новые картины
+      var siteZip = null, pics = pack.filter(function (o) { return o.image; });
+      if (pics.length) {
+        var ses = Z.readZip(base.site.buf), have = {}; ses.forEach(function (e) { have[e.name] = 1; });
+        for (var j = 0; j < pics.length; j++) { var nm = pics[j].image.name; if (have[nm]) { show("В сборке сайта уже есть " + esc(nm) + ": номер занят. Загрузите свежую основу сайта.", "err"); return; } ses.push(await Z.makeEntry(nm, pics[j].image.bytes, false)); }
+        siteZip = Z.writeZip(ses);
+      }
+      // 4) пакет для Claude
+      var st = stamp(), addJson = JSON.stringify(ops, null, 1) + "\n", addPath = "src/additions/" + st + ".json";
+      var readme = "Пакет добавок для проекта «Слушаю, говорите» (" + new Date().toLocaleString("ru-RU") + ").\r\n\r\nГде что лежит:\r\n  speechcoach-api/src/additions/" + st + ".json — темы и записи: загрузите в закрытый репозиторий speechcoach-api в папку src/additions;\r\n  speechcoach/paintings/*.jpg — новые картины (если есть): загрузите в репозиторий сайта speechcoach в папку paintings.\r\n\r\nСамый простой путь без ИИ: кнопка «Отправить в GitHub» на странице-сборщике. Вручную: GitHub → репозиторий → нужная папка → Add file → Upload files → Commit changes (в отдельную ветку и Pull request) → Merge.\r\nПосле слияния Cloudflare сам обновит Telegram-бот.\r\n";
+      var pk = [await Z.makeEntry("ЧИТАЙ-МЕНЯ.txt", Z.enc.encode(readme), true), await Z.makeEntry("speechcoach-api/" + addPath, Z.enc.encode(addJson), true)];
+      for (var q = 0; q < pics.length; q++) pk.push(await Z.makeEntry("speechcoach/" + pics[q].image.name, pics[q].image.bytes, false));
+      var pkZip = Z.writeZip(pk);
+      lastBuild = { fn: fnZip, site: siteZip, pk: pkZip, st: st, addPath: addPath, addJson: addJson, pics: pics.map(function (o) { return { name: o.image.name, bytes: o.image.bytes }; }), title: pack.map(function (o) { return Core.KINDS[o.op] + ": " + (o.items ? o.items.length : 1); }).join(", "), fnName: "function-content-" + st + ".zip", siteName: "site-for-hosting-" + st + ".zip", pkName: "speechcoach-update-" + st + ".zip" };
+      show("✅ <b>Сборка готова.</b> Тем и записей в функции после добавок: тем " + chk.counts.topics + ", картин " + chk.counts.paintings + ".", "okk");
+      var btns = "<div class='acts'><button class='primary' data-dl='fn' type='button'>⬇ Функция для Яндекса</button>" + (siteZip ? "<button class='primary' data-dl='site' type='button'>⬇ Сайт для хостинга</button>" : "") + "<button class='sec' data-dl='pk' type='button'>⬇ Пакет (запасной вариант)</button></div>";
+      out.insertAdjacentHTML("beforeend", btns); $("ghBox").style.display = "block";
+      if ($("makeBase").checked) {
+        await kv("set", "fn", { name: lastBuild.fnName, buf: fnZip.buffer.slice(fnZip.byteOffset, fnZip.byteOffset + fnZip.byteLength), saved: Date.now() });
+        if (siteZip) await kv("set", "site", { name: lastBuild.siteName, buf: siteZip.buffer.slice(siteZip.byteOffset, siteZip.byteOffset + siteZip.byteLength), saved: Date.now() });
+        pack = []; renderPack(); await showBase();
+        show("Новые сборки сохранены как основа для следующих добавок. Скачайте файлы выше: на странице они доступны, пока вы её не закроете.", "warn");
+      }
+    } catch (e) { show("Ошибка: " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "Проверить и собрать"; }
+  });
+  $("buildOut").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-dl]"); if (!b || !lastBuild) return;
+    var w = b.getAttribute("data-dl"); download(w === "fn" ? lastBuild.fnName : w === "site" ? lastBuild.siteName : lastBuild.pkName, w === "fn" ? lastBuild.fn : w === "site" ? lastBuild.site : lastBuild.pk);
+  });
+
+
+  // ---------- отправка в GitHub (без ИИ): ветка, коммит и Pull request через REST API ----------
+  if (lsGet("panel.ghtoken")) { $("ghToken").value = lsGet("panel.ghtoken"); $("ghRemember").checked = true; }
+  function b64(u8) { var s = "", i, CH = 0x8000; for (i = 0; i < u8.length; i += CH) s += String.fromCharCode.apply(null, u8.subarray(i, i + CH)); return btoa(s); }
+  function ghFail(r, what) {
+    if (r.status === 401) return "токен не подошёл (проверьте, не истёк ли он)";
+    if (r.status === 403) return "нет прав: у токена должны быть Contents и Pull requests (Read and write) для этого репозитория";
+    if (r.status === 404) return "репозиторий или путь не найдены (" + what + "): проверьте название и права токена";
+    if (r.status === 422) return "GitHub отклонил запрос (" + what + "): " + ((r.j && r.j.message) || "");
+    return "ошибка " + r.status + " (" + what + ")" + (r.j && r.j.message ? ": " + r.j.message : "");
+  }
+  async function pushFiles(token, repo, files, title, body, merge) {
+    var H = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" };
+    async function call(method, path, data) {
+      var r = await fetch("https://api.github.com/repos/" + repo + path, { method: method, headers: H, body: data ? JSON.stringify(data) : undefined });
+      var j = null; try { j = await r.json(); } catch (e) {}
+      return { status: r.status, ok: r.ok, j: j };
+    }
+    var meta = await call("GET", ""); if (!meta.ok) throw new Error(ghFail(meta, "репозиторий"));
+    var baseBranch = meta.j.default_branch, ref = await call("GET", "/git/ref/heads/" + baseBranch); if (!ref.ok) throw new Error(ghFail(ref, "ветка " + baseBranch));
+    var baseSha = ref.j.object.sha, cm = await call("GET", "/git/commits/" + baseSha); if (!cm.ok) throw new Error(ghFail(cm, "коммит"));
+    for (var i = 0; i < files.length; i++) { // не перезаписываем существующие файлы
+      var ex = await call("GET", "/contents/" + files[i].path.split("/").map(encodeURIComponent).join("/") + "?ref=" + encodeURIComponent(baseBranch));
+      if (ex.status === 200) throw new Error("файл уже есть в репозитории: " + files[i].path + " (номер занят: загрузите свежую основу сайта)");
+    }
+    var tree = [];
+    for (var k = 0; k < files.length; k++) {
+      var bl = await call("POST", "/git/blobs", { content: files[k].base64, encoding: "base64" }); if (!bl.ok) throw new Error(ghFail(bl, "файл " + files[k].path));
+      tree.push({ path: files[k].path, mode: "100644", type: "blob", sha: bl.j.sha });
+    }
+    var tr = await call("POST", "/git/trees", { base_tree: cm.j.tree.sha, tree: tree }); if (!tr.ok) throw new Error(ghFail(tr, "дерево файлов"));
+    var nc = await call("POST", "/git/commits", { message: title, tree: tr.j.sha, parents: [baseSha] }); if (!nc.ok) throw new Error(ghFail(nc, "коммит"));
+    var br = "panel/" + lastBuild.st; var rf = await call("POST", "/git/refs", { ref: "refs/heads/" + br, sha: nc.j.sha }); if (!rf.ok) throw new Error(ghFail(rf, "ветка " + br));
+    var pr = await call("POST", "/pulls", { title: title, head: br, base: baseBranch, body: body }); if (!pr.ok) throw new Error(ghFail(pr, "Pull request"));
+    var merged = false;
+    if (merge) { var mg = await call("PUT", "/pulls/" + pr.j.number + "/merge", { merge_method: "merge" }); if (!mg.ok) throw new Error("Pull request создан (" + pr.j.html_url + "), но слить не вышло: " + ghFail(mg, "слияние")); merged = true; }
+    return { url: pr.j.html_url, number: pr.j.number, merged: merged };
+  }
+  $("ghGo").addEventListener("click", async function () {
+    var btn = this, out = $("ghOut"); out.innerHTML = "";
+    function show(t, k) { out.insertAdjacentHTML("beforeend", "<div class='msg " + k + "'>" + t + "</div>"); }
+    var token = $("ghToken").value.trim(), apiRepo = $("ghApi").value.trim(), siteRepo = $("ghSite").value.trim(), merge = $("ghMerge").checked;
+    if (!lastBuild) return show("Сначала соберите обновление.", "err");
+    if (!/^[A-Za-z0-9_\-]{20,}$/.test(token)) return show("Вставьте токен GitHub (инструкция ниже).", "err");
+    if (!/^[\w.-]+\/[\w.-]+$/.test(apiRepo) || (lastBuild.pics.length && !/^[\w.-]+\/[\w.-]+$/.test(siteRepo))) return show("Название репозитория: владелец/имя.", "err");
+    if (merge && !confirm("Слить сразу? Обновление тем уйдёт в рабочую систему без вашей проверки в GitHub.")) return;
+    if ($("ghRemember").checked) lsSet("panel.ghtoken", token); else lsDel("panel.ghtoken");
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    try {
+      var body = "Добавки, собранные страницей «Панель владельца» (без ИИ).\n\n" + lastBuild.title + "\n\nПроверка данных выполнена при сборке; Cloudflare обновит Telegram-бот после слияния.";
+      var r1 = await pushFiles(token, apiRepo, [{ path: lastBuild.addPath, base64: b64(Z.enc.encode(lastBuild.addJson)) }], "Добавки: " + lastBuild.title, body, merge);
+      show("✅ Данные: <a href='" + esc(r1.url) + "' target='_blank' rel='noopener'>Pull request #" + r1.number + "</a>" + (r1.merged ? " (слит)" : ": откройте и нажмите «Merge pull request»"), "okk");
+      if (lastBuild.pics.length) {
+        var r2 = await pushFiles(token, siteRepo, lastBuild.pics.map(function (x) { return { path: x.name, base64: b64(x.bytes) }; }), "Новые картины: " + lastBuild.pics.length, "Новые картины, добавленные страницей «Панель владельца».", merge);
+        show("✅ Картины: <a href='" + esc(r2.url) + "' target='_blank' rel='noopener'>Pull request #" + r2.number + "</a>" + (r2.merged ? " (слит)" : ": откройте и нажмите «Merge pull request»"), "okk");
+      }
+      show("Дальше: нажмите «Merge» в GitHub (если не сливали сразу). Cloudflare обновит Telegram-бот сам; сборка для Яндекса уже скачана выше.", "warn");
+    } catch (e) { show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "📤 Отправить в GitHub"; }
+  });
+
+  // ---------- монитор ----------
+  var API_DEFAULT = "https://functions.yandexcloud.net/d4e55siamfqcav7kct0l", WORKER_DEFAULT = "https://speechcoach-api.enganfocuses.workers.dev";
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  $("mApi").value = lsGet("panel.api") || API_DEFAULT; $("mWorker").value = lsGet("panel.worker") || WORKER_DEFAULT;
+  if (lsGet("panel.key")) { $("mKey").value = lsGet("panel.key"); $("mRemember").checked = true; }
+  var URLRE = /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9_.\-]*)?$/i;
+  function cfg() {
+    var key = $("mKey").value.trim(), api = $("mApi").value.trim().replace(/\/$/, ""), wk = $("mWorker").value.trim().replace(/\/$/, "");
+    if ($("mRemember").checked) { lsSet("panel.key", key); lsSet("panel.api", api); lsSet("panel.worker", wk); } else { lsDel("panel.key"); }
+    return { key: key, api: URLRE.test(api) ? api : "", wk: URLRE.test(wk) ? wk : "" };
+  }
+  function jget(url) { return fetch(url, { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }, function () { return { st: r.status, j: null }; }); }).catch(function () { return null; }); }
+  var ICON = { ok: "g", warn: "y", bad: "r" }, LABEL = { ok: "в порядке", warn: "внимание", bad: "проблема" };
+  var mLast = null, mReport = "";
+  function renderItems(items, changes) {
+    var bad = items.filter(function (x) { return x.s === "bad"; }).length, warn = items.filter(function (x) { return x.s === "warn"; }).length;
+    $("mHint").textContent = (bad ? "Проблем: " + bad : "Проблем нет") + (warn ? ", замечаний: " + warn : "") + ". Проверено: " + new Date().toLocaleTimeString("ru-RU") + ".";
+    var html = items.map(function (x) {
+      var h = "<div class='card' style='margin:8px 0;padding:12px'><div><span class='dot " + ICON[x.s] + "'></span><b>" + esc(x.title || x.id) + "</b> <span class='pill'>" + LABEL[x.s] + "</span></div><div class='meta'>" + esc(x.d || "") + (x.since ? " · с " + esc(new Date(x.since).toLocaleString("ru-RU")) : "") + "</div>";
+      if (x.s !== "ok") {
+        if (x.steps && x.steps.length) h += "<details open><summary style='color:var(--ac)'>Как исправить</summary><ol style='margin:6px 0 0 18px;padding:0'>" + x.steps.map(function (t) { return "<li style='margin:2px 0'>" + esc(t) + "</li>"; }).join("") + "</ol></details>";
+        if (x.fix) h += "<div class='acts'><button class='sec' data-fix='" + esc(x.fix) + "' type='button'>🛠 Исправить</button></div>";
+        (x.suggest || []).forEach(function (sg, i) { h += "<details><summary>Предложение: " + esc(sg.title) + (sg.file ? " (" + esc(sg.file) + ")" : "") + "</summary><pre class='out'>" + esc(sg.text) + "</pre><button class='sec' data-copytext='" + esc(btoa(unescape(encodeURIComponent(sg.text)))) + "' type='button'>Копировать</button></details>"; });
+      }
+      return h + "</div>";
+    }).join("");
+    $("mOut").innerHTML = html;
+    mReport = "Отчёт монитора (" + new Date().toLocaleString("ru-RU") + ")\n" + $("mHint").textContent + "\n" + items.map(function (x) { return (x.s === "ok" ? "✅" : x.s === "warn" ? "⚠️" : "❌") + " " + (x.title || x.id) + " — " + (x.d || ""); }).join("\n");
+    $("mCopy").style.display = "inline-block";
+  }
+  function noKey() { var c = cfg(); if (c.key.length < 16) { $("mHint").textContent = "Введите ключ владельца (не короче 16 знаков)."; return null; } if (!c.api) { $("mHint").textContent = "Адрес функции указан неверно."; return null; } return c; }
+  $("mGo").addEventListener("click", async function () {
+    var c = noKey(); if (!c) return; var btn = this; btn.disabled = true; btn.textContent = "Проверяю…"; $("mOut").innerHTML = "";
+    try {
+      var k = encodeURIComponent(c.key), r = null;
+      if (c.wk) r = await jget(c.wk + "/?p=watchrun&key=" + k + ($("mAlert").checked ? "&alert=1" : ""));
+      var viaWorker = r && r.st === 200 && r.j && r.j.items;
+      if (!viaWorker) { r = await jget(c.api + "?p=watchnow&key=" + k); }
+      if (!r) { $("mHint").textContent = "Нет ответа: проверьте адреса и интернет."; return; }
+      if (r.st === 403) { $("mHint").textContent = "Ключ владельца не подошёл."; return; }
+      if (r.st === 429) { $("mHint").textContent = "Слишком много попыток: подождите минуту."; return; }
+      if (!r.j || !r.j.items) { $("mHint").textContent = "Функция ответила неожиданно: " + JSON.stringify(r.j || r.st).slice(0, 160) + " (загружена ли свежая версия?)"; return; }
+      renderItems(r.j.items, r.j.changes);
+      if (!viaWorker) $("mHint").textContent += " Воркер не ответил: проверки Telegram пропущены.";
+      else if (r.j.why) $("mHint").textContent += " " + r.j.why;
+    } finally { btn.disabled = false; btn.textContent = "Проверить сейчас"; }
+  });
+  $("mOut").addEventListener("click", async function (e) {
+    var cb = e.target.closest("button[data-copytext]"); if (cb) { try { await navigator.clipboard.writeText(decodeURIComponent(escape(atob(cb.getAttribute("data-copytext"))))); cb.textContent = "Скопировано"; } catch (er) { prompt("Скопируйте:", decodeURIComponent(escape(atob(cb.getAttribute("data-copytext"))))); } return; }
+    var b = e.target.closest("button[data-fix]"); if (!b) return; var c = noKey(); if (!c) return;
+    var what = b.getAttribute("data-fix"), onWorker = what === "tgwebhook" || what === "tgdrop";
+    if (what === "tgdrop" && !confirm("Очистить очередь Telegram? Непрочитанные сообщения пропадут.")) return;
+    if (onWorker && !c.wk) { alert("Укажите адрес воркера Cloudflare."); return; }
+    b.disabled = true; b.textContent = "Исправляю…";
+    var r = await jget((onWorker ? c.wk + "/" : c.api) + "?p=fix&what=" + what + "&key=" + encodeURIComponent(c.key));
+    $("mHint").textContent = r && r.j && r.j.ok ? "✅ Выполнено. Нажмите «Проверить сейчас», чтобы убедиться." : "❌ Не вышло: " + ((r && r.j && r.j.why) || "нет ответа");
+    b.disabled = false; b.textContent = "🛠 Исправить";
+  });
+  $("mCopy").addEventListener("click", async function () { try { await navigator.clipboard.writeText(mReport); this.textContent = "Скопировано"; } catch (e) { prompt("Скопируйте отчёт:", mReport); } });
+  $("mHist").addEventListener("click", async function () {
+    var c = noKey(); if (!c) return; var r = await jget(c.api + "?p=monitor&key=" + encodeURIComponent(c.key));
+    if (!r || !r.j || !r.j.ok) { $("mHint").textContent = "Журнал недоступен: " + (r ? r.st : "нет ответа"); return; }
+    $("mHistCard").style.display = "block";
+    $("mHistOut").innerHTML = (r.j.storage ? "" : "<div class='msg warn'>Хранилище не настроено: журнал не сохраняется.</div>") + (r.j.incidents.length ? "<table><tr><th>Когда</th><th>Что</th><th>Стало</th></tr>" + r.j.incidents.map(function (x) { return "<tr><td>" + esc(new Date(x.t).toLocaleString("ru-RU")) + "</td><td>" + esc(x.title) + "<div class='meta'>" + esc(x.detail || "") + "</div></td><td>" + esc(LABEL[x.to] || x.to) + "</td></tr>"; }).join("") + "</table>" : "<div class='meta'>Изменений пока не было.</div>");
+  });
+  $("oGo").addEventListener("click", function () {
+    var d = $("oDom").value.trim().replace(/\/$/, ""), out = $("oOut");
+    if (!/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}$/i.test(d)) { out.innerHTML = "<div class='msg err'>Нужен адрес вида https://example.com (без пути и слеша).</div>"; return; }
+    var www = d.replace("https://", "https://www.");
+    out.innerHTML = "<div class='msg okk'>Замена в <code>yandex/index.js</code> (список ALLOWED_ORIGINS, добавьте строки):</div><pre class='out' id='oPre'>" + esc("const ALLOWED_ORIGINS = [\n  // …прежние адреса…\n  \"" + d + "\",\n  \"" + www + "\",\n];") + "</pre><div class='hint'>Что дальше: отправьте этот адрес Claude («разреши адрес …»), он внесёт замену, соберёт функцию и пришлёт архив; загрузите его в Яндекс. Затем загрузите сайт на новый хостинг и в Робокассе проверьте адреса возврата.</div>";
+  });
+
+  // ---------- проблемы: правка текста и ссылок кнопок сайта через Pull request ----------
+  // Кнопки: ключ в словаре ui сайта (index.html, блоки ru: и en:) и подпись в списке
+  var P_BUTTONS = [
+    ["buildWorkout", "Собрать тренировку"], ["closeWorkout", "Завершить тренировку"], ["selectTopic", "Выбрать тему"], ["changeTopic", "Сменить тему"],
+    ["start", "Пуск / Start"], ["pause", "Пауза / Pause"], ["stop", "Стоп / Stop"], ["selectAll", "Выбрать все"], ["clearAll", "Очистить"],
+    ["moreBtn", "Больше режимов"], ["moreActivate", "Активировать (код)"], ["moreCopy", "Скопировать (код)"], ["supBtn", "Поддержать"],
+    ["mirrorOn", "Зеркало"], ["notes", "Заметки"], ["customSave", "Сохранить список"], ["customFile", "Загрузить файл"], ["customClear", "Очистить список"],
+    ["newWarmup", "Другое упражнение разминки"], ["diffEasy", "Простые темы"], ["diffHard", "Сложные темы"],
+    ["subContinue", "Продолжи мысль"], ["subRetell", "Пересказ"], ["subPainting", "Описание картины"], ["subSpeech", "Красивая речь"], ["subVocab", "Словарный запас"], ["subDescword", "Объясни слово"], ["subMakestory", "Придумай историю"],
+    ["exampleShow", "Показать пример"], ["exampleHide", "Скрыть пример"], ["flip", "Другая сторона дебатов"],
+    ["mImp", "Режим «Темы»"], ["mRelax", "Режим «Раскрепощение»"], ["mStory", "Режим «Сторителлинг»"], ["mCustom", "Режим «Свои темы»"], ["mDebate", "Режим «Дебаты»"],
+    ["mDiction", "Режим «Дикция и артикуляция»"], ["mTricks", "Режим «Речевые приёмы»"], ["mConflict", "Режим «Конфликт»"], ["mNego", "Режим «Переговоры»"], ["mInterview", "Режим «Интервью»"]
+  ];
+  // Ссылки: имя константы в index.html. type "url" — адрес целиком, "tg" — имя Telegram-бота (можно вставить ссылку t.me/имя или @имя)
+  var P_LINKS = [
+    ["MAX_BOT_URL", "Ссылка на MAX-бота", "url"],
+    ["TG_BOT_USERNAME", "Ссылка на Telegram-бота", "tg"],
+    ["AUTHOR_URL", "Ссылка автора в нижней строке сайта", "url"]
+  ];
+  var reQ = function (k) { return k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); };
+  function uiRange(src, lang) { // границы блока ru: или en: внутри const ui = { … }
+    var u = src.indexOf("const ui = {"); if (u < 0) return null;
+    var a = src.indexOf("\n        ru: {", u), b = src.indexOf("\n        en: {", a); if (a < 0 || b < 0) return null;
+    var e = src.indexOf("\n        },", b); if (e < 0) return null;
+    return lang === "ru" ? [a, b] : [b, e];
+  }
+  function strEnc(v) { return '"' + String(v).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'; }
+  function getUi(src, lang, key) {
+    var r = uiRange(src, lang); if (!r) return null;
+    var m = new RegExp("\\n(\\s+)" + reQ(key) + ': "((?:[^"\\\\\\n]|\\\\.)*)",').exec(src.slice(r[0], r[1])); if (!m) return null;
+    try { return JSON.parse('"' + m[2] + '"'); } catch (e) { return m[2]; }
+  }
+  function setUi(src, lang, key, val) {
+    var r = uiRange(src, lang); if (!r) throw new Error("не найден словарь надписей сайта (" + lang + ")");
+    var seg = src.slice(r[0], r[1]), re = new RegExp("(\\n\\s+" + reQ(key) + ': )"(?:[^"\\\\\\n]|\\\\.)*",');
+    if (!re.test(seg)) throw new Error("не найдена надпись «" + key + "» (" + lang + ")");
+    return src.slice(0, r[0]) + seg.replace(re, function (_, p) { return p + strEnc(val) + ","; }) + src.slice(r[1]);
+  }
+  function getConst(src, name) { var m = new RegExp("const " + name + ' = "([^"\\n]*)";').exec(src); return m ? m[1] : null; }
+  function setConst(src, name, val) {
+    var re = new RegExp("(const " + name + ' = )"[^"\\n]*";');
+    if (!re.test(src)) throw new Error("не найдена настройка " + name + " в файле");
+    return src.replace(re, function (_, p) { return p + strEnc(val) + ";"; });
+  }
+  function normTg(v) { // «https://t.me/name», «@name» или «name» → name
+    var m = /^(?:https?:\/\/)?(?:t\.me\/|telegram\.me\/)?@?([A-Za-z0-9_]{5,32})\/?$/.exec(String(v).trim()); return m ? m[1] : "";
+  }
+  function pSel(sel, arr) { $(sel).innerHTML = arr.map(function (x) { return "<option value='" + esc(x[0]) + "'>" + esc(x[1]) + "</option>"; }).join(""); }
+  pSel("pBtn", P_BUTTONS); pSel("pLink", P_LINKS);
+  if (lsGet("panel.ghtoken")) { $("pToken").value = lsGet("panel.ghtoken"); $("pRemember").checked = true; }
+
+  function ghH(token) { return { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json" }; }
+  async function ghCall(token, repo, method, path, data) {
+    var r = await fetch("https://api.github.com/repos/" + repo + path, { method: method, headers: ghH(token), body: data ? JSON.stringify(data) : undefined });
+    var j = null; try { j = await r.json(); } catch (e) {}
+    return { status: r.status, ok: r.ok, j: j };
+  }
+  function u8dec(b64s) { var bin = atob(String(b64s).replace(/\s/g, "")), u = new Uint8Array(bin.length), i; for (i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder("utf-8").decode(u); }
+  async function ghReadFile(token, repo, file, ref) {
+    var r = await ghCall(token, repo, "GET", "/contents/" + file.split("/").map(encodeURIComponent).join("/") + (ref ? "?ref=" + encodeURIComponent(ref) : ""));
+    if (!r.ok) throw new Error(ghFail(r, "файл " + file));
+    return { text: u8dec(r.j.content), sha: r.j.sha };
+  }
+  // Читает файл из основной ветки, применяет правку fn(text) и создаёт Pull request. Ничего не сливает.
+  async function ghEditPR(token, repo, file, fn, title, body) {
+    var meta = await ghCall(token, repo, "GET", ""); if (!meta.ok) throw new Error(ghFail(meta, "репозиторий"));
+    var base = meta.j.default_branch, ref = await ghCall(token, repo, "GET", "/git/ref/heads/" + base); if (!ref.ok) throw new Error(ghFail(ref, "ветка " + base));
+    var cur = await ghReadFile(token, repo, file, base), next = fn(cur.text);
+    if (next === cur.text) throw new Error("в файле уже стоит это значение: менять нечего");
+    var br = "panel/fix-" + Date.now().toString(36), rf = await ghCall(token, repo, "POST", "/git/refs", { ref: "refs/heads/" + br, sha: ref.j.object.sha }); if (!rf.ok) throw new Error(ghFail(rf, "ветка " + br));
+    var put = await ghCall(token, repo, "PUT", "/contents/" + file.split("/").map(encodeURIComponent).join("/"), { message: title, content: b64(Z.enc.encode(next)), sha: cur.sha, branch: br }); if (!put.ok) throw new Error(ghFail(put, "правка файла"));
+    var pr = await ghCall(token, repo, "POST", "/pulls", { title: title, head: br, base: base, body: body }); if (!pr.ok) throw new Error(ghFail(pr, "Pull request"));
+    return { url: pr.j.html_url, number: pr.j.number, fn: fn, file: file };
+  }
+  // Вносит ту же правку в файл внутри сохранённого архива сайта («Основа») и отдаёт новый архив; он же становится основой
+  async function patchSite(file, fn) {
+    var cur = await kv("get", "site"); if (!cur) throw new Error("нет основы сайта: загрузите прежний site-for-hosting.zip во вкладке «Сборщик» (карточка «Основа»)");
+    var es = Z.readZip(cur.buf), hit = null, i;
+    for (i = 0; i < es.length; i++) if (es[i].name === file) hit = i;
+    if (hit === null) throw new Error("в сохранённом архиве сайта нет файла " + file);
+    var txt = Z.dec.decode(await Z.entryBytes(es[hit])), next = fn(txt);
+    es[hit] = await Z.makeEntry(file, Z.enc.encode(next), true);
+    var out = Z.writeZip(es);
+    await kv("set", "site", { name: "site-for-hosting.zip", buf: out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength), saved: Date.now() });
+    return out;
+  }
+  function zipBtn(c, r, label) {
+    var id = "zb" + Date.now().toString(36);
+    c.show("<button class='sec' id='" + id + "' type='button'>⬇ " + esc(label || "Архив сайта с этой правкой") + "</button> <span class='meta'>загрузите его на хостинг после того, как слили Pull request</span>", "okk");
+    $(id).addEventListener("click", async function () {
+      try { dlBytes("site-for-hosting.zip", await patchSite(r.file, r.fn)); this.disabled = true; this.textContent = "✅ Архив скачан и сохранён как основа"; }
+      catch (e) { c.show("❌ Архив не собран: " + esc(e.message || e) + ". Pull request при этом создан; архив можно собрать после слияния заново.", "err"); }
+    });
+  }
+  function pCfg(out) {
+    function show(t, k) { out.insertAdjacentHTML("beforeend", "<div class='msg " + k + "'>" + t + "</div>"); }
+    out.innerHTML = "";
+    var token = $("pToken").value.trim(), repo = $("pRepo").value.trim(), file = $("pFile").value.trim();
+    if (!/^[A-Za-z0-9_\-]{20,}$/.test(token)) { show("Вставьте токен GitHub (инструкция во вкладке «Сборщик»).", "err"); return null; }
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !/^[\w.\/-]+$/.test(file) || file.indexOf("..") >= 0) { show("Репозиторий: владелец/имя; файл: например index.html.", "err"); return null; }
+    if ($("pRemember").checked) lsSet("panel.ghtoken", token); else lsDel("panel.ghtoken");
+    return { token: token, repo: repo, file: file, show: show };
+  }
+  function pDone(c, r) { c.show("✅ <a href='" + esc(r.url) + "' target='_blank' rel='noopener'>Pull request #" + r.number + "</a>: откройте и нажмите «Merge pull request». Затем соберите архив сайта и загрузите его на хостинг.", "okk"); zipBtn(c, r); }
+  $("pBtnLoad").addEventListener("click", async function () {
+    var c = pCfg($("pBtnOut")); if (!c) return;
+    try { var f = await ghReadFile(c.token, c.repo, c.file), k = $("pBtn").value; $("pRu").value = getUi(f.text, "ru", k) || ""; $("pEn").value = getUi(f.text, "en", k) || ""; if (!$("pRu").value) c.show("Такой надписи в файле не нашлось.", "warn"); }
+    catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+  });
+  $("pBtnGo").addEventListener("click", async function () {
+    var c = pCfg($("pBtnOut")); if (!c) return; var k = $("pBtn").value, ru = $("pRu").value.trim(), en = $("pEn").value.trim(), btn = this;
+    if (!ru || !en) return c.show("Заполните оба текста: по-русски и по-английски.", "err");
+    if (/[<>\n]/.test(ru + en)) return c.show("В тексте кнопки не должно быть символов &lt; &gt; и переносов строки.", "err");
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    try {
+      var label = P_BUTTONS.filter(function (x) { return x[0] === k; })[0][1];
+      var r = await ghEditPR(c.token, c.repo, c.file, function (t) { t = setUi(setUi(t, "ru", k, ru), "en", k, en); if (k === "mirrorOn") t = setUi(setUi(t, "ru", "mirrorOff", ru), "en", "mirrorOff", en); return t; }, "Сайт: текст кнопки «" + label + "»", "Текст кнопки изменён страницей «Панель владельца».\n\nКлюч: " + k + "\nRU: " + ru + "\nEN: " + en);
+      pDone(c, r);
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "📤 Создать Pull request с новым текстом"; }
+  });
+  $("pLinkLoad").addEventListener("click", async function () {
+    var c = pCfg($("pLinkOut")); if (!c) return;
+    try { var f = await ghReadFile(c.token, c.repo, c.file), n = $("pLink").value, v = getConst(f.text, n); $("pUrl").value = v == null ? "" : (n === "TG_BOT_USERNAME" ? "https://t.me/" + v : v); if (v == null) c.show("Такой настройки в файле не нашлось.", "warn"); }
+    catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+  });
+  $("pLinkGo").addEventListener("click", async function () {
+    var c = pCfg($("pLinkOut")); if (!c) return; var n = $("pLink").value, v = $("pUrl").value.trim(), btn = this;
+    var def = P_LINKS.filter(function (x) { return x[0] === n; })[0];
+    if (def[2] === "tg") { v = normTg(v); if (!v) return c.show("Нужна ссылка вида https://t.me/имя_бота или @имя_бота.", "err"); }
+    else if (!/^https:\/\/[^\s"<>\\]{4,200}$/.test(v)) return c.show("Адрес должен начинаться с https:// и не содержать пробелов.", "err");
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    try {
+      var r = await ghEditPR(c.token, c.repo, c.file, function (t) { return setConst(t, n, v); }, "Сайт: ссылка «" + def[1] + "»", "Ссылка изменена страницей «Панель владельца».\n\n" + def[1] + ": " + v);
+      pDone(c, r);
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "📤 Создать Pull request с новой ссылкой"; }
+  });
+
+
+  // ---------- тексты в блоке «Больше режимов» (ключи словаря ui сайта) ----------
+  var P_MORE = [
+    ["moreNoCode", "Строка без кода: «Платные режимы открываются по коду…»"], ["moreTariffs", "«Получить доступ:»"],
+    ["moreAll", "Что открывает оплата (пояснение над тарифами)"], ["moreNote", "Пояснение под тарифами (про Робокассу)"], ["moreNoPay", "«Оплата откроется совсем скоро»"],
+    ["moreGotCode", "Сообщение после оплаты тарифа (над кодом)"], ["supGotCode", "Сообщение после поддержки проекта (над кодом)"], ["moreBadCode", "«Код не подошёл»"],
+    ["moreExpired", "«Срок действия кода закончился»"], ["moreCodePh", "Подсказка в поле кода"], ["payNeed", "Подсказка у закрытого режима"],
+    ["supTitle", "Заголовок «Поддержать проект»"], ["supNote", "Пояснение у «Поддержать»"], ["supErr", "Ошибка суммы"], ["supThanks", "Благодарность после поддержки"], ["morePayFail", "Ошибка подтверждения оплаты"]
+  ];
+  pSel("pMore", P_MORE);
+  $("pMoreLoad").addEventListener("click", async function () {
+    var c = pCfg($("pMoreOut")); if (!c) return;
+    try { var f = await ghReadFile(c.token, c.repo, c.file), k = $("pMore").value; $("pMoreRu").value = getUi(f.text, "ru", k) || ""; $("pMoreEn").value = getUi(f.text, "en", k) || ""; if (!$("pMoreRu").value) c.show("Такого текста в файле не нашлось.", "warn"); }
+    catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+  });
+  $("pMoreGo").addEventListener("click", async function () {
+    var c = pCfg($("pMoreOut")); if (!c) return; var k = $("pMore").value, ru = $("pMoreRu").value.trim(), en = $("pMoreEn").value.trim(), btn = this;
+    if (!ru || !en) return c.show("Заполните оба текста: по-русски и по-английски.", "err");
+    if (/[<>\n]/.test(ru + en)) return c.show("В тексте не должно быть символов &lt; &gt; и переносов строки.", "err");
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    try {
+      var label = P_MORE.filter(function (x) { return x[0] === k; })[0][1];
+      var r = await ghEditPR(c.token, c.repo, c.file, function (t) { return setUi(setUi(t, "ru", k, ru), "en", k, en); }, "Сайт: текст «" + label + "»", "Текст изменён страницей «Панель владельца».\n\nКлюч: " + k + "\nRU: " + ru + "\nEN: " + en);
+      pDone(c, r);
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "📤 Создать Pull request с новым текстом"; }
+  });
+
+  // ---------- документы: правка по абзацам или замена файла целиком ----------
+  var D_BLOCK_RE = /<(h1|h2|h3|p|li|td|th)(\s[^>]*)?>([\s\S]*?)<\/\1>|<div class="meta">([\s\S]*?)<\/div>/g;
+  var D_TAGS = { a: 1, b: 1, strong: 1, i: 1, em: 1, br: 1, span: 1, u: 1, code: 1, sup: 1, sub: 1 };
+  var DOC = null; // { file, text, blocks:[{i, tag, start, end, inner}], edits:{ i: newInner } } либо { file, full:"…" }
+  var dCollapse = function (t) { return String(t).replace(/\s+/g, " ").trim(); };
+  function dRegion(src) { var a = src.indexOf("<main>"), b = src.lastIndexOf("</main>"); return a < 0 || b < a ? null : [a + 6, b]; }
+  function dBlocks(src) {
+    var r = dRegion(src); if (!r) return null;
+    var seg = src.slice(r[0], r[1]), out = [], m, re = new RegExp(D_BLOCK_RE.source, "g"), n = 0;
+    while ((m = re.exec(seg))) {
+      var tag = m[1] || "meta", full = m[0], o = full.indexOf(">") + 1, c = full.lastIndexOf("</");
+      var inner = full.slice(o, c);
+      if (!dCollapse(inner)) continue;
+      out.push({ i: n++, tag: tag, start: r[0] + m.index + o, end: r[0] + m.index + c, inner: inner });
+    }
+    return out;
+  }
+  function dCheckInner(t) {
+    if (/<\s*(script|iframe|object|embed|style|link|meta|form|img)\b/i.test(t) || /\son\w+\s*=/i.test(t) || /javascript:/i.test(t)) return "в тексте нельзя оставлять скрипты и служебные теги";
+    var open = {}, re = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g, m;
+    while ((m = re.exec(t))) {
+      var n = m[2].toLowerCase(); if (!D_TAGS[n]) return "неизвестный знак <" + n + ">";
+      if (n === "br") continue; open[n] = (open[n] || 0) + (m[1] ? -1 : 1); if (open[n] < 0) return "лишний закрывающий знак </" + n + ">";
+    }
+    for (var k in open) if (open[k]) return "не закрыт знак <" + k + ">";
+    if (/<(?![\/a-zA-Z])/.test(t) || t.replace(/<[^>]*>/g, "").indexOf("<") >= 0) return "символ «<» нельзя использовать в тексте (пишите словами «меньше»)";
+    return "";
+  }
+  // Применяет правки (список {i, old, val}) к исходному тексту документа; old сверяется, чтобы не затереть другую версию
+  function dApply(src, edits) {
+    var bl = dBlocks(src); if (!bl) throw new Error("в файле не найден главный блок документа");
+    var list = edits.slice().sort(function (a, b) { return b.i - a.i; }), out = src;
+    list.forEach(function (e) {
+      var b = bl[e.i]; if (!b || dCollapse(b.inner) !== dCollapse(e.old)) throw new Error("абзац №" + (e.i + 1) + " в файле уже другой: слейте предыдущий Pull request и откройте документ заново");
+      var lead = /^\s*/.exec(b.inner)[0], trail = /\s*$/.exec(b.inner)[0];
+      out = out.slice(0, b.start) + lead + e.val + trail + out.slice(b.end);
+    });
+    return out;
+  }
+  function dChanged() { return DOC && DOC.blocks ? Object.keys(DOC.edits).length : 0; }
+  function dCfg(out) {
+    function show(t, k) { out.insertAdjacentHTML("beforeend", "<div class='msg " + k + "'>" + t + "</div>"); }
+    out.innerHTML = "";
+    var token = $("dToken").value.trim(), repo = $("dRepo").value.trim();
+    if (!/^[A-Za-z0-9_\-]{20,}$/.test(token)) { show("Вставьте токен GitHub (инструкция во вкладке «Сборщик»).", "err"); return null; }
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { show("Репозиторий: владелец/имя.", "err"); return null; }
+    if ($("dRemember").checked) lsSet("panel.ghtoken", token); else lsDel("panel.ghtoken");
+    return { token: token, repo: repo, file: $("dFile").value, show: show };
+  }
+  if (lsGet("panel.ghtoken")) { $("dToken").value = lsGet("panel.ghtoken"); $("dRemember").checked = true; }
+  function dRender() {
+    var box = $("dBlocks"), TL = { h1: "Заголовок", h2: "Раздел", h3: "Подраздел", p: "Абзац", li: "Пункт списка", td: "Ячейка таблицы", th: "Ячейка таблицы", meta: "Шапка" };
+    box.innerHTML = DOC.blocks.map(function (b) {
+      var v = DOC.edits[b.i] != null ? DOC.edits[b.i] : dCollapse(b.inner);
+      return "<div class='dblk' data-i='" + b.i + "' style='margin:8px 0'><div class='meta'>№" + (b.i + 1) + " · " + TL[b.tag] + "</div><textarea rows='" + Math.min(10, Math.max(2, Math.ceil(v.length / 90))) + "' data-i='" + b.i + "' spellcheck='true'>" + esc(v) + "</textarea></div>";
+    }).join("");
+    $("dFind").style.display = "block"; $("dToday").disabled = false;
+    Array.prototype.forEach.call(box.querySelectorAll("textarea"), function (ta) {
+      function mark() { var i = +ta.getAttribute("data-i"), b = DOC.blocks[i], ch = dCollapse(ta.value) !== dCollapse(b.inner); if (ch) DOC.edits[i] = ta.value.trim(); else delete DOC.edits[i]; ta.style.outline = ch ? "2px solid var(--ac)" : ""; }
+      ta.addEventListener("input", mark); mark();
+    });
+  }
+  $("dFind").addEventListener("input", function () {
+    var q = this.value.trim().toLowerCase();
+    Array.prototype.forEach.call($("dBlocks").querySelectorAll(".dblk"), function (d) { d.style.display = !q || d.querySelector("textarea").value.toLowerCase().indexOf(q) >= 0 ? "" : "none"; });
+  });
+  $("dOpen").addEventListener("click", async function () {
+    var c = dCfg($("dOut")); if (!c) return;
+    try {
+      var f = await ghReadFile(c.token, c.repo, c.file), bl = dBlocks(f.text); if (!bl || !bl.length) throw new Error("в файле не найден текст документа");
+      DOC = { file: c.file, text: f.text, blocks: bl, edits: {} }; $("dUpload").value = ""; $("dUpInfo").textContent = ""; dRender();
+      c.show("Документ открыт: " + bl.length + " блоков. Меняйте нужное; изменённые блоки подсвечены.", "okk");
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+  });
+  $("dToday").addEventListener("click", function () {
+    var d = new Date(), t = ("0" + d.getDate()).slice(-2) + "." + ("0" + (d.getMonth() + 1)).slice(-2) + "." + d.getFullYear(), n = 0;
+    Array.prototype.forEach.call($("dBlocks").querySelectorAll("textarea"), function (ta) {
+      if (/Редакция от \d\d\.\d\d\.\d{4}/.test(ta.value)) { ta.value = ta.value.replace(/Редакция от \d\d\.\d\d\.\d{4}/, "Редакция от " + t); ta.dispatchEvent(new Event("input")); n++; }
+    });
+    $("dOut").innerHTML = "<div class='msg " + (n ? "okk" : "warn") + "'>" + (n ? "Дата редакции: " + t + "." : "Строка «Редакция от …» в документе не найдена: поменяйте дату вручную.") + "</div>";
+  });
+  $("dUpload").addEventListener("change", async function () {
+    var f = this.files && this.files[0], info = $("dUpInfo"); if (!f) return;
+    try {
+      if (f.size > 400000) throw new Error("файл слишком большой для документа (больше 400 КБ)");
+      var t = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(await f.arrayBuffer()));
+      if (!/^\s*<!doctype html/i.test(t) || !/<title>[^<]{3,}<\/title>/i.test(t) || !/<h1[\s>]/i.test(t) || !dRegion(t)) throw new Error("это не страница документа: нужны <!doctype html>, <title>, <h1> и блок <main>…</main>");
+      if (/<script\b|\son\w+\s*=|javascript:/i.test(t)) throw new Error("в документе не должно быть скриптов");
+      var bl = dBlocks(t); if (!bl || bl.length < 5) throw new Error("в документе слишком мало текста");
+      DOC = { file: $("dFile").value, full: t, size: t.length }; $("dBlocks").innerHTML = ""; $("dFind").style.display = "none"; $("dToday").disabled = true;
+      info.innerHTML = "✅ Файл принят: <b>" + esc(f.name) + "</b>, " + bl.length + " блоков текста. Он заменит <code>" + esc($("dFile").value) + "</code> целиком после «Сохранить».";
+    } catch (e) { DOC = null; this.value = ""; info.innerHTML = "❌ " + esc(e.message || e); }
+  });
+  $("dSave").addEventListener("click", async function () {
+    var c = dCfg($("dOut")), btn = this; if (!c) return;
+    if (!DOC) return c.show("Сначала откройте документ (2А) и что-нибудь измените или загрузите файл (2Б).", "err");
+    if (DOC.file !== c.file) return c.show("Выбран другой документ, чем открыт. Нажмите «Открыть документ» заново или верните прежний выбор.", "err");
+    var fn, what;
+    if (DOC.full) { var full = DOC.full; fn = function () { return full; }; what = "файл заменён целиком"; }
+    else {
+      var edits = Object.keys(DOC.edits).map(function (k) { var b = DOC.blocks[+k]; return { i: b.i, old: b.inner, val: DOC.edits[k] }; });
+      if (!edits.length) return c.show("Вы ничего не изменили.", "err");
+      for (var i = 0; i < edits.length; i++) { var w = dCheckInner(edits[i].val); if (w) return c.show("Абзац №" + (edits[i].i + 1) + ": " + esc(w) + ".", "err"); if (!dCollapse(edits[i].val)) return c.show("Абзац №" + (edits[i].i + 1) + " пустой: если блок не нужен, лучше замените его текстом, а не стирайте.", "err"); }
+      fn = function (t) { return dApply(t, edits); }; what = "изменено блоков: " + edits.length;
+    }
+    var names = { "offer.html": "оферта", "privacy.html": "политика конфиденциальности", "consent.html": "согласие на обработку данных" };
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    try {
+      var r = await ghEditPR(c.token, c.repo, c.file, fn, "Документ: " + names[c.file], "Документ изменён страницей «Панель владельца» (" + what + ").");
+      c.show("✅ <a href='" + esc(r.url) + "' target='_blank' rel='noopener'>Pull request #" + r.number + "</a>: откройте и нажмите «Merge pull request». " + esc(what) + ".", "okk");
+      zipBtn(c, r, "Архив сайта с этим документом");
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "📤 Сохранить: Pull request и архив сайта"; }
+  });
+
+  // ---------- обновление программы: готовый пакет от Claude → Pull request в оба репозитория + сборки ----------
+  var REL = null; // { manifest, files: { "api": [{path, bytes}], "site": [...] }, builds: { fn:{name,bytes}, site:{name,bytes} } }
+  function dlBytes(name, bytes) { var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([bytes])); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+  async function sha1Blob(bytes) { // тот же хеш, что у GitHub для файла: sha1("blob <размер>\0" + содержимое)
+    var head = Z.enc.encode("blob " + bytes.length + "\0"), all = new Uint8Array(head.length + bytes.length); all.set(head, 0); all.set(bytes, head.length);
+    var h = new Uint8Array(await crypto.subtle.digest("SHA-1", all)), s = ""; for (var i = 0; i < h.length; i++) s += ("0" + h[i].toString(16)).slice(-2); return s;
+  }
+  async function loadRelease(buf, name) {
+    var es = Z.readZip(buf), byName = {}; es.forEach(function (e) { byName[e.name] = e; });
+    if (!byName["manifest.json"]) throw new Error("Это не файл обновления: нет manifest.json");
+    var m = JSON.parse(Z.dec.decode(await Z.entryBytes(byName["manifest.json"])));
+    if (m.format !== 1 || !m.repos) throw new Error("Неизвестный формат файла обновления");
+    var files = { api: [], site: [] };
+    for (var i = 0; i < es.length; i++) {
+      var n = es[i].name;
+      if (/\/$/.test(n)) continue;
+      if (n.indexOf("..") >= 0 || n.charAt(0) === "/") throw new Error("Недопустимое имя файла в архиве: " + n);
+      var k = n.indexOf(m.repos.api.dir + "/") === 0 ? "api" : n.indexOf(m.repos.site.dir + "/") === 0 ? "site" : null;
+      if (k) files[k].push({ path: n.slice(m.repos[k].dir.length + 1), bytes: await Z.entryBytes(es[i]) });
+    }
+    var builds = {};
+    if (m.builds && m.builds["function"] && byName[m.builds["function"]]) builds.fn = { name: m.builds["function"].split("/").pop(), bytes: await Z.entryBytes(byName[m.builds["function"]]) };
+    if (m.builds && m.builds.site && byName[m.builds.site]) builds.site = { name: m.builds.site.split("/").pop(), bytes: await Z.entryBytes(byName[m.builds.site]), lite: m.builds.siteMode === "lite" };
+    return { manifest: m, files: files, builds: builds, name: name };
+  }
+  // Полный архив сайта: лёгкая сборка из файла обновления (без картин) поверх прежнего архива из «Основы» + новые картины из файла обновления
+  async function fullSite() {
+    var b = REL.builds.site; if (!b) return null;
+    if (!b.lite) return b.bytes;
+    var cur = await kv("get", "site"); if (!cur) return null;
+    var out = {}, order = [];
+    Z.readZip(cur.buf).forEach(function (e) { out[e.name] = e; order.push(e.name); });
+    (REL.manifest.repos.site.delete || []).forEach(function (n) { delete out[n]; });
+    var add = Z.readZip(b.bytes); for (var i = 0; i < add.length; i++) { if (!out[add[i].name]) order.push(add[i].name); out[add[i].name] = add[i]; }
+    for (var j = 0; j < REL.files.site.length; j++) { var f = REL.files.site[j]; if (/^paintings\//.test(f.path)) { if (!out[f.path]) order.push(f.path); out[f.path] = await Z.makeEntry(f.path, f.bytes, false); } }
+    return Z.writeZip(order.filter(function (n) { return out[n]; }).map(function (n) { return out[n]; }));
+  }
+  function renderRelease() {
+    var m = REL.manifest, f = REL.files, d = m.repos;
+    function list(arr, del) { return arr.length || del.length ? "<ul class='hint' style='margin:4px 0 0 18px;padding:0'>" + arr.slice(0, 40).map(function (x) { return "<li><code>" + esc(x.path) + "</code> · " + fmtSize(x.bytes.length) + "</li>"; }).join("") + (arr.length > 40 ? "<li>… и ещё " + (arr.length - 40) + "</li>" : "") + del.map(function (x) { return "<li>удалить: <code>" + esc(x) + "</code></li>"; }).join("") + "</ul>" : "<div class='meta'>без изменений</div>"; }
+    $("rDetails").innerHTML = "<div><b>" + esc(m.title) + "</b> · версия <code>" + esc(m.version) + "</code> · " + esc(new Date(m.created).toLocaleString("ru-RU")) + "</div>" + (m.notes ? "<div class='hint'>" + esc(m.notes) + "</div>" : "") +
+      "<h2 style='margin-top:12px;font-size:1rem'>Закрытый репозиторий: " + f.api.length + " файлов</h2>" + list(f.api, d.api.delete || []) +
+      "<h2 style='margin-top:12px;font-size:1rem'>Сайт: " + f.site.length + " файлов</h2>" + list(f.site, d.site.delete || []);
+    $("rDl").innerHTML = (REL.builds.fn ? "<button class='sec' id='rDlFn' type='button'>⬇ Функция для Яндекса (" + esc(REL.builds.fn.name) + ")</button>" : "") + (REL.builds.site ? "<button class='sec' id='rDlSite' type='button'>⬇ Сайт для хостинга (site-for-hosting.zip)</button>" : "");
+    if ($("rDlFn")) $("rDlFn").addEventListener("click", function () { dlBytes(REL.builds.fn.name, REL.builds.fn.bytes); });
+    if ($("rDlSite")) $("rDlSite").addEventListener("click", async function () {
+      var z = await fullSite(); if (!z) { $("rOut").innerHTML = "<div class='msg err'>Чтобы собрать архив сайта с картинами, загрузите прежний <code>site-for-hosting.zip</code> во вкладке «Сборщик» (карточка «Основа»), затем выберите файл обновления ещё раз.</div>"; return; }
+      dlBytes("site-for-hosting.zip", z);
+    });
+    $("rRepoApi").value = d.api.repo; $("rRepoSite").value = d.site.repo; $("rCard").style.display = "block"; $("rOut").innerHTML = "";
+  }
+  if (lsGet("panel.ghtoken")) { $("rToken").value = lsGet("panel.ghtoken"); $("rRemember").checked = true; }
+  $("rFile").addEventListener("change", async function () {
+    var f = this.files && this.files[0]; if (!f) return; $("rInfo").textContent = "Читаю…"; $("rCard").style.display = "none";
+    try {
+      var buf = await f.arrayBuffer(); REL = await loadRelease(buf, f.name);
+      // готовые сборки становятся основой «Сборщика»: следующие добавки тем и картин лягут уже на новую версию
+      var note = "";
+      if (REL.builds.fn) { await kv("set", "fn", { name: REL.builds.fn.name, buf: REL.builds.fn.bytes.buffer.slice(REL.builds.fn.bytes.byteOffset, REL.builds.fn.bytes.byteOffset + REL.builds.fn.bytes.byteLength), saved: Date.now() }); note += "функция"; }
+      if (REL.builds.site) {
+        var fz = await fullSite();
+        if (fz) { await kv("set", "site", { name: "site-for-hosting.zip", buf: fz.buffer.slice(fz.byteOffset, fz.byteOffset + fz.byteLength), saved: Date.now() }); note += (note ? " и " : "") + "сайт"; }
+        else note += (note ? "; " : "") + "архив сайта не собран: нет прежнего site-for-hosting.zip в «Основе»";
+      }
+      await showBase();
+      $("rInfo").innerHTML = "✅ " + esc(f.name) + " · " + fmtSize(buf.byteLength) + (note ? ". Готовые сборки (" + note + ") теперь основа «Сборщика»." : "");
+      renderRelease();
+    } catch (e) { REL = null; $("rInfo").innerHTML = "❌ " + esc(e.message || e); }
+  });
+  function rCfg() {
+    var out = $("rOut"); out.innerHTML = "";
+    function show(t, k) { out.insertAdjacentHTML("beforeend", "<div class='msg " + k + "'>" + t + "</div>"); }
+    if (!REL) { show("Сначала выберите файл обновления.", "err"); return null; }
+    var token = $("rToken").value.trim(), ra = $("rRepoApi").value.trim(), rs = $("rRepoSite").value.trim();
+    if (!/^[A-Za-z0-9_\-]{20,}$/.test(token)) { show("Вставьте токен GitHub (инструкция во вкладке «Сборщик»).", "err"); return null; }
+    if (!/^[\w.-]+\/[\w.-]+$/.test(ra) || !/^[\w.-]+\/[\w.-]+$/.test(rs)) { show("Название репозитория: владелец/имя.", "err"); return null; }
+    if ($("rRemember").checked) lsSet("panel.ghtoken", token); else lsDel("panel.ghtoken");
+    return { token: token, repos: { api: ra, site: rs }, show: show };
+  }
+  // Что изменится: сравниваем файлы пакета с основной веткой по хешам GitHub
+  async function diffRepo(token, repo, key) {
+    var meta = await ghCall(token, repo, "GET", ""); if (!meta.ok) throw new Error(ghFail(meta, "репозиторий " + repo));
+    var base = meta.j.default_branch, ref = await ghCall(token, repo, "GET", "/git/ref/heads/" + base); if (!ref.ok) throw new Error(ghFail(ref, "ветка " + base));
+    var cm = await ghCall(token, repo, "GET", "/git/commits/" + ref.j.object.sha); if (!cm.ok) throw new Error(ghFail(cm, "коммит"));
+    var tr = await ghCall(token, repo, "GET", "/git/trees/" + cm.j.tree.sha + "?recursive=1"); if (!tr.ok) throw new Error(ghFail(tr, "список файлов"));
+    var have = {}; (tr.j.tree || []).forEach(function (x) { if (x.type === "blob") have[x.path] = x.sha; });
+    var change = [], same = 0;
+    for (var i = 0; i < REL.files[key].length; i++) { var f = REL.files[key][i], h = await sha1Blob(f.bytes); if (have[f.path] === h) same++; else change.push({ path: f.path, bytes: f.bytes, isNew: !have[f.path] }); }
+    var dels = (REL.manifest.repos[key].delete || []).filter(function (p) { return have[p]; });
+    return { base: base, baseSha: ref.j.object.sha, treeSha: cm.j.tree.sha, change: change, same: same, dels: dels };
+  }
+  $("rCheck").addEventListener("click", async function () {
+    var c = rCfg(); if (!c) return; var btn = this; btn.disabled = true;
+    try {
+      for (var k of ["api", "site"]) {
+        var r = await diffRepo(c.token, c.repos[k], k);
+        c.show("<b>" + esc(c.repos[k]) + "</b>: изменится файлов — " + r.change.length + " (новых " + r.change.filter(function (x) { return x.isNew; }).length + "), удалится — " + r.dels.length + ", уже актуальны — " + r.same + (r.change.length || r.dels.length ? "" : ". Ничего отправлять не нужно."), r.change.length || r.dels.length ? "warn" : "okk");
+      }
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; }
+  });
+  async function pushRelease(token, repo, key, merge) {
+    var r = await diffRepo(token, repo, key);
+    if (!r.change.length && !r.dels.length) return { none: true };
+    var tree = [];
+    for (var i = 0; i < r.change.length; i++) {
+      var bl = await ghCall(token, repo, "POST", "/git/blobs", { content: b64(r.change[i].bytes), encoding: "base64" }); if (!bl.ok) throw new Error(ghFail(bl, "файл " + r.change[i].path));
+      tree.push({ path: r.change[i].path, mode: "100644", type: "blob", sha: bl.j.sha });
+    }
+    r.dels.forEach(function (p) { tree.push({ path: p, mode: "100644", type: "blob", sha: null }); });
+    var t = await ghCall(token, repo, "POST", "/git/trees", { base_tree: r.treeSha, tree: tree }); if (!t.ok) throw new Error(ghFail(t, "дерево файлов"));
+    var title = REL.manifest.title + " (версия " + REL.manifest.version + ")";
+    var nc = await ghCall(token, repo, "POST", "/git/commits", { message: title, tree: t.j.sha, parents: [r.baseSha] }); if (!nc.ok) throw new Error(ghFail(nc, "коммит"));
+    var br = "panel/release-" + Date.now().toString(36), rf = await ghCall(token, repo, "POST", "/git/refs", { ref: "refs/heads/" + br, sha: nc.j.sha }); if (!rf.ok) throw new Error(ghFail(rf, "ветка " + br));
+    var body = "Обновление программы, внесённое страницей «Панель владельца» из файла обновления.\n\n" + REL.manifest.title + (REL.manifest.notes ? "\n\n" + REL.manifest.notes : "") + "\n\nФайлов изменено: " + r.change.length + ", удалено: " + r.dels.length + ".";
+    var pr = await ghCall(token, repo, "POST", "/pulls", { title: title, head: br, base: r.base, body: body }); if (!pr.ok) throw new Error(ghFail(pr, "Pull request"));
+    var merged = false;
+    if (merge) { var mg = await ghCall(token, repo, "PUT", "/pulls/" + pr.j.number + "/merge", { merge_method: "merge" }); if (!mg.ok) throw new Error("Pull request создан (" + pr.j.html_url + "), но слить не вышло: " + ghFail(mg, "слияние")); merged = true; }
+    return { url: pr.j.html_url, number: pr.j.number, merged: merged, n: r.change.length, d: r.dels.length };
+  }
+  $("rGo").addEventListener("click", async function () {
+    var c = rCfg(); if (!c) return; var btn = this, merge = $("rMerge").checked;
+    if (merge && !confirm("Слить сразу? Обновление уйдёт в рабочую систему без вашей проверки в GitHub.")) return;
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    try {
+      for (var k of ["api", "site"]) {
+        var r = await pushRelease(c.token, c.repos[k], k, merge);
+        if (r.none) c.show("<b>" + esc(c.repos[k]) + "</b>: уже актуален, ничего отправлять не нужно.", "okk");
+        else c.show("✅ <b>" + esc(c.repos[k]) + "</b>: <a href='" + esc(r.url) + "' target='_blank' rel='noopener'>Pull request #" + r.number + "</a> (файлов " + r.n + (r.d ? ", удалений " + r.d : "") + ")" + (r.merged ? " — слит" : ": откройте и нажмите «Merge pull request»"), "okk");
+      }
+      c.show("Дальше: нажмите «Merge» в GitHub (если не сливали сразу). Telegram-бот Cloudflare обновит сам. Функцию из кнопки выше загрузите в Яндекс (переменные не трогать), сайт — на хостинг.", "warn");
+    } catch (e) { c.show("❌ " + esc(e.message || e), "err"); }
+    finally { btn.disabled = false; btn.textContent = "📤 Отправить в GitHub"; }
+  });
+
+  showBase();
+  renderPack();
+  window.__panel = { pack: function () { return pack; }, fix: { getUi: getUi, setUi: setUi, getConst: getConst, setConst: setConst, normTg: normTg } };
+})();
+</script>
+</body>
+</html>

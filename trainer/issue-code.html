@@ -1,0 +1,1511 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Выдача кодов — служебная страница</title>
+<style>
+  :root{--bg:#4f0e1d;--card:rgba(255,255,255,.08);--bd:rgba(255,255,255,.22);--tx:#faecc4;--mut:rgba(250,236,196,.65);--ac:#92acdd;--acx:#1f2a44;--ok:#9fe3a8;--bad:#ffb4b4}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:18px 14px 60px}
+  .wrap{max-width:720px;margin:0 auto}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  p.sub{margin:0 0 16px;color:var(--mut);font-size:.9rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;margin-bottom:14px}
+  label{display:block;font-size:.85rem;color:var(--mut);margin:12px 0 4px}
+  label:first-child{margin-top:0}
+  input[type=text],select,input[type=password],input[type=number]{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--bd);background:rgba(0,0,0,.18);color:var(--tx);font-size:1rem}
+  input:focus{outline:2px solid var(--ac);outline-offset:1px}
+  .days{display:flex;gap:8px;flex-wrap:wrap}
+  .days button{flex:1 1 70px;padding:12px 8px;border-radius:12px;border:2px solid var(--bd);background:transparent;color:var(--tx);font-size:1rem;font-weight:700;cursor:pointer}
+  .days button.on{background:var(--ac);border-color:var(--ac);color:var(--acx)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>div{flex:1 1 180px}
+  .primary{width:100%;margin-top:16px;padding:14px;border-radius:14px;border:0;background:var(--ac);color:var(--acx);font-size:1.05rem;font-weight:800;cursor:pointer}
+  .primary:disabled{opacity:.6;cursor:wait}
+  .sec{padding:9px 14px;border-radius:12px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-size:.9rem}
+  .res{display:none}
+  .res.show{display:block}
+  .code{font:700 1.25rem/1.3 ui-monospace,Consolas,monospace;word-break:break-all;background:rgba(0,0,0,.25);border-radius:12px;padding:12px;margin:8px 0;letter-spacing:.02em}
+  .msg{padding:10px 12px;border-radius:12px;margin-top:12px;font-size:.92rem}
+  .msg.err{background:rgba(255,120,120,.16);border:1px solid rgba(255,150,150,.5);color:var(--bad)}
+  .msg.okk{background:rgba(120,220,140,.14);border:1px solid rgba(150,230,160,.45);color:var(--ok)}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .meta{color:var(--mut);font-size:.88rem}
+  table{width:100%;border-collapse:collapse;font-size:.85rem}
+  th,td{padding:7px 6px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+  th{color:var(--mut);font-weight:600}
+  td.c{font-family:ui-monospace,Consolas,monospace;word-break:break-all}
+  .hint{font-size:.82rem;color:var(--mut);margin-top:10px}
+  details{margin-top:8px}
+  details.card{margin-top:0}
+  details.card>summary{font-weight:700;color:var(--tx);font-size:1rem;padding:2px 0}
+  details.card[open]>summary{margin-bottom:10px}
+  summary{cursor:pointer;color:var(--mut);font-size:.9rem}
+  .chk{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:.85rem;color:var(--mut)}
+  .chk input{margin-top:3px}
+  a{color:var(--ac)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="acts" aria-label="Инструменты тренажера" style="margin-bottom:14px"><a href="panel.html">Панель сайта</a><a href="issue-code.html">Выдача кодов</a><a href="https://speechcoach-anfocuses.com/" target="_blank" rel="noopener noreferrer">Открыть тренажер ↗</a></nav>
+  <h1>Выдача кода доступа</h1>
+  <p class="sub">Служебная страница для владельца. Код создаётся функцией в Яндексе и открывает все платные режимы на выбранный срок. Открывайте из раздела «Тренажер» в Aspace или локально. Для выдачи кода нужен ключ владельца; вход в Aspace его не заменяет.</p>
+
+  <div class="acts" id="collBar" style="margin:0 0 12px"><button class="sec" type="button" data-open="1">Развернуть все блоки</button><button class="sec" type="button" data-open="0">Свернуть все</button></div>
+
+  <details class="card cc" data-k="c53" open>
+    <summary>🔑 Выдать код доступа</summary>
+    <label for="key">Ключ владельца (ADMIN_KEY из переменных функции)</label>
+    <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="не короче 16 знаков">
+    <label for="apiUrl" style="margin-top:12px">Основная функция (сайт, оплата, коды, почта)</label>
+    <select id="apiUrl">
+      <option value="https://functions.yandexcloud.net/d4e55siamfqcav7kct0l">Яндекс Облако (основная)</option>
+      <option value="https://speechcoach-api.enganfocuses.workers.dev">Cloudflare (резерв, если Яндекс не работает)</option>
+      <option value="custom">Cloudflare или другой адрес…</option>
+    </select>
+    <input id="apiCustom" type="text" autocomplete="off" spellcheck="false" placeholder="https://speechcoach-api.ваше-имя.workers.dev" style="display:none;margin-top:8px">
+    <label for="tgApi" style="margin-top:12px">Воркер Cloudflare (Telegram-бот)</label>
+    <input id="tgApi" type="text" autocomplete="off" spellcheck="false" placeholder="https://speechcoach-api.ваше-имя.workers.dev" value="https://speechcoach-api.enganfocuses.workers.dev">
+    <div class="chk"><input type="checkbox" id="remember"><label for="remember" style="margin:0;color:inherit">Запомнить ключ в этом браузере (только если компьютер личный)</label></div>
+
+    <p class="hint">На сайте доступны тарифы на 30 дней (299 ₽) и 180 дней (1490 ₽). Остальные сроки ниже — для подарков, промо и восстановления доступа. Действующий код также снимает месячный лимит бесплатных тем.</p>
+    <label>На сколько дней</label>
+    <div class="days" id="daysBox">
+      <button type="button" data-d="3">3 дня</button>
+      <button type="button" data-d="7">7 дней</button>
+      <button type="button" data-d="30" class="on">30 дней</button>
+      <button type="button" data-d="60">60 дней</button>
+      <button type="button" data-d="180">180 дней</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="custom">Другой срок (дней, 1–3650)</label>
+        <input id="custom" type="number" min="1" max="3650" inputmode="numeric" placeholder="например, 7">
+      </div>
+      <div>
+        <label for="inv">Номер платежа Робокассы (только чтобы вернуть потерянный код)</label>
+        <input id="inv" type="text" inputmode="numeric" placeholder="оставить пустым для нового кода">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="count">Сколько кодов (1–50; больше одного — пачка для промо)</label>
+        <input id="count" type="number" min="1" max="50" value="1" inputmode="numeric">
+      </div>
+      <div></div>
+    </div>
+    <label for="note">Кому и зачем (запишется только в историю на этом устройстве)</label>
+    <input id="note" type="text" maxlength="120" placeholder="например: подарок, не пришёл код, тест">
+
+    <button class="primary" id="go" type="button">Сгенерировать код</button>
+    <div id="status" class="msg" style="display:none"></div>
+  </details>
+
+  <details class="card cc" data-k="msgCard" id="msgCard" open>
+    <summary>✉️ Сообщение от автора в чат бота</summary>
+    <p class="meta" style="margin:6px 0 0">Отправляет один человеку сообщение от вашего имени в чат бота Telegram или MAX (например, ответ на обращение). Бот подпишет его: «Сообщение от автора проекта». Человек должен был хотя бы раз написать боту. Номер чата ищите в «Диагностике» и в сообщениях, которые бот присылает вам. Массовой рассылки здесь нет: политика конфиденциальности не предусматривает рекламные и информационные рассылки, только ответы на обращения. Нужны ключ владельца и адреса (Telegram: воркер Cloudflare, MAX: сервер сайта и оплаты, как в блоке «Выдать код доступа»).</p>
+    <div class="row">
+      <div><label for="msgPlat">Куда</label><select id="msgPlat"><option value="tg">Telegram</option><option value="max">MAX</option></select></div>
+      <div><label for="msgChat">Номер чата</label><input id="msgChat" type="text" inputmode="numeric" autocomplete="off" placeholder="только цифры"></div>
+    </div>
+    <label for="msgText">Текст сообщения <span class="meta" id="msgCnt">0 / 3000</span></label>
+    <textarea id="msgText" rows="5" maxlength="3000" style="width:100%" placeholder="Здравствуйте! …"></textarea>
+    <div class="acts"><button class="primary" id="msgSend" type="button">Отправить</button></div>
+    <div id="msgOut"></div>
+  </details>
+
+  <details class="card cc" data-k="bkCard" id="bkCard" open>
+    <summary>🛡 Мастер резерва: если Яндекс упал, работает Cloudflare</summary>
+    <p class="meta" style="margin:6px 0 0">Резерв заработает, когда в Cloudflare и в Яндексе заданы одни и те же ключи и подключено хранилище R2. Мастер ничего не меняет сам: он готовит значения для копирования и проверяет, чего не хватает. Подробная инструкция: <code>docs/РЕЗЕРВ_НА_CLOUDFLARE.md</code>. Нужен ключ владельца и адрес воркера в блоке «Telegram-бот».</p>
+    <h3 style="margin:14px 0 6px;font-size:1rem">Шаг 1. Значения из Cloudflare R2</h3>
+    <div class="row">
+      <div><label for="bkHost">Адрес S3 API (из R2)</label><input id="bkHost" type="text" autocomplete="off" spellcheck="false" placeholder="https://xxxxxxxx.r2.cloudflarestorage.com"></div>
+      <div><label for="bkBucket">Имя бакета</label><input id="bkBucket" type="text" autocomplete="off" value="speechcoach-backup"></div>
+    </div>
+    <div class="row">
+      <div><label for="bkKey">Access Key ID</label><input id="bkKey" type="text" autocomplete="off" spellcheck="false"></div>
+      <div><label for="bkSecret">Secret Access Key</label><input id="bkSecret" type="password" autocomplete="off" spellcheck="false"></div>
+    </div>
+    <div class="hint">Эти значения никуда не отправляются: страница только показывает их в таблице ниже, чтобы вы скопировали каждое в нужное место.</div>
+    <div class="acts"><button class="sec" id="bkMake" type="button">Подготовить значения для копирования</button></div>
+    <div id="bkMakeOut"></div>
+    <h3 style="margin:14px 0 6px;font-size:1rem">Шаг 2. Проверить готовность резерва</h3>
+    <div class="acts"><button class="primary" id="bkCheck" type="button">Проверить, всё ли настроено</button></div>
+    <div id="bkCheckOut"></div>
+  </details>
+
+  <details class="card cc" data-k="swCard" id="swCard" open>
+    <summary>🔁 Полное переключение на воркер Cloudflare (если Яндекс недоступен)</summary>
+    <p class="meta" style="margin:6px 0 0">Кнопка включает режим «воркер сам по себе»: он перестаёт обращаться к Яндексу, сам принимает оплату, выдаёт и проверяет коды, рассылает «Тренировку дня», а бот MAX переключается на него. Нужны ключ владельца и адрес воркера (блок «Telegram-бот» выше). Данные хранятся в хранилище воркера (<code>QUOTA_BACKUP_*</code>), без него режим не включится. Одно действие остаётся вручную: Result URL в кабинете Робокассы (адрес покажет кнопка).</p>
+    <div class="acts"><button class="sec" id="swCheck" type="button">1. Проверить готовность</button><button class="primary" id="swOn" type="button">2. Включить режим воркера</button><button class="sec" id="swOff" type="button">Вернуть на Яндекс</button></div>
+    <div id="swOut"></div>
+  </details>
+
+  <details class="card cc" data-k="diagCard" id="diagCard" open>
+    <summary>💳 Диагностика оплаты, доступа и рассылки</summary>
+    <p class="meta" style="margin:6px 0 0">Это не «проверка настроек», а настоящие пробы: функция открывает страницу оплаты Робокассы и смотрит, принимает ли она подпись; читает из хранилища запись о платном доступе чата; показывает, была ли сегодня рассылка «Тренировки дня». Нужен ключ владельца из поля выше; для воркера Cloudflare заполните его адрес в блоке «Telegram-бот».</p>
+    <div class="acts"><button class="primary" id="dgPay" type="button">1. Проверить оплату (Робокасса)</button></div>
+    <div id="dgPayOut"></div>
+    <h3 style="margin:18px 0 6px;font-size:1rem">2. Проверить доступ и подписку чата</h3>
+    <div class="row">
+      <div><label for="dgTg">Номер чата Telegram</label><input id="dgTg" type="text" inputmode="numeric" autocomplete="off" placeholder="например 123456789"></div>
+      <div><label for="dgMx">или номер пользователя MAX</label><input id="dgMx" type="text" inputmode="numeric" autocomplete="off" placeholder="например 98765"></div>
+    </div>
+    <div class="hint">Номер чата в Telegram можно узнать у бота @userinfobot (он пишет «Id»); для владельца бот знает свой чат.</div>
+    <div class="acts"><button class="sec" id="dgAcc" type="button">Проверить чат</button></div>
+    <div id="dgAccOut"></div>
+    <h3 style="margin:18px 0 6px;font-size:1rem">3. «Тренировка дня»</h3>
+    <div class="acts"><button class="sec" id="dgDaily" type="button">Разослать тренировку сейчас (через воркер)</button></div>
+    <div class="hint">Рассылка отправляется порциями (по 15 человек за нажатие, как по расписанию); тем, кому сегодня уже отправлено, повторно не уходит. Нажимайте, пока в ответе «осталось» не станет 0.</div>
+    <div id="dgDailyOut"></div>
+  </details>
+
+  <details class="card cc" data-k="sysCard" id="sysCard">
+    <summary>🩺 Проверка системы</summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="sec" id="sysGo" type="button">Проверить</button>
+    </div>
+    <div class="hint" id="sysHint">Одно нажатие проверяет версию функции, оплату, почту, ключи и доступность сайта. Нужен ключ владельца из поля выше.</div>
+    <div id="sysOut"></div>
+  </details>
+
+  <details class="card cc" data-k="panelLink" id="panelLink">
+    <summary>🧩 Панель владельца: сборщик и монитор</summary>
+    <div class="hint" style="margin-top:6px">Отдельная страница <code>panel.html</code> (лежит рядом с этим файлом): <b>Сборщик</b> — добавляете новые темы, вопросы, картины и получаете готовую сборку для Яндекса и сайта; <b>Монитор</b> — проверяет связки сайта, Telegram и MAX, показывает журнал и кнопки «Исправить».</div>
+  </details>
+
+  <details class="card cc" data-k="cfCard" id="cfCard">
+    <summary>🛟 Помощник по Cloudflare</summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>
+        <button class="sec" id="cfGo" type="button">Проверить и найти ошибку</button>
+        <button class="sec" id="cfCopy" type="button" style="display:none">Скопировать отчёт</button>
+      </span>
+    </div>
+    <div class="hint" id="cfHint">Одно нажатие проверяет воркер, версию, переменные, ключи, токен бота, вебхук и связь с Яндексом. Для каждой найденной ошибки покажу, что именно нажать в Cloudflare. «Скопировать отчёт» делает текст без секретов, который можно переслать Claude. Нужен ключ владельца и адрес воркера из полей выше.</div>
+    <div id="cfOut"></div>
+    <details>
+      <summary>Частые ситуации: что делать</summary>
+      <div class="hint" style="margin-top:6px">
+        <b>Сборка в Cloudflare упала (Failed).</b> Cloudflare → проект <code>speechcoach-api</code> → Deployments → нажать на неудачную сборку → «Build log». Последние 15 строк журнала скопировать и прислать Claude. Рабочий воркер при этом не пропадает.<br>
+        <b>Воркер на старой версии.</b> Settings → Build → Build command = <code>npm run build</code>; Deployments → дождаться Success; страница «?p=health» должна показать новую версию.<br>
+        <b>Переменные «не видны».</b> Settings → <b>Variables and Secrets</b> (не раздел Build) → Add → Secret → имя и значение → <b>Deploy</b>.<br>
+        <b>Бот молчит.</b> Блок «Telegram-бот» ниже: «Подключить», «Проверить», «Тест мне». Напишите боту /start.<br>
+        <b>Код после оплаты не пришёл в чат.</b> В Яндексе заданы <code>BOT_RELAY_URL</code> и <code>BOT_RELAY_KEY</code>, в Cloudflare такой же <code>BOT_RELAY_KEY</code>.<br>
+        <b>Картины не приходят.</b> Отправьте боту /paint со своего аккаунта и пришлите ответ Claude.
+      </div>
+    </details>
+  </details>
+
+  <details class="card cc" data-k="mxCard" id="mxCard">
+    <summary>🛟 Помощник по MAX и лимиту тем</summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>
+        <button class="sec" id="mxGo" type="button">Проверить и найти ошибку</button>
+        <button class="sec" id="mxSetup" type="button">Подключить вебхук MAX</button>
+        <button class="sec" id="mxCopy" type="button" style="display:none">Скопировать отчёт</button>
+      </span>
+    </div>
+    <div class="hint" id="mxHint">Одно нажатие проверяет бота MAX (токен, вебхук, журнал событий), хранилище лимита в Яндексе, связь Telegram-бота с Яндексом и ключи. Для каждой проблемы ниже будет «Как исправить». Нужен ключ владельца и адрес воркера выше.</div>
+    <div id="mxOut"></div>
+  </details>
+
+  <details class="card cc" data-k="todoCard" id="todoCard">
+    <summary>✅ Чек-лист перед продажами</summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>
+        <button class="sec" id="todoAuto" type="button">Проверить автоматически</button>
+        <button class="sec" id="todoReset" type="button">Сбросить отметки</button>
+      </span>
+    </div>
+    <div class="hint" id="todoHint">Отметки хранятся в этом браузере. «Проверить автоматически» сам ставит галочки там, где это можно узнать у функции (нужен ключ владельца и адрес воркера выше); остальное отмечаете вы.</div>
+    <div id="todoList" style="margin-top:6px"></div>
+    <div class="hint">JWT-подпись из кабинета Робокассы нашему проекту не нужна: сайт и бот работают по паролям №1 и №2. Секретные значения на странице не вводятся.</div>
+  </details>
+
+  <details class="card cc" data-k="toolsCard" id="toolsCard">
+    <summary>🧰 Помощники (без ИИ)</summary>
+    <div class="hint">Маленькие инструменты прямо на странице: ничего никуда не отправляют, всё считается у вас в браузере.</div>
+
+    <details open>
+      <summary>🔑 Придумать ключ (BOT_RELAY_KEY, MAX_SECRET, ADMIN_KEY)</summary>
+      <div class="acts" style="margin-top:8px">
+        <input id="genOut" type="text" readonly style="flex:1 1 280px;font-family:ui-monospace,Consolas,monospace">
+        <button class="sec" id="genBtn" type="button">Придумать новый</button>
+        <button class="sec" id="genCopy" type="button">Копировать</button>
+      </div>
+      <div class="hint">48 знаков: цифры и латинские буквы, подходит для всех секретов проекта. Ключ из чата считается скомпрометированным: каждый раз придумывайте новый здесь. Один и тот же <code>BOT_RELAY_KEY</code> впишите в Яндекс и в Cloudflare.</div>
+    </details>
+
+    <details>
+      <summary>📋 Проверка имён переменных (только имена, без значений)</summary>
+      <div class="hint">Вставьте имена переменных (по одному в строке или через запятую) и выберите, где они стоят. Страница покажет, чего не хватает и где опечатка. Значения вставлять НЕ нужно.</div>
+      <div class="acts" style="margin-top:6px">
+        <select id="vnWhere"><option value="y">Яндекс (функция)</option><option value="c">Cloudflare (воркер)</option></select>
+        <button class="sec" id="vnGo" type="button">Проверить имена</button>
+      </div>
+      <textarea id="vnIn" rows="5" spellcheck="false" style="width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid var(--bd);background:rgba(0,0,0,.25);color:var(--tx);font:.9rem/1.4 ui-monospace,Consolas,monospace" placeholder="QUOTA_BUCKET&#10;QUOTA_S3_KEY&#10;…"></textarea>
+      <div id="vnOut"></div>
+    </details>
+
+    <details>
+      <summary>🧮 Какой поставить лимит (QUOTA_LIMIT)</summary>
+      <div class="row" style="margin-top:8px">
+        <div><label for="lcDays">Дней занятий в месяц</label><input id="lcDays" type="number" min="1" max="31" value="20"></div>
+        <div><label for="lcTopics">Тем за день</label><input id="lcTopics" type="number" min="0" max="100" value="5"></div>
+        <div><label for="lcWork">Тренировок за день</label><input id="lcWork" type="number" min="0" max="20" value="0"></div>
+      </div>
+      <div class="msg okk" id="lcOut" style="margin-top:10px"></div>
+      <div class="hint">Тренировка считается как 6 запросов. Каждая смена задания (тема, сторителлинг, дебаты, дикция) тоже запрос. «Свои темы» не считаются. Лимит меняется в Яндексе: переменная <code>QUOTA_LIMIT</code>, потом «Сохранить изменения».</div>
+    </details>
+
+    <details>
+      <summary>💰 Хватит ли бесплатного объёма Яндекса</summary>
+      <div class="row" style="margin-top:8px">
+        <div><label for="fyPeople">Активных людей в месяц</label><input id="fyPeople" type="number" min="0" max="1000000" value="200"></div>
+        <div><label for="fyTopics">Тем на человека в месяц</label><input id="fyTopics" type="number" min="0" max="1000" value="25"></div>
+        <div><label for="fySite">Из них на сайте, %</label><input id="fySite" type="number" min="0" max="100" value="70"></div>
+      </div>
+      <div class="msg okk" id="fyOut" style="margin-top:10px"></div>
+      <div class="hint">Тема на сайте = 2 записи в хранилище (IP и устройство), в Telegram и MAX = 1. Бесплатно в месяц: 10 000 записей, 100 000 чтений и 1 000 000 вызовов функции. Сверх бесплатного платные записи стоят порядка 15–20 ₽ за каждые 10 000, это приблизительная оценка.</div>
+    </details>
+
+    <details>
+      <summary>🧯 Шпаргалка: что делать, если…</summary>
+      <div class="hint" style="margin-top:6px">
+        <b>Остаток тем нигде не уменьшается.</b> Бакет пустой: проверьте, что <code>QUOTA_BUCKET</code> = точное имя бакета (<code>speechcoach-quota</code>), а ключ создан у сервисного аккаунта с ролью <code>storage.editor</code>. Помощник выше покажет текст ошибки хранилища.<br>
+        <b>На сайте лимит работает, в Telegram нет.</b> Воркер спрашивает Яндекс: <code>BOT_RELAY_KEY</code> должен совпадать в Яндексе и Cloudflare (сравнение в помощнике выше), в воркере <code>PAY_URL</code> = адрес функции.<br>
+        <b>Бот MAX молчит.</b> Нажмите «Подключить вебхук MAX», напишите боту «Старт», снова нажмите «Проверить»: в журнале видно, пришло ли событие и что ответил MAX. Проверьте, что бот прошёл модерацию на платформе MAX для партнёров.<br>
+        <b>MAX отвечает 401/403.</b> Токен неверный или заменён: обновите его в @MasterBot и впишите в <code>MAX_BOT_TOKEN</code>, затем «Подключить вебхук MAX».<br>
+        <b>Лимит исчерпан у человека с кодом.</b> Код должен быть действующим; в Telegram и MAX пришлите его боту ещё раз, на сайте активируйте в «Больше режимов».<br>
+        <b>Нужно поднять или снизить лимит.</b> Яндекс → функция → Редактор → <code>QUOTA_LIMIT</code> → Сохранить. Допустимый лимит — от 1 до 100 тем в месяц, по умолчанию 100. Значения выше 100 сервер ограничивает до 100. Остаток у всех пересчитается сам.<br>
+        <b>Бесплатный объём Яндекса закончился.</b> Сервис не останавливается: сверх бесплатного платные записи (порядка 15–20 ₽ за 10 000). Проверьте в «Биллинге», что на аккаунте есть деньги или карта; создайте «Бюджет» с уведомлением на 100–300 ₽. Если денег не будет, лимит тем временно перестанет применяться, а сайт и боты продолжат работать.<br>
+        <b>Удаление старых счётчиков.</b> Object Storage → бакет <code>speechcoach-quota</code> → Настройки → Жизненный цикл → правило: префикс <code>q/</code>, удалять через 40 дней. Папку <code>g/</code> не включать. Об этом сказано в политике конфиденциальности.<br>
+        <b>Настройки функции в Яндексе.</b> «nodejs22» = Node.js 22 (нужна именно такая), «index.handler» = файл index.js, функция handler (не менять), память 256 МБ хватает; поднимайте до 512 МБ только при ошибке «out of memory».<br>
+        <b>Переход на боевую оплату.</b> Удалите <code>ROBOKASSA_TEST</code> и <code>MASTER_CODE</code> в Яндексе <b>и в Cloudflare</b>, впишите боевые пароли №1 и №2, проверьте, что алгоритм подписи в кабинете совпадает с <code>ROBOKASSA_HASH</code> (по умолчанию md5), Result URL без <code>?p=result</code> (метод GET). Затем сделайте пробный платёж «Поддержать проект» на 50 ₽.<br>
+        <b>Хочу обнулить лимит человеку.</b> Лимиты хранятся в бакете: <code>q/ГГГГ-ММ/…</code> (имена-хеши). Удалите нужный файл, либо весь месяц, если нужно обнулить всем.
+      </div>
+    </details>
+
+    <details>
+      <summary>📊 Что считается запросом</summary>
+      <table style="margin-top:6px">
+        <tr><th>Действие</th><th>Запросов</th></tr>
+        <tr><td>Выбрать тему / Сменить тему / тема из категории</td><td>1</td></tr>
+        <tr><td>Собрать тренировку (сайт), Тренировка дня (Telegram)</td><td>6</td></tr>
+        <tr><td>Сторителлинг (любое упражнение, в том числе «Продолжи мысль», и «Ещё»), дебаты (новый тезис), дикция и артикуляция (новое упражнение или набор из 5)</td><td>1</td></tr>
+        <tr><td>Свои темы, «Сменить сторону» в дебатах, значения слов, меню</td><td>0</td></tr>
+        <tr><td>Платные режимы (с кодом), включая «Тренировку красивой речи»</td><td>0, и код снимает лимит</td></tr>
+        <tr><td>Добровольный взнос (сайт и Telegram)</td><td>0; человек получает в подарок код на 7 дней (снимает лимит)</td></tr>
+        <tr><td>Действующий код доступа</td><td>безлимит: на сайте счётчик показывает «Безлимит»</td></tr>
+      </table>
+    </details>
+
+    <details>
+      <summary>🔗 Быстрые ссылки для проверки</summary>
+      <div class="acts" style="margin-top:8px">
+        <button class="sec" data-open="health" type="button">health функции</button>
+        <button class="sec" data-open="status" type="button">status функции</button>
+        <button class="sec" data-open="maxinfo" type="button">MAX: проверка</button>
+        <button class="sec" data-open="wh" type="button">health воркера</button>
+        <button class="sec" data-open="ws" type="button">status воркера</button>
+      </div>
+      <div class="hint">Открываются в новой вкладке. Для status и MAX нужен ключ владельца выше (он попадёт в адрес, не пересылайте такие ссылки).</div>
+    </details>
+  </details>
+
+  <details class="card cc" data-k="tgCard" id="tgCard">
+    <summary>✈️ Telegram-бот</summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span>
+        <button class="sec" id="tgInfo" type="button">Проверить</button>
+        <button class="sec" id="tgSetup" type="button">Подключить</button>
+        <button class="sec" id="tgTest" type="button">Тест мне</button>
+      </span>
+    </div>
+    <div class="hint" id="tgHint">«Проверить» показывает, принял ли Telegram токен и подключён ли вебхук. «Подключить» ставит вебхук одним нажатием (токен остаётся в Яндексе, на странице не вводится). «Тест мне» присылает сообщение в ваш чат с ботом. Нужен ключ владельца из поля выше.</div>
+    <div id="tgOut"></div>
+  </details>
+
+  <div class="card res" id="res">
+    <div class="meta" id="resMeta"></div>
+    <div class="code" id="resCode"></div>
+    <div id="batchBox" style="display:none">
+      <textarea id="batchText" readonly rows="8" style="width:100%;padding:10px;border-radius:12px;border:1px solid var(--bd);background:rgba(0,0,0,.25);color:var(--tx);font:.9rem/1.4 ui-monospace,Consolas,monospace"></textarea>
+      <div class="acts">
+        <button class="sec" id="batchCopy" type="button">Скопировать все коды</button>
+        <button class="sec" id="batchCsv" type="button">Скачать таблицей</button>
+      </div>
+    </div>
+    <div class="acts">
+      <button class="sec" id="copyCode" type="button">Скопировать код</button>
+      <button class="sec" id="copyMsg" type="button">Скопировать сообщение для человека</button>
+    </div>
+    <div class="row" style="margin-top:12px" id="mailRow">
+      <div style="flex:2 1 220px"><input id="mailTo" type="text" inputmode="email" autocomplete="off" spellcheck="false" placeholder="e-mail человека, чтобы отправить код письмом"></div>
+      <div style="flex:1 1 140px"><button class="sec" id="mailGo" type="button" style="width:100%;padding:11px">Отправить код на почту</button></div>
+    </div>
+    <div id="mailStatus" class="msg" style="display:none"></div>
+    <details>
+      <summary>Показать текст сообщения</summary>
+      <pre id="msgText" style="white-space:pre-wrap;margin:8px 0 0;font:inherit;font-size:.9rem"></pre>
+    </details>
+  </div>
+
+  <details class="card cc" data-k="chkCard" id="chkCard">
+    <summary>🔎 Проверить код, который есть у человека</summary>
+    <p class="meta" style="margin:6px 0 0">Проверяет настоящую подпись на сервере: подлинность, срок, отзыв, номер и время платежа. Можно вставить код из письма или сообщения.</p>
+    <label for="chkIn">Код</label>
+    <input id="chkIn" type="text" autocomplete="off" spellcheck="false" placeholder="SPK-XXXXXX-XXXXXX-XXXXXX-XXXXXX">
+    <div class="acts"><button class="primary" id="chkGo" type="button" style="margin-top:8px">Проверить код</button></div>
+    <div id="chkOut" style="display:none"></div>
+  </details>
+
+  <details class="card cc" data-k="payCard" id="payCard">
+    <summary>💳 Журнал покупок (хранилище платежей)</summary>
+    <p class="meta" style="margin:6px 0 0">Обезличенная книга платежей из хранилища Яндекса (папка <code>pay/</code>): номер платежа, дата, сумма, тип (тариф или поддержка), где куплено, срок и статус. Почты, имён и номеров чатов в ней нет, только короткий отпечаток чата, по которому видно, что две покупки сделаны из одного чата. Код доступа в хранилище не записывается: страница показывает код, который функция заново вычисляет по номеру платежа и сроку (тот же, что получил покупатель). Записи появляются с момента загрузки версии 2026-10-06.53; прежние покупки смотрите в кабинете Робокассы. Статус «возвращён» ставится, если номер платежа есть в списке <code>REVOKED</code> (карточка «Отозвать код»).</p>
+    <div class="row">
+      <div><label for="payMonths">За сколько месяцев</label><select id="payMonths"><option value="3">3</option><option value="6" selected>6</option><option value="12">12</option><option value="36">36</option></select></div>
+      <div><label for="payFind">Найти по номеру платежа</label><input id="payFind" type="text" autocomplete="off" placeholder="например 23845018"></div>
+    </div>
+    <div class="acts"><button class="primary" id="payGo" type="button" style="margin-top:8px">Показать покупки</button><button class="sec" id="payCsv" type="button" style="margin-top:8px" disabled>Скачать таблицей</button></div>
+    <div id="payOut" style="display:none"></div>
+  </details>
+
+  <details class="card cc" data-k="revCard" id="revCard">
+    <summary>↩️ Отозвать код (возврат денег, ошибочная выдача)</summary>
+    <p class="meta" style="margin:6px 0 0">Вставьте код человека (или номер платежа) и нажмите «Отозвать». Страница сама определит номер платежа из кода.</p>
+    <label for="revIn">Код или номер платежа</label>
+    <input id="revIn" type="text" autocomplete="off" spellcheck="false" placeholder="SPK-XXXXXX-XXXXXX-XXXXXX-XXXXXX или 23845018">
+    <div class="acts"><button class="primary" id="revGo" type="button" style="margin-top:8px">Отозвать</button></div>
+    <div id="revStatus" class="msg" style="display:none"></div>
+
+    <label for="revList" style="margin-top:14px">Список для переменной <code>REVOKED</code> в Яндексе (через запятую)</label>
+    <input id="revList" type="text" readonly>
+    <div class="acts">
+      <button class="sec" id="revCopy" type="button">Скопировать список</button>
+      <button class="sec" id="revAdd" type="button">Добавить номера, которые уже есть в Яндексе</button>
+      <button class="sec" id="revClear" type="button">Очистить список</button>
+    </div>
+    <div class="hint">
+      <b>Чтобы отзыв вступил в силу:</b> 1) нажмите «Скопировать список»; 2) Яндекс → Cloud Functions → функция → «Редактор» → «Переменные окружения» → ключ <code>REVOKED</code> → вставьте значение целиком (заменяет старое) → «Сохранить изменения». Код перестанет работать сразу после сохранения. Пока список не вставлен в Яндекс, код продолжает работать.
+    </div>
+  </details>
+
+  <details class="card cc" data-k="c320" open>
+    <summary>📜 История выдачи (только на этом устройстве)</summary>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="acts" style="margin:0">
+        <button class="sec" id="exportCsv" type="button">Скачать таблицей</button>
+        <button class="sec" id="clearHist" type="button">Очистить историю</button>
+      </span>
+    </div>
+    <div id="histEmpty" class="hint">Пока пусто. Выданные коды появятся здесь, чтобы не потерять, кому и когда они выданы.</div>
+    <div style="overflow-x:auto"><table id="hist" style="display:none">
+      <thead><tr><th>Дата</th><th>Дней</th><th>До</th><th>Номер</th><th>Код</th><th>Кому</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="hint">Отозвать код (возврат денег): добавить его номер из столбца «Номер» в переменную <code>REVOKED</code> функции в Яндексе (через запятую) и сохранить.</div>
+  </details>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var API_DEFAULT = "https://functions.yandexcloud.net/d4e55siamfqcav7kct0l";
+  var API = API_DEFAULT;
+  var $ = function (id) { return document.getElementById(id); };
+  var days = 30;
+
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+  // Выбор функции: Яндекс (по умолчанию) или свой адрес (например, воркер Cloudflare). Запоминается в этом браузере.
+  function applyApi() {
+    var sel = $("apiUrl"), c = $("apiCustom"), v = (c.value || "").trim().replace(/\/+$/, "");
+    c.style.display = sel.value === "custom" ? "block" : "none";
+    API = sel.value === "custom" ? (/^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9_.\-]*)?$/i.test(v) ? v : API_DEFAULT) : sel.value;
+    lsSet("adm.api", sel.value === "custom" ? v : sel.value === API_DEFAULT ? "" : sel.value);
+  }
+  (function () {
+    var saved = lsGet("adm.api");
+    if (saved) {
+      var known = false, o = $("apiUrl").options;
+      for (var i = 0; i < o.length; i++) if (o[i].value === saved) known = true;
+      if (known) $("apiUrl").value = saved; else { $("apiUrl").value = "custom"; $("apiCustom").value = saved; }
+    }
+    applyApi();
+    $("apiUrl").addEventListener("change", applyApi);
+    $("apiCustom").addEventListener("input", applyApi);
+  })();
+
+  // Воркер Cloudflare с ботом: блок «Telegram-бот» и сравнение настроек работают с ним, остальное — с основной функцией
+  var TG_API = "";
+  function applyTg() {
+    var v = ($("tgApi").value || "").trim().replace(/\/+$/, "");
+    TG_API = /^https:\/\/[a-z0-9.-]+(:\d+)?(\/[A-Za-z0-9_.\-]*)?$/i.test(v) ? v : "";
+    lsSet("adm.tgapi", v);
+  }
+  (function () {
+    var saved = lsGet("adm.tgapi");
+    if (saved !== null && saved !== "") $("tgApi").value = saved;
+    applyTg();
+    $("tgApi").addEventListener("input", applyTg);
+  })();
+
+  function declDays(n) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return n + " день";
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return n + " дня";
+    return n + " дней";
+  }
+  function fmtDate(d) { return d.toLocaleDateString("ru-RU") + " " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  // ключ
+  if (lsGet("adm.key")) { $("key").value = lsGet("adm.key"); $("remember").checked = true; }
+
+  // выбор срока
+  function setDays(n, fromCustom) {
+    days = n;
+    Array.prototype.forEach.call($("daysBox").children, function (b) { b.classList.toggle("on", !fromCustom && +b.dataset.d === n); });
+  }
+  $("daysBox").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    $("custom").value = ""; setDays(+b.dataset.d, false);
+  });
+  $("custom").addEventListener("input", function () {
+    var v = parseInt(this.value, 10);
+    if (v >= 1 && v <= 3650) setDays(v, true);
+    else if (!this.value) setDays(30, false);
+  });
+
+  function showStatus(text, kind) {
+    var s = $("status"); s.style.display = "block"; s.className = "msg " + kind; s.innerHTML = text;
+  }
+  function hideStatus() { $("status").style.display = "none"; }
+
+  // история
+  function hist() { try { return JSON.parse(lsGet("adm.hist") || "[]"); } catch (e) { return []; } }
+  function renderHist() {
+    var h = hist(), tb = $("hist").querySelector("tbody");
+    $("histEmpty").style.display = h.length ? "none" : "block";
+    $("hist").style.display = h.length ? "table" : "none";
+    tb.innerHTML = h.map(function (r) {
+      var rv = isRevoked(r.inv);
+      return "<tr" + (rv ? " style='opacity:.55'" : "") + "><td>" + esc(r.at) + "</td><td>" + esc(r.days) + "</td><td>" + esc(r.expires) + "</td><td>" + esc(r.inv) + "</td><td class='c'>" + esc(r.code) + "</td><td>" + esc(r.note || "") + "</td><td>" +
+        (rv ? "отозван" : "<button class='sec' data-rev='" + esc(r.inv) + "' type='button'>Отозвать</button> <button class='sec' data-mail='" + esc(r.code) + "' type='button'>На почту</button>") + "</td></tr>";
+    }).join("");
+  }
+  function pushHist(r) {
+    var h = hist(); h.unshift(r); lsSet("adm.hist", JSON.stringify(h.slice(0, 500))); renderHist();
+  }
+
+  function messageFor(code, d, until) {
+    return "Ваш код доступа: " + code + "\n" +
+      "Срок: " + declDays(d) + (until ? " (до " + until + ")" : "") + ".\n\n" +
+      "Как активировать: откройте сайт, нажмите «Больше режимов», вставьте код в поле «Код доступа» и нажмите «Активировать». Один код открывает все платные режимы. Код можно ввести на другом устройстве.\n\n" +
+      "Your access code: " + code + "\n" +
+      "Valid for " + d + " days" + (until ? " (until " + until + ")" : "") + ". Open the site, press \"More modes\", paste the code and press \"Activate\".";
+  }
+
+  function copy(text, btn) {
+    function done() { var o = btn.textContent; btn.textContent = "Скопировано"; setTimeout(function () { btn.textContent = o; }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+    function fallback() {
+      var t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); done(); } catch (e) {} document.body.removeChild(t);
+    }
+  }
+
+  var last = null, batch = null, batchDays = 0;
+  $("go").addEventListener("click", function () {
+    var key = $("key").value.trim();
+    if (key.length < 16) { showStatus("Введите ключ владельца (не короче 16 знаков).", "err"); return; }
+    if (!(days >= 1 && days <= 3650)) { showStatus("Срок: число дней от 1 до 3650.", "err"); return; }
+    var inv = $("inv").value.trim();
+    if (inv && !/^\d{1,10}$/.test(inv)) { showStatus("Номер платежа: только цифры.", "err"); return; }
+    if ($("remember").checked) lsSet("adm.key", key); else lsDel("adm.key");
+
+    var cnt = parseInt($("count").value, 10) || 1;
+    if (cnt < 1 || cnt > 50) { showStatus("Количество кодов: от 1 до 50.", "err"); return; }
+    if (cnt > 1 && inv) { showStatus("Номер платежа указывают только для одного кода. Очистите поле «Номер платежа» или поставьте количество 1.", "err"); return; }
+    var q = "?p=issue&key=" + encodeURIComponent(key) + "&days=" + days + (cnt > 1 ? "&count=" + cnt : (inv ? "&inv=" + inv : ""));
+    var btn = $("go"); btn.disabled = true; btn.textContent = "Создаю код…"; hideStatus();
+
+    fetch(API + q, { cache: "no-store" }).then(function (r) {
+      return r.json().then(function (j) { return { st: r.status, j: j }; });
+    }).then(function (o) {
+      var j = o.j || {};
+      if (o.st === 429) return showStatus("Слишком много попыток подряд. Подождите минуту.", "err");
+      if (o.st === 403) return showStatus("Ключ не подошёл. Проверьте ADMIN_KEY в переменных функции (Яндекс → Редактор) и что нажато «Сохранить изменения».", "err");
+      if (!j.ok) return showStatus("Функция ответила: " + esc(j.why || j.error || ("код " + o.st)), "err");
+      var note = $("note").value.trim();
+      if (j.codes) {
+        // пачка кодов
+        last = null; batch = j.codes; batchDays = j.days;
+        $("resMeta").textContent = "Пачка: " + j.codes.length + " шт. на " + declDays(j.days) + " каждый. У каждого кода свой номер выдачи (для отзыва).";
+        $("resCode").style.display = "none"; $("mailRow").style.display = "none"; $("mailStatus").style.display = "none";
+        $("copyCode").style.display = "none"; $("copyMsg").style.display = "none";
+        $("msgText").textContent = messageFor("SPK-XXXXXX-XXXXXX-XXXXXX-XXXXXX", j.days, "") ;
+        $("batchBox").style.display = "block";
+        $("batchText").value = j.codes.map(function (c) { return c.code; }).join("\n");
+        $("res").classList.add("show");
+        var nowS = fmtDate(new Date());
+        j.codes.slice().reverse().forEach(function (c) { pushHist({ at: nowS, days: j.days, expires: c.expires, inv: c.inv, code: c.code, note: (note ? note + " · " : "") + "пачка" }); });
+        showStatus("Готово. Создано кодов: " + j.codes.length + ". Они сохранены в истории на этом устройстве.", "okk");
+        $("res").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        return;
+      }
+      batch = null;
+      $("resCode").style.display = ""; $("mailRow").style.display = ""; $("batchBox").style.display = "none";
+      $("copyCode").style.display = ""; $("copyMsg").style.display = "";
+      last = { code: j.code, days: j.days, expires: j.expires, inv: j.inv };
+      $("resMeta").textContent = "Срок: " + declDays(j.days) + ", действует до " + j.expires + ". Номер выдачи: " + j.inv + (inv ? " (восстановленный код платежа)" : "") + ".";
+      $("resCode").textContent = j.code;
+      $("msgText").textContent = messageFor(j.code, j.days, j.expires);
+      $("res").classList.add("show");
+      if (new Date(j.expires + "T23:59:59") < new Date()) {
+        $("resMeta").textContent += " ВНИМАНИЕ: срок этого кода уже истёк (номер платежа старый, срок отсчитывается от даты платежа). Новый код создаётся без номера платежа.";
+      }
+      pushHist({ at: fmtDate(new Date()), days: j.days, expires: j.expires, inv: j.inv, code: j.code, note: note });
+      showStatus("Готово. Код создан и сохранён в истории на этом устройстве.", "okk");
+      $("res").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }).catch(function () {
+      var url = API + q;
+      showStatus("Браузер не смог прочитать ответ функции (в Яндексе может стоять старая версия функции без разрешения для этой страницы, либо нет интернета). " +
+        "Откройте ссылку в новой вкладке: код будет в поле <b>code</b> на открывшейся странице. <br><a href=\"" + esc(url) + "\" target=\"_blank\" rel=\"noopener\">Открыть ссылку выдачи</a>", "err");
+    }).then(function () { btn.disabled = false; btn.textContent = "Сгенерировать код"; });
+  });
+
+  $("copyCode").addEventListener("click", function () { if (last) copy(last.code, this); });
+  $("copyMsg").addEventListener("click", function () { if (last) copy(messageFor(last.code, last.days, last.expires), this); });
+  $("clearHist").addEventListener("click", function () {
+    if (confirm("Очистить историю выдачи на этом устройстве? Коды в Яндексе не удаляются.")) { lsDel("adm.hist"); renderHist(); }
+  });
+  $("exportCsv").addEventListener("click", function () {
+    var h = hist(); if (!h.length) return;
+    var rows = [["Дата", "Дней", "До", "Номер", "Код", "Кому"]].concat(h.map(function (r) { return [r.at, r.days, r.expires, r.inv, r.code, r.note || ""]; }));
+    var csv = "﻿" + rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = "kody-" + new Date().toISOString().slice(0, 10) + ".csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+  // ===== Пачка кодов =====
+  $("batchCopy").addEventListener("click", function () { if (batch) copy(batch.map(function (c) { return c.code; }).join("\n"), this); });
+  $("batchCsv").addEventListener("click", function () {
+    if (!batch) return;
+    var rows = [["Код", "Дней", "До", "Номер выдачи"]].concat(batch.map(function (c) { return [c.code, batchDays, c.expires, c.inv]; }));
+    download("promo-kody-" + new Date().toISOString().slice(0, 10) + ".csv", rows);
+  });
+  function download(name, rows) {
+    var csv = "\ufeff" + rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(";"); }).join("\r\n");
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  // ===== Отправка кода на почту =====
+  function mailMsg(t, kind) { var e = $("mailStatus"); e.style.display = "block"; e.className = "msg " + kind; e.innerHTML = t; }
+  function sendCode(code, to, onMsg, btn) {
+    var key = $("key").value.trim();
+    if (key.length < 16) { onMsg("Введите ключ владельца.", "err"); return; }
+    if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(to)) { onMsg("Проверьте адрес почты.", "err"); return; }
+    var old = btn ? btn.textContent : ""; if (btn) { btn.disabled = true; btn.textContent = "Отправляю…"; }
+    fetch(API + "?p=sendcode&key=" + encodeURIComponent(key) + "&code=" + encodeURIComponent(code) + "&to=" + encodeURIComponent(to), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); })
+      .then(function (o) {
+        if (o.st === 403) return onMsg("Ключ не подошёл.", "err");
+        if (o.st === 429) return onMsg("Слишком много попыток. Подождите минуту.", "err");
+        if (o.j && o.j.ok) return onMsg("Письмо отправлено на " + esc(to) + ". Если не придёт, проверьте «Спам».", "okk");
+        onMsg("Не отправлено: " + esc((o.j && (o.j.why || o.j.error)) || ("код " + o.st)), "err");
+      })
+      .catch(function () { onMsg("Не удалось связаться с функцией. Загрузите в Яндекс версию функции 2026-10-03.4 или новее.", "err"); })
+      .then(function () { if (btn) { btn.disabled = false; btn.textContent = old; } });
+  }
+  $("mailGo").addEventListener("click", function () { if (last) sendCode(last.code, $("mailTo").value.trim(), mailMsg, this); });
+  $("hist").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-mail]"); if (!b) return;
+    var to = prompt("На какой e-mail отправить код " + b.dataset.mail.slice(0, 11) + "…?"); if (!to) return;
+    sendCode(b.dataset.mail, to.trim(), function (t, kind) { showStatus(t, kind); window.scrollTo({ top: 0, behavior: "smooth" }); }, null);
+  });
+
+  // ===== Проверка кода =====
+  $("chkGo").addEventListener("click", function () {
+    var key = $("key").value.trim(), code = $("chkIn").value.trim(), btn = this, out = $("chkOut");
+    function show(html, kind) { out.style.display = "block"; out.innerHTML = "<div class='msg " + kind + "'>" + html + "</div>"; }
+    if (key.length < 16) return show("Введите ключ владельца в верхнем поле.", "err");
+    if (!code) return show("Вставьте код.", "err");
+    btn.disabled = true; btn.textContent = "Проверяю…";
+    fetch(API + "?p=checkcode&key=" + encodeURIComponent(key) + "&code=" + encodeURIComponent(code), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); })
+      .then(function (o) {
+        var j = o.j || {};
+        if (o.st === 403) return show("Ключ не подошёл.", "err");
+        if (o.st === 429) return show("Слишком много попыток. Подождите минуту.", "err");
+        if (!j.ok) return show("Функция ответила: " + esc(j.why || j.error || ("код " + o.st)), "err");
+        if (j.master) return show("✅ Это служебный код владельца (<code>MASTER_CODE</code>). Он открывает всё; людям его давать нельзя.", "okk");
+        var rows = j.inv ? "<div class='meta' style='margin-top:6px'>Номер платежа (<code>InvId</code>): <b>" + esc(j.inv) + "</b><br>Время платежа или выдачи (МСК): <b>" +
+          esc(new Date(j.issuedAt).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })) + "</b><br>Тариф: <b>" + declDays(j.days) + "</b>, действует до <b>" + esc(j.expires) + "</b>" +
+          (j.valid ? " (осталось " + declDays(j.daysLeft) + ")" : "") + "</div>" : "";
+        if (j.valid) show("✅ <b>Код настоящий и действует.</b>" + rows + "<div class='acts'><button class='sec' id='chkToRev' type='button'>Отозвать этот код</button></div>", "okk");
+        else show("❌ <b>Код не работает:</b> " + esc(j.why || "") + rows, "err");
+        var b2 = $("chkToRev"); if (b2) b2.addEventListener("click", function () { $("revIn").value = code; $("revCard").scrollIntoView({ behavior: "smooth", block: "start" }); });
+      })
+      .catch(function () { show("Не удалось связаться с функцией. Загрузите в Яндекс версию 2026-10-03.5 или новее.", "err"); })
+      .then(function () { btn.disabled = false; btn.textContent = "Проверить код"; });
+  });
+
+  // ===== Журнал покупок =====
+  var PAY_ROWS = [];
+  function payDate(t) { return t ? new Date(t * 1000).toLocaleString("ru-RU", { timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""; }
+  function payRender() {
+    var out = $("payOut"), f = $("payFind").value.replace(/\D/g, "");
+    var rows = PAY_ROWS.filter(function (x) { return !f || String(x.inv).indexOf(f) >= 0; });
+    var ST = { active: "<span style='color:#2e9e5b'>действует</span>", expired: "истёк", refunded: "<span style='color:#c0392b'>возвращён</span>" };
+    var SRC = { site: "сайт", tg: "Telegram", mx: "MAX" };
+    var h = "<div class='meta' style='margin:10px 0'>Показано: <b>" + rows.length + "</b> из " + PAY_ROWS.length + "</div><div style='overflow-x:auto'><table><tr><th>Дата</th><th>№ платежа</th><th>Тип</th><th>Сумма</th><th>Где</th><th>Срок до</th><th>Статус</th><th>Код доступа</th><th>Чат</th></tr>";
+    rows.forEach(function (x) {
+      h += "<tr><td>" + esc(payDate(x.paid)) + "</td><td>" + esc(x.inv) + "</td><td>" + (x.kind === "support" ? "поддержка" : "доступ " + esc(x.days) + " дн.") + "</td><td>" + esc(x.sum) + " ₽</td><td>" + (SRC[x.src] || esc(x.src)) + "</td><td>" + esc(new Date(x.expires * 1000).toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" })) + "</td><td>" + (x.kind === "support" && x.state !== "refunded" ? "—" : ST[x.state] || "") + "</td><td>" + (x.code ? "<code style='font-size:.75rem;user-select:all'>" + esc(x.code) + "</code> <button class='sec' type='button' data-copy='" + esc(x.code) + "' style='padding:2px 8px;font-size:.75rem'>копировать</button>" : "") + "</td><td><code>" + esc(x.chat || "") + "</code></td></tr>";
+    });
+    out.innerHTML = out.querySelector(".paysum").outerHTML + h + "</table></div>";
+    Array.prototype.forEach.call(out.querySelectorAll("button[data-copy]"), function (b) {
+      b.addEventListener("click", function () { var t = b.getAttribute("data-copy"); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { b.textContent = "скопировано"; }, function () { window.prompt("Скопируйте код:", t); }); });
+    });
+  }
+  $("payFind").addEventListener("input", function () { if (PAY_ROWS.length) payRender(); });
+  $("payGo").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("payOut");
+    function show(html, kind) { out.style.display = "block"; out.innerHTML = "<div class='msg " + kind + "'>" + html + "</div>"; }
+    if (key.length < 16) return show("Введите ключ владельца в верхнем поле.", "err");
+    btn.disabled = true; btn.textContent = "Загружаю…";
+    fetch(API + "?p=payments&key=" + encodeURIComponent(key) + "&months=" + encodeURIComponent($("payMonths").value), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); })
+      .then(function (o) {
+        var j = o.j || {};
+        if (o.st === 403) return show("Ключ не подошёл.", "err");
+        if (o.st === 429) return show("Слишком много попыток. Подождите минуту.", "err");
+        if (o.st === 404 || (!j.ok && !j.why)) return show("Функция не знает этой команды: загрузите в Яндекс версию 2026-10-06.53 или новее.", "err");
+        if (!j.ok) return show("Функция ответила: " + esc(j.why || ("код " + o.st)), "err");
+        PAY_ROWS = j.items || [];
+        out.style.display = "block";
+        out.innerHTML = "<div class='paysum msg okk'>Покупок и платежей: <b>" + j.count + "</b>. Оплачено тарифов: <b>" + esc(j.sumAccess) + " ₽</b>, поддержка: <b>" + esc(j.sumSupport) + " ₽</b> (без возвращённых). Возвращено: <b>" + j.refunded + "</b>." + (j.unreadable ? " Не удалось прочитать файлов: " + j.unreadable + "." : "") + (j.count ? "" : " Пока записей нет: они появляются после оплат на версии 2026-10-06.53 и новее.") + "</div>";
+        $("payCsv").disabled = !PAY_ROWS.length;
+        payRender();
+      })
+      .catch(function () { show("Не удалось связаться с функцией.", "err"); })
+      .then(function () { btn.disabled = false; btn.textContent = "Показать покупки"; });
+  });
+  $("payCsv").addEventListener("click", function () {
+    var lines = [["Дата", "Номер платежа", "Тип", "Дней", "Сумма", "Где", "Срок до", "Статус", "Код", "Чат"].join(";")];
+    PAY_ROWS.forEach(function (x) { lines.push([payDate(x.paid), x.inv, x.kind === "support" ? "поддержка" : "доступ", x.days, x.sum, x.src, new Date(x.expires * 1000).toISOString().slice(0, 10), x.state, x.code || "", x.chat].join(";")); });
+    var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" })); a.download = "pokupki.csv"; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  });
+
+  // ===== Диагностика оплаты, доступа и рассылки =====
+  function dgGet(base, cmd, extra) {
+    var key = $("key").value.trim();
+    return fetch(base + "?p=" + cmd + "&key=" + encodeURIComponent(key) + (extra || ""), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }, function () { return { st: r.status, j: null }; }); })
+      .catch(function () { return null; });
+  }
+  function dgFail(o, name) {
+    if (!o) return "<div class='msg err'>" + name + " не отвечает этой странице.</div>";
+    if (o.st === 403) return "<div class='msg err'>" + name + ": ключ владельца не подошёл (ADMIN_KEY).</div>";
+    if (o.st === 404 || !o.j) return "<div class='msg err'>" + name + ": команда не найдена. Загрузите свежую версию (2026-10-09.58 или новее).</div>";
+    return "";
+  }
+  function dgPayBlock(name, o) {
+    var f = dgFail(o, name); if (f) return f;
+    var r = o.j, e = r.env || {}, cls = r.level === "ok" ? "okk" : r.level === "warn" ? "warn" : "err";
+    var h = "<div class='msg " + cls + "'><b>" + esc(name) + ":</b> " + esc(r.verdict) + "</div>";
+    h += "<div class='meta'>Логин магазина: <code>" + esc(e.login || "не задан") + "</code> · Пароль №1: <code>" + esc(e.pass1) + "</code> · Пароль №2: <code>" + esc(e.pass2) + "</code> · Алгоритм: <code>" + esc(e.hash) + "</code> · Тестовый режим: <b>" + (e.test ? "ВКЛЮЧЁН" : "выключен") + "</b>" + (e.same12 ? " · <b style='color:#c0392b'>пароли №1 и №2 одинаковые (так не бывает)</b>" : "") + "<br>Хранилище: " + esc(e.storage || "—") + " · версия " + esc(e.version || "?") + " · адрес этой функции: <code>" + esc(e.fn || "") + "</code></div>";
+    if (r.api && r.api.length) h += "<details open><summary>Ответ Робокассы на служебную проверку подписи</summary><table><tr><th>Алгоритм</th><th>Результат</th><th>Что ответила Робокасса</th></tr>" + r.api.map(function (t) { return "<tr><td>" + esc(t.algo) + (t.current ? " (в программе)" : "") + "</td><td>" + (t.err ? esc(t.err) : (t.ok ? "<b style='color:#2e9e5b'>подпись принята</b>" : "<b style='color:#c0392b'>отклонена" + (t.code ? " (код " + esc(t.code) + ")" : "") + "</b>")) + "</td><td>" + esc(t.desc || "") + "</td></tr>"; }).join("") + "</table><div class='meta'>Эта проверка надёжно показывает, верны ли идентификатор магазина, пароль №2 и алгоритм. Пароль №1 напрямую проверить нельзя.</div></details>";
+    if (r.sampleUrl) h += "<div class='meta' style='margin-top:8px'>Пробная ссылка на оплату (деньги не списываются): <a href='" + esc(r.sampleUrl) + "' target='_blank' rel='noopener'>открыть страницу оплаты Робокассы</a>. Если на ней видна ошибка, скопируйте её полный текст: он нужен, чтобы понять причину (и для поддержки Робокассы).</div>";
+    return h;
+  }
+  $("dgPay").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("dgPayOut");
+    if (key.length < 16) { out.innerHTML = "<div class='msg err'>Введите ключ владельца в верхнем поле.</div>"; return; }
+    btn.disabled = true; btn.textContent = "Проверяю у Робокассы…"; out.innerHTML = "";
+    Promise.all([dgGet(API, "paycheck"), TG_API ? dgGet(TG_API, "paycheck") : Promise.resolve(undefined), TG_API ? dgGet(TG_API, "relaytest") : Promise.resolve(undefined)]).then(function (res) {
+      var y = res[0], w = res[1], rt = res[2], h = "";
+      if (rt !== undefined) h += (!rt || !rt.j) ? "<div class='msg err'>Воркер не ответил на проверку связи с хранилищем.</div>" : "<div class='msg " + (rt.j.ok ? "okk" : "err") + "'><b>Воркер ↔ хранилище:</b> " + (rt.j.ok ? "работает (" + esc(rt.j.mode) + ")" : "НЕ работает (" + esc(rt.j.mode || "") + "): " + esc(rt.j.why || "") + " " + esc(rt.j.fix || "")) + "</div>";
+      h += dgPayBlock("Яндекс (сайт и оплата)", y);
+      if (w !== undefined) h += dgPayBlock("Воркер Cloudflare (бот Telegram)", w); else h += "<div class='meta'>Адрес воркера не заполнен: проверка воркера пропущена.</div>";
+      if (y && w && y.j && w.j && y.j.env && w.j.env) {
+        var a = y.j.env, b = w.j.env, diff = [];
+        if (!b.enabled) h += "<div class='msg warn'><b>В воркере Cloudflare не заданы ROBOKASSA_LOGIN, ROBOKASSA_PASS1, ROBOKASSA_PASS2.</b> Сейчас это не мешает: оплата из ботов идёт через Яндекс. Но в аварийном режиме (Яндекс не работает) воркер не сможет принимать оплату. Добавьте эти три переменные (те же значения, что в Яндексе) в Cloudflare → воркер → Settings → Variables and Secrets.</div>";
+        else {
+          if ((a.login || "") !== (b.login || "")) diff.push("логин магазина");
+          if (a.pass1fp !== b.pass1fp) diff.push("пароль №1");
+          if (a.pass2fp !== b.pass2fp) diff.push("пароль №2");
+          if (a.hash !== b.hash) diff.push("алгоритм подписи");
+          if (!!a.test !== !!b.test) diff.push("тестовый режим");
+        }
+        if (a.codeFp !== b.codeFp) diff.push("CODE_SECRET (коды из одного места не будут работать в другом!)");
+        if (a.relayFp !== b.relayFp) diff.push("BOT_RELAY_KEY");
+        h += diff.length ? "<div class='msg err'><b>Яндекс и Cloudflare настроены по-разному:</b> " + esc(diff.join(", ")) + ". Эти значения должны быть одинаковыми в обоих местах.</div>" : "<div class='msg okk'>Ключи и пароли в Яндексе и в Cloudflare совпадают.</div>";
+      }
+      h += "<details><summary>Что где менять (пошагово)</summary><ol class='hint' style='margin:6px 0 0 18px;padding:0'><li><b>Робокасса:</b> robokassa.ru → Мои магазины → ваш магазин → <b>Технические настройки</b>: идентификатор магазина, «Пароль #1», «Пароль #2» (боевые, не тестовые), «Алгоритм расчёта хэша».</li><li><b>Яндекс:</b> console.yandex.cloud → Cloud Functions → функция → Редактор → Переменные окружения: <code>ROBOKASSA_LOGIN</code>, <code>ROBOKASSA_PASS1</code>, <code>ROBOKASSA_PASS2</code>, (при необходимости) <code>ROBOKASSA_HASH</code>; <code>ROBOKASSA_TEST</code> должна быть удалена. Нажмите «Сохранить изменения».</li><li><b>Cloudflare:</b> dash.cloudflare.com → Workers → воркер → Settings → Variables and Secrets: те же значения. Нажмите Deploy.</li><li>Вернитесь сюда и нажмите «Проверить оплату» ещё раз: должно быть «Робокасса принимает подпись».</li></ol></details>";
+      out.innerHTML = h;
+    }).then(function () { btn.disabled = false; btn.textContent = "1. Проверить оплату (Робокасса)"; });
+  });
+  function dgDate(t) { return t ? new Date(t * 1000).toLocaleString("ru-RU", { timeZone: "Europe/Moscow" }) : "—"; }
+  $("dgAcc").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("dgAccOut"), tg = $("dgTg").value.replace(/\D/g, ""), mx = $("dgMx").value.replace(/\D/g, "");
+    if (key.length < 16) { out.innerHTML = "<div class='msg err'>Введите ключ владельца в верхнем поле.</div>"; return; }
+    if (!tg && !mx) { out.innerHTML = "<div class='msg err'>Введите номер чата Telegram или пользователя MAX.</div>"; return; }
+    btn.disabled = true; btn.textContent = "Проверяю…";
+    dgGet(API, "access", tg ? "&tg=" + tg : "&mx=" + mx).then(function (o) {
+      var f = dgFail(o, "Функция"); if (f) { out.innerHTML = f; return; }
+      var r = o.j; if (!r.ok) { out.innerHTML = "<div class='msg err'>" + esc(r.why || "ошибка") + "</div>"; return; }
+      function st(x, name) { return "<tr><td>" + name + "</td><td>" + (x.off ? "не настроено" : x.error ? "<b style='color:#c0392b'>сбой: " + esc(x.error) + "</b>" : x.found ? "запись есть, действует до <b>" + esc(dgDate(x.until)) + "</b>" + (x.until * 1000 < Date.now() ? " <b style='color:#c0392b'>(срок вышел)</b>" : "") + ", платёж № " + esc(x.inv) : "записи нет") + "</td></tr>"; }
+      var h = "<div class='msg " + (r.paidNow ? "okk" : "warn") + "'><b>Платный доступ чата сейчас: " + (r.paidNow ? "ЕСТЬ" : "НЕТ") + ".</b>" + (r.paidNow ? "" : " Если человек вводил код, а записи нет, значит запись не сохранилась: попросите отправить код боту ещё раз (с версией 2026-10-08.56 и новее запись подтверждается и сама восстанавливается при нажатии кнопок с кодом).") + "</div>";
+      h += "<table><tr><th>Где</th><th>Что лежит</th></tr>" + st(r.grant.primary, "Основное хранилище (Яндекс)") + st(r.grant.backup, "Резервное (Cloudflare R2)") + "</table>";
+      var d = r.daily || {};
+      h += "<div class='meta' style='margin-top:8px'>Подписка на «Тренировку дня»: " + (d.subscribed ? "<b>оформлена</b>, код действует до " + esc(dgDate(d.until)) + (d.expired ? " (<b>срок вышел</b>)" : "") + ", последняя отправка: " + esc(d.lastSent || "ещё не было") : d.subscribed === false ? "<b>не оформлена</b> (в списке подписчиков этого чата нет)" : "список подписчиков прочитать не удалось") + ".</div>";
+      var t = r.tick;
+      h += "<div class='meta'>Рассылка сегодня (" + esc(r.today) + "): " + (t && t.day === r.today ? "запускалась в " + esc(new Date(t.at).toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow" })) + ", подписчиков " + t.total + ", Telegram " + t.tg + ", MAX " + t.mx + ", осталось " + t.left : "<b>сегодня не запускалась</b> (проверьте расписание в Cloudflare)") + ".</div>";
+      out.innerHTML = h;
+    }).then(function () { btn.disabled = false; btn.textContent = "Проверить чат"; });
+  });
+  $("dgDaily").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("dgDailyOut");
+    if (key.length < 16) { out.innerHTML = "<div class='msg err'>Введите ключ владельца в верхнем поле.</div>"; return; }
+    if (!TG_API) { out.innerHTML = "<div class='msg err'>Заполните адрес воркера Cloudflare в блоке «Telegram-бот»: рассылку отправляет воркер.</div>"; return; }
+    btn.disabled = true; btn.textContent = "Рассылаю…";
+    dgGet(TG_API, "dailynow").then(function (o) {
+      var f = dgFail(o, "Воркер"); if (f) { out.innerHTML = f; return; }
+      var r = o.j; out.innerHTML = r.ok ? "<div class='msg okk'>Отправлено в Telegram: <b>" + (r.tg || 0) + "</b>, MAX: <b>" + (r.mx || 0) + "</b>, осталось получить: <b>" + (r.left || 0) + "</b>" + (r.left ? ". Нажмите ещё раз." : ". Готово.") + "</div>" : "<div class='msg err'>Не вышло: " + esc(r.why || "воркер не смог связаться с хранилищем (см. «Диагностика оплаты»)") + "</div>";
+    }).then(function () { btn.disabled = false; btn.textContent = "Разослать тренировку сейчас (через воркер)"; });
+  });
+
+  // ===== Полное переключение на воркер =====
+  function swRun(set, btn) {
+    var key = $("key").value.trim(), out = $("swOut");
+    if (key.length < 16) { out.innerHTML = "<div class='msg err'>Введите ключ владельца в верхнем поле.</div>"; return; }
+    if (!TG_API) { out.innerHTML = "<div class='msg err'>Заполните адрес воркера Cloudflare в блоке «Telegram-бот».</div>"; return; }
+    if (set === "1" && !window.confirm("Включить режим «воркер сам по себе»? Воркер перестанет обращаться к Яндексу, а бот MAX переключится на воркер. После этого в Робокассе нужно поменять Result URL.")) return;
+    if (set === "0" && !window.confirm("Вернуть работу на Яндекс? Включайте, только когда Яндекс снова работает.")) return;
+    var old = btn.textContent; btn.disabled = true; btn.textContent = "Работаю…";
+    dgGet(TG_API, "mode", set ? "&set=" + set : "").then(function (r) {
+      btn.disabled = false; btn.textContent = old;
+      var h = dgFail(r, "Воркер Cloudflare");
+      if (!r || !r.j) { out.innerHTML = h; return; }
+      var j = r.j;
+      if (j.ok === false && !j.checks) { out.innerHTML = "<div class='msg err'>" + esc(j.why || "Ошибка") + "</div>"; return; }
+      var ic = { ok: "✅", warn: "⚠️", bad: "❌" };
+      h += "<div class='msg " + (j.ok === false ? "err" : j.standalone ? "okk" : "warn") + "'><b>" + (j.ok === false ? esc(j.why || "Не получилось.") : j.standalone ? "Режим «воркер сам по себе» ВКЛЮЧЁН" + (j.forced ? " (задан переменной YANDEX_OFF=1 в Cloudflare)" : "") + "." : "Сейчас воркер работает вместе с Яндексом. " + (j.ready ? "Всё готово к переключению." : "К переключению не готов: исправьте красные пункты.")) + "</b></div>";
+      h += "<table><tr><th></th><th>Что</th><th>Состояние</th></tr>" + (j.checks || []).map(function (c) { return "<tr><td>" + (ic[c.s] || "") + "</td><td>" + esc(c.t) + "</td><td>" + esc(c.d) + "</td></tr>"; }).join("") + "</table>";
+      if (j.max) h += "<div class='meta'>MAX: " + esc(j.max) + "</div>";
+      if (j.manual) h += "<div class='msg warn'><b>Вручную:</b> " + esc(j.manual) + "</div>";
+      else if (j.standalone) h += "<div class='msg warn'><b>Не забудьте:</b> в кабинете Робокассы → Технические настройки → Result URL: <code>" + esc(j.resultUrl) + "</code> (метод GET).</div>";
+      out.innerHTML = h;
+    });
+  }
+  $("swCheck").addEventListener("click", function () { swRun("", this); });
+  $("swOn").addEventListener("click", function () { swRun("1", this); });
+  $("swOff").addEventListener("click", function () { swRun("0", this); });
+
+  // ===== Сообщение от автора в чат бота =====
+  $("msgText").addEventListener("input", function () { $("msgCnt").textContent = this.value.length + " / 3000"; });
+  $("msgSend").addEventListener("click", function () {
+    var key = $("key").value.trim(), plat = $("msgPlat").value, chat = $("msgChat").value.trim(), text = $("msgText").value.trim(), out = $("msgOut"), btn = this;
+    var base = plat === "tg" ? TG_API : API;
+    if (key.length < 16) { out.innerHTML = "<div class='msg err'>Введите ключ владельца в верхнем поле.</div>"; return; }
+    if (!base) { out.innerHTML = "<div class='msg err'>Для Telegram заполните адрес воркера Cloudflare в блоке «Telegram-бот».</div>"; return; }
+    if (!/^-?\d{1,20}$/.test(chat)) { out.innerHTML = "<div class='msg err'>Номер чата: только цифры.</div>"; return; }
+    if (!text) { out.innerHTML = "<div class='msg err'>Введите текст.</div>"; return; }
+    if (!window.confirm("Отправить это сообщение в чат " + chat + " (" + (plat === "tg" ? "Telegram" : "MAX") + ")?")) return;
+    btn.disabled = true; btn.textContent = "Отправляю…";
+    // text/plain: так браузер не делает предварительный запрос и страница работает с любого места
+    fetch(base + "?p=sendmsg", { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ key: key, platform: plat, chat: chat, text: text }), cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }, function () { return { st: r.status, j: null }; }); })
+      .catch(function () { return null; })
+      .then(function (r) {
+        btn.disabled = false; btn.textContent = "Отправить";
+        if (!r) { out.innerHTML = "<div class='msg err'>Адрес не отвечает этой странице.</div>"; return; }
+        if (r.st === 403) { out.innerHTML = "<div class='msg err'>Ключ владельца не подошёл (ADMIN_KEY).</div>"; return; }
+        if (r.st === 429) { out.innerHTML = "<div class='msg err'>Слишком часто, подождите минуту.</div>"; return; }
+        if (r.st === 404 || r.st === 405 || !r.j) { out.innerHTML = "<div class='msg err'>Команда не найдена: загрузите свежую версию (2026-10-13.68 или новее).</div>"; return; }
+        if (r.j.ok) { out.innerHTML = "<div class='msg okk'>Отправлено.</div>"; $("msgText").value = ""; $("msgCnt").textContent = "0 / 3000"; }
+        else out.innerHTML = "<div class='msg err'>Не отправлено: " + esc(r.j.why || "ошибка") + "</div>";
+      });
+  });
+
+  // ===== Мастер резерва =====
+  function bkCopy(btn, t) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { btn.textContent = "скопировано"; }, function () { window.prompt("Скопируйте значение:", t); }); }
+  $("bkMake").addEventListener("click", function () {
+    var host = $("bkHost").value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, ""), bucket = $("bkBucket").value.trim(), key = $("bkKey").value.trim(), sec = $("bkSecret").value.trim(), out = $("bkMakeOut");
+    var bad = []; if (!/^[a-z0-9.-]+\.r2\.cloudflarestorage\.com$/i.test(host)) bad.push("адрес должен выглядеть как ИДЕНТИФИКАТОР.r2.cloudflarestorage.com"); if (!/^[a-z0-9][a-z0-9.-]{2,62}$/.test(bucket)) bad.push("имя бакета: латиница в нижнем регистре, цифры, дефис"); if (key.length < 16) bad.push("Access Key ID слишком короткий"); if (sec.length < 32) bad.push("Secret Access Key слишком короткий");
+    if (bad.length) { out.innerHTML = "<div class='msg err'>Проверьте: " + esc(bad.join("; ")) + ".</div>"; return; }
+    var rows = [["QUOTA_BACKUP_HOST", host, 0], ["QUOTA_BACKUP_BUCKET", bucket, 0], ["QUOTA_BACKUP_S3_KEY", key, 1], ["QUOTA_BACKUP_S3_SECRET", sec, 1]];
+    var tbl = "<table><tr><th>Имя переменной</th><th>Значение</th><th></th></tr>" + rows.map(function (r, i) { return "<tr><td><code>" + r[0] + "</code></td><td><code>" + (r[2] ? "•••••• (кнопка «копировать»)" : esc(r[1])) + "</code></td><td><button class='sec' type='button' data-bkc='" + i + "' style='padding:2px 8px;font-size:.8rem'>копировать</button></td></tr>"; }).join("") + "</table>";
+    out.innerHTML = "<div class='msg okk'>Значения готовы. Внесите эти <b>четыре</b> переменные в <b>оба</b> места:</div><ol class='hint' style='margin:6px 0 0 18px;padding:0'><li><b>Cloudflare:</b> dash.cloudflare.com → Workers &amp; Pages → воркер <code>speechcoach-api</code> → Settings → Variables and Secrets → Add (ключи — тип <b>Secret</b>) → кнопка <b>Deploy</b>.</li><li><b>Яндекс:</b> console.yandex.cloud → Cloud Functions → функция → Редактор → Переменные окружения → добавить → <b>Сохранить изменения</b>.</li></ol>" + tbl + "<div class='hint'>Остальные значения (основное хранилище, пароли Робокассы, токены ботов) копируются из переменных Яндекса в Cloudflare «как есть»: после этого нажмите «Проверить» ниже, страница покажет, чего не хватает и что отличается.</div>";
+    Array.prototype.forEach.call(out.querySelectorAll("button[data-bkc]"), function (b) { b.addEventListener("click", function () { bkCopy(b, rows[+b.getAttribute("data-bkc")][1]); }); });
+  });
+  $("bkCheck").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("bkCheckOut");
+    if (key.length < 16) { out.innerHTML = "<div class='msg err'>Введите ключ владельца в верхнем поле.</div>"; return; }
+    if (!TG_API) { out.innerHTML = "<div class='msg err'>Заполните адрес воркера Cloudflare в блоке «Telegram-бот».</div>"; return; }
+    btn.disabled = true; btn.textContent = "Проверяю…";
+    Promise.all([dgGet(API, "backupcheck"), dgGet(TG_API, "backupcheck")]).then(function (res) {
+      var y = res[0], w = res[1], h = dgFail(y, "Яндекс") + dgFail(w, "Воркер Cloudflare");
+      var yOk = !!(y && y.j && y.j.ok);
+      if (!w || !w.j || !w.j.ok) { out.innerHTML = h || "<div class='msg err'>Не удалось получить данные.</div>"; return; }
+      if (!yOk) { h = "<div class='msg warn'>Яндекс сейчас не отвечает: сравнение с ним пропущено, проверяется только воркер Cloudflare.</div>"; y = { j: { has: {}, fp: {}, storage: {} } }; }
+      var yh = y.j.has, wh = w.j.has, rows = [], todo = [];
+      var need = {
+        "Основа (должна совпадать)": ["CODE_SECRET", "ADMIN_KEY", "BOT_RELAY_KEY"],
+        "Основное хранилище (Яндекс)": ["QUOTA_BUCKET", "QUOTA_S3_KEY", "QUOTA_S3_SECRET"],
+        "Резервное хранилище (R2)": ["QUOTA_BACKUP_HOST", "QUOTA_BACKUP_BUCKET", "QUOTA_BACKUP_S3_KEY", "QUOTA_BACKUP_S3_SECRET"],
+        "Оплата": ["ROBOKASSA_LOGIN", "ROBOKASSA_PASS1", "ROBOKASSA_PASS2"],
+        "Боты": ["TELEGRAM_BOT_TOKEN", "TELEGRAM_SECRET", "ADMIN_TG_ID", "MAX_BOT_TOKEN", "MAX_SECRET"]
+      };
+      Object.keys(need).forEach(function (g) {
+        need[g].forEach(function (n) {
+          var inY = !!yh[n], inW = !!wh[n], same = inY && inW ? y.j.fp[n] === w.j.fp[n] : null;
+          var st = !inW ? "<b style='color:#c0392b'>нет в Cloudflare</b>" : (yOk && !inY && g !== "Боты" ? "<b style='color:#c0392b'>нет в Яндексе</b>" : (same === false && n.indexOf("QUOTA_BACKUP") < 0 && n !== "TELEGRAM_BOT_TOKEN" && n !== "TELEGRAM_SECRET" && n !== "ADMIN_TG_ID" ? "<b style='color:#c0392b'>отличается</b>" : "<span style='color:#2e9e5b'>ок</span>"));
+          if (!inW) todo.push("Cloudflare: добавить " + n);
+          else if (yOk && !inY && g !== "Боты") todo.push("Яндекс: добавить " + n);
+          else if (yOk && same === false && n.indexOf("QUOTA_BACKUP") < 0 && ["TELEGRAM_BOT_TOKEN", "TELEGRAM_SECRET", "ADMIN_TG_ID"].indexOf(n) < 0) todo.push("значения " + n + " в Яндексе и Cloudflare разные: сделайте одинаковыми");
+          if (yOk && n.indexOf("QUOTA_BACKUP") === 0 && !inY) todo.push("Яндекс: добавить " + n + " (чтобы Яндекс тоже писал в резерв)");
+          rows.push("<tr><td>" + esc(g) + "</td><td><code>" + n + "</code></td><td>" + (!yOk ? "?" : inY ? "есть" : "нет") + "</td><td>" + (inW ? "есть" : "нет") + "</td><td>" + st + "</td></tr>");
+        });
+      });
+      if (wh.ROBOKASSA_TEST || yh.ROBOKASSA_TEST) todo.push("удалить ROBOKASSA_TEST (" + (wh.ROBOKASSA_TEST ? "Cloudflare " : "") + (yh.ROBOKASSA_TEST ? "Яндекс" : "") + ")");
+      if (w.j.urls && w.j.urls.FN_URL !== w.j.here) todo.push("в Cloudflare переменная FN_URL должна быть адресом воркера");
+      var ws = w.j.storage || {}, ys = y.j.storage || {};
+      var ready = !todo.length && ws.ok && w.j.mode === "storage";
+      h += "<div class='msg " + (ready ? "okk" : "warn") + "'><b>" + (ready ? "Резерв готов: воркер работает с собственным хранилищем (основное + резерв), все ключи совпадают." : "Резерв ещё не готов. Что сделать:") + "</b>" + (todo.length ? "<ol style='margin:6px 0 0 18px;padding:0'>" + todo.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ol>" : "") + "</div>";
+      h += "<div class='meta'>Воркер: режим хранилища <b>" + esc(w.j.mode) + "</b> (" + (ws.ok ? "хранилище отвечает" : "хранилище НЕ отвечает: " + esc(ws.why || "")) + ")" + (ws.backup ? "; резерв: " + (ws.backup.on ? (ws.backup.ok ? "работает" : "не отвечает " + esc(ws.backup.why || "")) : "не настроен") : "") + ". Яндекс: хранилище " + (ys.ok ? "отвечает" : "НЕ отвечает: " + esc(ys.why || "")) + (ys.backup ? "; резерв: " + (ys.backup.on ? (ys.backup.ok ? "работает" : "не отвечает") : "не настроен") : "") + ". Версии: воркер " + esc(w.j.version) + ", Яндекс " + esc(y.j.version) + ".</div>";
+      h += "<details><summary>Подробная таблица</summary><table><tr><th>Группа</th><th>Переменная</th><th>Яндекс</th><th>Cloudflare</th><th>Статус</th></tr>" + rows.join("") + "</table></details>";
+      out.innerHTML = h;
+    }).then(function () { btn.disabled = false; btn.textContent = "Проверить, всё ли настроено"; });
+  });
+
+  // ===== Проверка системы =====
+  var NEED_V = "2026-10-13.69";
+  // Сравнение версий по числам (строкой «.10» меньше «.9»)
+  function verGE(a, b) {
+    var x = String(a || "").split(/[-.]/).map(Number), y = String(b || "").split(/[-.]/).map(Number);
+    for (var i = 0; i < Math.max(x.length, y.length); i++) { var d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0; }
+    return true;
+  }
+  function line(level, title, text) {
+    var ic = level === "ok" ? "✅" : level === "warn" ? "⚠️" : level === "bad" ? "❌" : "ℹ️";
+    return "<tr><td style='width:34px'>" + ic + "</td><td><b>" + esc(title) + "</b><div class='meta'>" + text + "</div></td></tr>";
+  }
+  function siteReach(url) {
+    return fetch(url, { mode: "no-cors", cache: "no-store" }).then(function () { return true; }, function () { return false; });
+  }
+  $("sysGo").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this;
+    if (key.length < 16) { $("sysOut").innerHTML = ""; $("sysHint").textContent = "Введите ключ владельца в поле выше."; return; }
+    btn.disabled = true; btn.textContent = "Проверяю…"; $("sysOut").innerHTML = "";
+    Promise.all([
+      fetch(API + "?p=status&key=" + encodeURIComponent(key), { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); }).catch(function () { return null; }),
+      siteReach("https://speechcoach-anfocuses.com/"), siteReach("https://www.speechcoach-anfocuses.com/"),
+      TG_API ? fetch(TG_API + "?p=status&key=" + encodeURIComponent(key), { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); }).catch(function () { return null; }) : Promise.resolve(undefined)
+    ]).then(function (res) {
+      var o = res[0], rows = [], bad = 0, warn = 0;
+      function add(level, t, x) { if (level === "bad") bad++; if (level === "warn") warn++; rows.push(line(level, t, x)); }
+      if (!o) {
+        add("bad", "Функция не отвечает этой странице", "Либо нет интернета, либо в Яндексе старая версия функции (до 2026-10-03.4). Загрузите свежий <code>function.zip</code> в Яндекс: Редактор → ZIP-архив → «Сохранить изменения».");
+      } else if (o.st === 403) {
+        add("bad", "Ключ владельца не подошёл", "Проверьте <code>ADMIN_KEY</code> в переменных функции в Яндексе (не короче 16 знаков).");
+      } else if (o.st === 429) {
+        add("warn", "Слишком много запросов", "Подождите минуту и повторите.");
+      } else if (!o.j || !o.j.ok) {
+        add("bad", "Функция ответила ошибкой", esc(JSON.stringify(o.j)));
+      } else {
+        var j = o.j;
+        add("ok", "Функция отвечает", "Ключ владельца принят.");
+        add(verGE(j.v, NEED_V) ? "ok" : "warn", "Версия функции: " + j.v, verGE(j.v, NEED_V) ? "Актуальная." : "Есть более новая (" + NEED_V + "): загрузите свежий <code>function.zip</code>.");
+        if (j.pay) add("ok", "Оплата включена", "Все ключи на месте.");
+        else add("bad", "Оплата выключена (кнопки тарифов серые)", "Не хватает: " + [!j.login && "ROBOKASSA_LOGIN", !j.pass1 && "ROBOKASSA_PASS1", !j.pass2 && "ROBOKASSA_PASS2", !j.secretOk && "CODE_SECRET (16+ знаков)"].filter(Boolean).join(", ") + ".");
+        if (j.test) add("warn", "Режим оплаты: ТЕСТОВЫЙ", "Включено <code>ROBOKASSA_TEST=1</code>: оплата ненастоящая, коды выдаются бесплатно. Перед продажами удалите эту переменную и вставьте боевые пароли.");
+        else add("ok", "Режим оплаты: боевой", "Тестовый режим выключен.");
+        add(j.hash === "md5" ? "ok" : "warn", "Алгоритм подписи: " + j.hash, j.hash === "md5" ? "Совпадает с рекомендованным в кабинете Робокассы." : "Он должен совпадать с алгоритмом в кабинете Робокассы.");
+        if (!j.mail) add("warn", "Почта не настроена", "Письма с кодом не уходят. Нужны <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>MAIL_FROM</code>.");
+        else add(j.smtp && j.smtp.ok ? "ok" : "bad", "Почта: " + (j.smtp && j.smtp.ok ? "сервер доступен" : "сервер недоступен"), j.smtp && j.smtp.ok ? "Логин и пароль проверяются только при реальной отправке (кнопка «Отправить код на почту»)." : esc((j.smtp && j.smtp.why) || ""));
+        add(j.master ? "warn" : "ok", j.master ? "Служебный код MASTER_CODE задан" : "Служебный код MASTER_CODE не задан", j.master ? "Он открывает все режимы. Удалите перед продажами, держите только на время проверок." : "Хорошо.");
+        var loc = revoked().length;
+        if (loc > j.revoked) add("warn", "Отозванных в Яндексе: " + j.revoked + ", на странице: " + loc, "На странице больше номеров, чем в <code>REVOKED</code> в Яндексе. Скопируйте список из блока «Отозвать код» и вставьте в Яндекс.");
+        else add("info", "Отозванных кодов в Яндексе: " + j.revoked, "");
+        if (j.telegram && j.telegram.relay && !j.telegram.bot) add("ok", "Оплата передаёт уведомления в Telegram через воркер", "Код в чат и сообщение владельцу отправляет воркер Cloudflare (<code>BOT_RELAY_URL</code> и <code>BOT_RELAY_KEY</code> заданы).");
+        else if (j.telegram && j.telegram.bot && j.telegram.payUrl) add("ok", "Бот работает здесь, оплата идёт через Яндекс", "Ссылки на оплату в боте ведут на функцию в Яндексе (<code>PAY_URL</code>).");
+        else add(j.telegram && j.telegram.bot ? (j.telegram.admin ? "ok" : "warn") : "info", j.telegram && j.telegram.bot ? "Telegram-бот включён" : "Telegram-бот не подключён", j.telegram && j.telegram.bot ? (j.telegram.admin ? "Подробности — в блоке «Telegram-бот» ниже." : "Не задан <code>ADMIN_TG_ID</code>: сообщения и оповещения вам не придут.") : "Нужны переменные <code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_SECRET</code>, <code>ADMIN_TG_ID</code> (см. docs/TELEGRAM_БОТ.md).");
+        add("info", "Адреса, которым функция отдаёт данные", esc((j.origins || []).join(", ")));
+      }
+      var st = o && o.j && o.j.sites;
+      function siteLine(label, r, browserOk, level) {
+        if (r) {
+          if (r.ok) add("ok", label + " открывается", "Проверка с сервера функции: ответ " + r.status + ". Сертификат в порядке.");
+          else add(level, label + " не открывается", "Проверка с сервера функции: " + esc(r.why || "нет ответа") + ". " +
+            (/CERT|SELF_SIGNED|LEAF|EXPIRED|ALTNAME|HOSTNAME/.test(r.why || "") ? "Это проблема сертификата: перевыпустите его в панели хостинга." : /ENOTFOUND|EAI_AGAIN/.test(r.why || "") ? "Адрес не находится в DNS: проверьте записи у регистратора." : "Проверьте домен, DNS и сертификат (раздел 3 памятки)."));
+        } else {
+          add(browserOk ? "ok" : "warn", label + (browserOk ? " открывается" : ": проверить не удалось"), "Проверка из браузера (ненадёжна: хостинг может запрещать такие запросы). Откройте сайт в обычной вкладке, чтобы убедиться.");
+        }
+      }
+      siteLine("Сайт speechcoach-anfocuses.com", st && st.main, res[1], "bad");
+      siteLine("Сайт www.speechcoach-anfocuses.com", st && st.www, res[2], "warn");
+      // Воркер Cloudflare (бот) и согласованность настроек с Яндексом
+      var w = res[3], yj = o && o.j && o.j.ok ? o.j : null;
+      if (w === undefined) add("info", "Воркер Cloudflare не проверялся", "Адрес воркера не заполнен или записан неверно (нужен https://…workers.dev).");
+      else if (!w) add("bad", "Воркер Cloudflare не отвечает этой странице", "Проверьте адрес воркера. Откройте его в браузере: должна быть надпись <code>{\"error\":\"origin\"}</code>. Если её нет, смотрите журнал сборки в Cloudflare.");
+      else if (w.st === 403) add("bad", "Воркер не принял ключ владельца", "В воркере <code>ADMIN_KEY</code> должен быть таким же, как в Яндексе.");
+      else if (!w.j || !w.j.ok) add("bad", "Воркер ответил ошибкой", esc(JSON.stringify(w.j)));
+      else {
+        var wj = w.j;
+        add("ok", "Воркер Cloudflare отвечает", "Версия " + esc(wj.v) + (verGE(wj.v, NEED_V) ? "." : ". Есть более новая (" + NEED_V + "): обновите воркер (изменение в репозитории деплоится само)."));
+        add(wj.telegram && wj.telegram.bot ? "ok" : "bad", wj.telegram && wj.telegram.bot ? "Бот включён в воркере" : "Бот в воркере выключен", wj.telegram && wj.telegram.bot ? "Токен и <code>TELEGRAM_SECRET</code> заданы." : "В воркере не заданы <code>TELEGRAM_BOT_TOKEN</code> и <code>TELEGRAM_SECRET</code> (16+ знаков).");
+        add(wj.telegram && wj.telegram.admin ? "ok" : "warn", wj.telegram && wj.telegram.admin ? "ADMIN_TG_ID задан" : "ADMIN_TG_ID не задан в воркере", "Без него вы не получите сообщения пользователей и оповещения об оплате.");
+        add(wj.telegram && wj.telegram.payUrl ? "ok" : "bad", wj.telegram && wj.telegram.payUrl ? "Оплата из бота идёт через Яндекс" : "Не задан PAY_URL в воркере", wj.telegram && wj.telegram.payUrl ? "Ссылки на оплату в боте ведут на функцию в Яндексе." : "Без него ссылки на оплату в боте поведут на воркер, а там Робокасса не настроена. Добавьте <code>PAY_URL</code> = адрес функции в Яндексе.");
+        if (yj) {
+          function cmp(name, a, b, la, lb, okTxt, badTxt) {
+            if (!a || !b) add("warn", name + ": сравнить не удалось", (!a ? "Яндекс" : "Воркер") + " ещё не знает эту проверку (старая версия) или значение не задано. Обновите функцию в Яндексе до " + NEED_V + " и дождитесь деплоя воркера.");
+            else if (a === b) add("ok", name + " в Яндексе и воркере совпадает", okTxt);
+            else add("bad", name + " в Яндексе и воркере РАЗНЫЙ", badTxt + " Длина: в Яндексе " + la + " зн., в воркере " + lb + " зн." + (la !== lb ? " Длина разная: скорее всего, лишний пробел или перенос строки в конце значения." : " Длина одинаковая: отличается какой-то знак (похожие буквы, регистр, 0 и O)."));
+          }
+          cmp("CODE_SECRET", yj.fp, wj.fp, yj.fpLen, wj.fpLen, "Коды из бота подходят сайту.", "Коды, выданные ботом, сайт не примет. Вставьте в воркер ровно то же значение, что в Яндексе.");
+          if (yj.telegram && yj.telegram.relay) cmp("BOT_RELAY_KEY", yj.relayFp, wj.relayFp, yj.relayLen, wj.relayLen, "Яндекс может передавать воркеру уведомления об оплате.", "Воркер отклонит уведомления об оплате, код в чат не придёт. Поставьте одинаковую строку в обоих местах.");
+          if (wj.test !== yj.test) add("warn", "Режим оплаты в воркере и Яндексе разный", "В воркере <code>ROBOKASSA_TEST</code> " + (wj.test ? "= 1" : "не задан") + ", в Яндексе " + (yj.test ? "= 1" : "не задан") + ". Для надписи «ТЕСТОВАЯ оплата» в боте настройка берётся из Яндекса, но лучше выровнять.");
+        }
+      }
+      $("sysHint").textContent = bad ? "Есть проблемы: " + bad + (warn ? ", замечаний: " + warn : "") + "." : (warn ? "Работает, но есть замечания: " + warn + "." : "Всё в порядке.");
+      $("sysOut").innerHTML = "<table style='margin-top:8px'>" + rows.join("") + "</table>";
+    }).then(function () { btn.disabled = false; btn.textContent = "Проверить"; });
+  });
+
+
+  // ===== Telegram-бот =====
+  function tgProbe(j) {
+    var pr = j && j.probe;
+    if (!pr) return "";
+    return "<br><b>Связь функции с " + esc(pr.host) + ":</b> " + (pr.ok ? "соединение есть (" + pr.ms + " мс), значит проблема не в сети: повторите нажатие или проверьте токен." : "соединения нет (" + esc(pr.why) + ", " + pr.ms + " мс). Telegram недоступен с сервера этой функции. Для бота используйте воркер Cloudflare (адрес в поле выше).");
+  }
+  function tgCall(cmd, btn, label, render) {
+    var key = $("key").value.trim();
+    if (key.length < 16) { $("tgHint").textContent = "Введите ключ владельца в поле выше."; return; }
+    if (!TG_API) { $("tgHint").textContent = "Заполните адрес воркера Cloudflare в поле выше (https://…workers.dev)."; return; }
+    btn.disabled = true; btn.textContent = "…"; $("tgOut").innerHTML = "";
+    fetch(TG_API + "?p=" + cmd + "&key=" + encodeURIComponent(key), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }); })
+      .then(function (o) {
+        var rows = [];
+        if (o.st === 403) rows.push(line("bad", "Ключ владельца не подошёл", "Проверьте <code>ADMIN_KEY</code> в Яндексе."));
+        else if (o.st === 429) rows.push(line("warn", "Слишком много запросов", "Подождите минуту."));
+        else if (o.st === 404 || !o.j) rows.push(line("bad", "Функция не знает эту команду", "Загрузите свежий <code>function.zip</code> (версия 2026-10-04.3 или новее)."));
+        else render(o.j, rows);
+        $("tgOut").innerHTML = "<table style='margin-top:8px'>" + rows.join("") + "</table>";
+      })
+      .catch(function () { $("tgOut").innerHTML = "<table>" + line("bad", "Функция не отвечает этой странице", "Нет интернета или в Яндексе старая версия функции.") + "</table>"; })
+      .then(function () { btn.disabled = false; btn.textContent = label; });
+  }
+  $("tgInfo").addEventListener("click", function () {
+    tgCall("tginfo", this, "Проверить", function (j, rows) {
+      if (!j.ok) { rows.push(line("bad", "Бот не работает", esc(j.why || "") + tgProbe(j))); return; }
+      rows.push(line("ok", "Telegram принял токен", "Бот: @" + esc(j.bot)));
+      rows.push(line(j.hookOk ? "ok" : "bad", j.hookOk ? "Вебхук подключён" : "Вебхук не подключён", j.hookOk ? esc(j.webhook) : "Сейчас: " + esc(j.webhook || "пусто") + ". Нужен: " + esc(j.expected) + ". Нажмите «Подключить»."));
+      rows.push(line(j.admin ? "ok" : "warn", j.admin ? "Ваш номер (ADMIN_TG_ID) задан" : "ADMIN_TG_ID не задан", j.admin ? "Команды владельца и сообщения от пользователей приходят вам." : "Без него вы не получите сообщения пользователей и оповещения об оплате."));
+      rows.push(line("info", "Оповещения об оплате: " + (j.notify ? "включены" : "выключены"), "Переменная <code>NOTIFY_OWNER</code> (0 — выключить)."));
+      if (j.lastError) rows.push(line("warn", "Последняя ошибка доставки Telegram", esc(j.lastError)));
+      if (j.pending > 0) rows.push(line("warn", "Необработанных сообщений: " + j.pending, "Они накопились, пока вебхук не работал."));
+    });
+  });
+  $("tgSetup").addEventListener("click", function () {
+    tgCall("tgsetup", this, "Подключить", function (j, rows) {
+      rows.push(j.ok ? line("ok", "Вебхук подключён", esc(j.url) + "<br>Напишите боту /start и нажмите «Проверить».") : line("bad", "Не получилось подключить", esc(j.why || "") + tgProbe(j)));
+    });
+  });
+  $("tgTest").addEventListener("click", function () {
+    tgCall("tgtest", this, "Тест мне", function (j, rows) {
+      rows.push(j.ok ? line("ok", "Сообщение отправлено", "Откройте чат с ботом: должно прийти «Тест: бот на связи».") : line("bad", "Не отправилось", esc(j.why || "")));
+    });
+  });
+
+  // ===== Помощник по Cloudflare =====
+  var cfReport = "";
+  function cfFetch(url) {
+    return fetch(url, { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }, function () { return { st: r.status, j: null }; }); }).catch(function () { return null; });
+  }
+  function steps(list) { return "<ol style='margin:6px 0 0 18px;padding:0'>" + list.map(function (x) { return "<li style='margin:2px 0'>" + x + "</li>"; }).join("") + "</ol>"; }
+  var CF = {
+    unreachable: steps([
+      "Откройте адрес воркера в обычной вкладке браузера: должна быть надпись <code>{\"error\":\"origin\"}</code>. Если страница не открывается, включите VPN и повторите.",
+      "Cloudflare → Workers &amp; Pages → <code>speechcoach-api</code> → вкладка Deployments: у последней сборки должно быть «Success».",
+      "Если «Failed»: нажмите на сборку → Build log → скопируйте последние 15 строк и пришлите Claude.",
+      "Проверьте адрес воркера в поле выше (https://….workers.dev, без слеша на конце)."
+    ]),
+    oldVersion: steps([
+      "Cloudflare → <code>speechcoach-api</code> → Deployments: дождитесь, пока последняя сборка станет «Success» (1–2 минуты после слияния изменений).",
+      "Settings → Build → Build configuration: <b>Build command = <code>npm run build</code></b>, Deploy command = <code>npx wrangler deploy</code>. Сохраните.",
+      "Если сборка «Failed»: Build log → последние 15 строк пришлите Claude.",
+      "После успешной сборки нажмите «Проверить и найти ошибку» ещё раз."
+    ]),
+    variable: function (name) {
+      return steps([
+        "Cloudflare → <code>speechcoach-api</code> → Settings → раздел <b>Variables and Secrets</b> (не «Build»).",
+        "Нажмите Add: Type = <b>Secret</b>, имя <code>" + name + "</code>, значение (см. памятку «Мои действия»).",
+        "Внизу нажмите <b>Deploy</b> и подождите минуту.",
+        "Снова нажмите «Проверить и найти ошибку»."
+      ]);
+    },
+    key: steps([
+      "В Cloudflare переменная <code>ADMIN_KEY</code> должна быть <b>тем же значением</b>, что в Яндексе и в поле «Ключ владельца» выше.",
+      "Settings → Variables and Secrets → ADMIN_KEY → Rotate (вставить значение заново) → Deploy.",
+      "Не нажимайте проверку много раз подряд: после 5 неверных ключей включается блокировка на минуту."
+    ]),
+    token: steps([
+      "В Telegram откройте @BotFather → /mybots → ваш бот → API Token (или /revoke для нового токена).",
+      "Cloudflare → Settings → Variables and Secrets → <code>TELEGRAM_BOT_TOKEN</code> → Rotate. Вставляйте только <code>цифры:буквы</code>, без слова bot и пробелов.",
+      "Нажмите Deploy, затем в блоке «Telegram-бот» ниже «Подключить»."
+    ]),
+    webhook: steps([
+      "В блоке «Telegram-бот» ниже нажмите «Подключить», затем «Проверить».",
+      "Если «Подключить» пишет ошибку: проверьте <code>TELEGRAM_SECRET</code> (16+ знаков: латиница, цифры, _ и -).",
+      "Напишите боту /start и нажмите «Тест мне»."
+    ]),
+    pending: steps([
+      "Сообщения накопились, пока вебхук не работал. Нажмите «Подключить» ещё раз, они начнут обрабатываться.",
+      "Если число не уменьшается: Cloudflare → <code>speechcoach-api</code> → Observability (журнал): ищите красные ошибки и пришлите их Claude."
+    ]),
+    codeSecret: steps([
+      "<code>CODE_SECRET</code> в Яндексе и в Cloudflare должен совпадать побайтно (посмотрите длины в строке выше: разная длина = лишний пробел или перенос).",
+      "В Cloudflare: Variables and Secrets → CODE_SECRET → Rotate → вставить значение из Яндекса → Deploy."
+    ]),
+    relayKey: steps([
+      "<code>BOT_RELAY_KEY</code> в Яндексе и в Cloudflare должен быть одной и той же строкой.",
+      "Исправьте в обоих местах, в Cloudflare нажмите Deploy, в Яндексе «Сохранить изменения»."
+    ]),
+    relayOff: steps([
+      "В Яндексе: функция → Редактор → Переменные окружения: добавьте <code>BOT_RELAY_URL</code> (адрес воркера без слеша) и <code>BOT_RELAY_KEY</code> (та же строка, что в Cloudflare).",
+      "Сохраните изменения и подождите минуту."
+    ]),
+    payUrl: steps([
+      "В Cloudflare ссылки на оплату в боте должны вести в Яндекс. Адрес <code>PAY_URL</code> задан в файле <code>wrangler.toml</code> репозитория.",
+      "Если строка красная, воркер собран из старой версии: проверьте версию и сборку (раздел «Воркер на старой версии»)."
+    ])
+  };
+  $("cfGo").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("cfOut");
+    if (key.length < 16) { out.innerHTML = ""; $("cfHint").textContent = "Введите ключ владельца в поле выше."; return; }
+    if (!TG_API) { out.innerHTML = ""; $("cfHint").textContent = "Заполните адрес воркера Cloudflare в поле выше (https://…workers.dev)."; return; }
+    btn.disabled = true; btn.textContent = "Проверяю…"; out.innerHTML = ""; $("cfCopy").style.display = "none";
+    var k = encodeURIComponent(key);
+    Promise.all([
+      cfFetch(TG_API + "?p=health"), cfFetch(TG_API + "?p=status&key=" + k), cfFetch(TG_API + "?p=tginfo&key=" + k), cfFetch(API + "?p=status&key=" + k)
+    ]).then(function (r) {
+      var health = r[0], wst = r[1], tgi = r[2], yst = r[3], rows = [], bad = 0, warn = 0, rep = [];
+      function add(level, title, text, fix) {
+        if (level === "bad") bad++; if (level === "warn") warn++;
+        var ic = level === "ok" ? "✅" : level === "warn" ? "⚠️" : level === "bad" ? "❌" : "ℹ️";
+        rep.push(ic + " " + title + (text ? " — " + String(text).replace(/<[^>]+>/g, "") : ""));
+        var h = "<tr><td style='width:34px;vertical-align:top'>" + ic + "</td><td><b>" + esc(title) + "</b><div class='meta'>" + (text || "") + "</div>";
+        if (fix && level !== "ok" && level !== "info") h += "<details open style='margin-top:4px'><summary style='color:var(--ac)'>Как исправить</summary>" + fix + "</details>";
+        rows.push(h + "</td></tr>");
+      }
+      var wj = wst && wst.j && wst.j.ok ? wst.j : null, yj = yst && yst.j && yst.j.ok ? yst.j : null;
+      // 1. воркер отвечает
+      if (!health || !health.j) { add("bad", "Воркер не отвечает", "Страница не получила ответ от " + esc(TG_API), CF.unreachable); }
+      else {
+        var hv = health.j;
+        add("ok", "Воркер отвечает", "Адрес верный, Cloudflare работает.");
+        // 2. версия
+        add(verGE(hv.v, NEED_V) ? "ok" : "bad", "Версия воркера: " + esc(hv.v), verGE(hv.v, NEED_V) ? "Актуальная." : "Нужна " + NEED_V + " или новее: воркер собран из старого кода.", CF.oldVersion);
+        // 3. переменные
+        [["ADMIN_KEY", "ADMIN_KEY (ключ владельца)"], ["CODE_SECRET", "CODE_SECRET (секрет кодов)"], ["TELEGRAM", "TELEGRAM_BOT_TOKEN и TELEGRAM_SECRET"], ["ADMIN_TG_ID", "ADMIN_TG_ID (ваш Id в Telegram)"], ["BOT_RELAY_KEY", "BOT_RELAY_KEY (связь с Яндексом)"]].forEach(function (v) {
+          add(hv[v[0]] ? "ok" : "bad", "В воркере " + (hv[v[0]] ? "задано: " : "НЕ задано: ") + v[1], hv[v[0]] ? "" : "Воркер не видит эту настройку.", CF.variable(v[0] === "TELEGRAM" ? "TELEGRAM_BOT_TOKEN, TELEGRAM_SECRET" : v[0]));
+        });
+        add(hv.PAY_URL ? "ok" : "bad", "Оплата из бота идёт через Яндекс (PAY_URL)", hv.PAY_URL ? "" : "PAY_URL не задан: ссылки на оплату в боте поведут не туда.", CF.payUrl);
+        // 4. ключ владельца
+        if (wst && wst.st === 403) add("bad", "Воркер не принял ключ владельца", "Ключ из поля выше не совпал с <code>ADMIN_KEY</code> воркера.", CF.key);
+        else if (wst && wst.st === 429) add("warn", "Слишком много запросов", "Подождите минуту и повторите проверку.", "");
+        else if (!wj) add("warn", "Состояние воркера по ключу получить не удалось", "Проверьте ключ владельца.", CF.key);
+      }
+      // 5. токен и вебхук
+      if (tgi && tgi.j && wj) {
+        var t = tgi.j;
+        if (!t.ok) add("bad", "Telegram: бот не работает", esc(t.why || "") + (t.probe ? "<br>Связь воркера с Telegram: " + (t.probe.ok ? "есть (" + t.probe.ms + " мс)" : "нет (" + esc(t.probe.why) + ")") : ""), CF.token);
+        else {
+          add("ok", "Telegram принял токен", "Бот: @" + esc(t.bot));
+          add(t.hookOk ? "ok" : "bad", t.hookOk ? "Вебхук подключён" : "Вебхук не подключён", t.hookOk ? "" : "Сейчас: " + esc(t.webhook || "пусто") + ". Нужен: " + esc(t.expected), CF.webhook);
+          if (t.lastError) add("warn", "Последняя ошибка доставки Telegram: " + esc(t.lastError), "", CF.pending);
+          if (t.pending > 0) add("warn", "Необработанных сообщений: " + t.pending, "", CF.pending);
+        }
+      }
+      // 6. Яндекс и сверка
+      if (!yst) add("bad", "Функция в Яндексе не отвечает этой странице", "Проверьте, что загружена свежая версия function.zip.", "");
+      else if (yj) {
+        add(verGE(yj.v, NEED_V) ? "ok" : "warn", "Версия функции в Яндексе: " + esc(yj.v), verGE(yj.v, NEED_V) ? "" : "Есть новее (" + NEED_V + "): загрузите свежий function.zip.", "");
+        add(yj.telegram && yj.telegram.relay ? "ok" : "bad", yj.telegram && yj.telegram.relay ? "Яндекс умеет передавать оплату воркеру" : "В Яндексе не заданы BOT_RELAY_URL и BOT_RELAY_KEY", yj.telegram && yj.telegram.relay ? "" : "Код после оплаты из бота не придёт в чат.", CF.relayOff);
+        if (wj) {
+          if (yj.fp && wj.fp && yj.fp !== wj.fp) add("bad", "CODE_SECRET в Яндексе и Cloudflare РАЗНЫЙ", "Длина: Яндекс " + yj.fpLen + ", Cloudflare " + wj.fpLen + ".", CF.codeSecret);
+          else if (yj.fp && wj.fp) add("ok", "CODE_SECRET в Яндексе и Cloudflare совпадает", "");
+          if (yj.telegram && yj.telegram.relay && yj.relayFp && wj.relayFp && yj.relayFp !== wj.relayFp) add("bad", "BOT_RELAY_KEY в Яндексе и Cloudflare РАЗНЫЙ", "Длина: Яндекс " + yj.relayLen + ", Cloudflare " + wj.relayLen + ".", CF.relayKey);
+          else if (yj.relayFp && wj.relayFp) add("ok", "BOT_RELAY_KEY в Яндексе и Cloudflare совпадает", "");
+          if (wj.test !== yj.test) add("warn", "Режим оплаты в Яндексе и Cloudflare разный", "ROBOKASSA_TEST: Яндекс " + (yj.test ? "включён" : "выключен") + ", Cloudflare " + (wj.test ? "включён" : "выключен") + ".", "");
+        }
+      }
+      var head = bad ? "Найдено проблем: " + bad + (warn ? ", замечаний: " + warn : "") + ". Исправляйте сверху вниз." : (warn ? "Работает, замечаний: " + warn + "." : "Всё в порядке: Cloudflare настроен верно.");
+      $("cfHint").textContent = head;
+      out.innerHTML = "<table style='margin-top:8px'>" + rows.join("") + "</table>";
+      cfReport = "Отчёт помощника по Cloudflare (" + new Date().toLocaleString("ru-RU") + ")\nВоркер: " + TG_API + "\n" + head + "\n" + rep.join("\n");
+      $("cfCopy").style.display = "inline-block";
+    }).then(function () { btn.disabled = false; btn.textContent = "Проверить и найти ошибку"; });
+  });
+  $("cfCopy").addEventListener("click", function () {
+    var b = this;
+    function done() { var t = b.textContent; b.textContent = "Скопировано"; setTimeout(function () { b.textContent = t; }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(cfReport).then(done, function () { window.prompt("Скопируйте отчёт:", cfReport); });
+    else window.prompt("Скопируйте отчёт:", cfReport);
+  });
+
+  // ===== Помощник по MAX и лимиту тем =====
+  var mxReport = "";
+  var MX = {
+    vars: steps([
+      "Яндекс → Cloud Functions → функция → Редактор → Переменные окружения.",
+      "Добавьте <code>MAX_BOT_TOKEN</code> (токен из @MasterBot) и <code>MAX_SECRET</code> (48 знаков: возьмите в «Помощниках» ниже). Сохраните изменения.",
+      "Нажмите «Подключить вебхук MAX» и повторите проверку."
+    ]),
+    token: steps([
+      "В MAX откройте @MasterBot → команда обновления токена, скопируйте новый токен.",
+      "Яндекс → переменная <code>MAX_BOT_TOKEN</code> → вставить → «Сохранить изменения».",
+      "Нажмите «Подключить вебхук MAX»."
+    ]),
+    hook: steps([
+      "Нажмите «Подключить вебхук MAX» вверху этой карточки.",
+      "Если ответ с ошибкой: проверьте, что <code>MAX_SECRET</code> задан (16+ знаков: латиница, цифры, _ и -), а функция загружена свежей версии.",
+      "Напишите боту «Старт» и повторите проверку."
+    ]),
+    silent: steps([
+      "Откройте бота в MAX, нажмите «Старт», затем снова «Проверить».",
+      "Если в журнале по-прежнему пусто: проверьте на платформе MAX для партнёров, что бот <b>прошёл модерацию</b> (статус рядом с названием).",
+      "Нажмите «Подключить вебхук MAX» ещё раз: адрес должен быть <code>…?p=max</code> вашей функции."
+    ]),
+    quotaVars: steps([
+      "Яндекс → функция → Переменные окружения: <code>QUOTA_BUCKET</code> (точное имя бакета, например <code>speechcoach-quota</code>), <code>QUOTA_S3_KEY</code> и <code>QUOTA_S3_SECRET</code> (статический ключ сервисного аккаунта с ролью <code>storage.editor</code>).",
+      "Сохраните изменения и повторите проверку.",
+      "Имена переменных можно сверить в «Помощниках» ниже."
+    ]),
+    quotaS3: steps([
+      "Проверьте <code>QUOTA_BUCKET</code>: имя должно совпадать с бакетом в Object Storage буква в букву.",
+      "Ключ должен быть создан у сервисного аккаунта с ролью <code>storage.editor</code> (Права доступа каталога).",
+      "Если ключ менялся, обновите <code>QUOTA_S3_KEY</code> и <code>QUOTA_S3_SECRET</code> и сохраните версию функции."
+    ]),
+    quotaRemote: steps([
+      "В Яндексе и в Cloudflare <code>BOT_RELAY_KEY</code> должен быть одной строкой (сверка выше). Исправьте в обоих местах: Cloudflare → Deploy, Яндекс → «Сохранить изменения».",
+      "В воркере <code>PAY_URL</code> должен вести на функцию в Яндексе (задан в <code>wrangler.toml</code>).",
+      "Если «Яндекс ответил 404»: загрузите в Яндекс свежий <code>function.zip</code> и проверьте переменные хранилища."
+    ])
+  };
+  $("mxSetup").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this;
+    if (key.length < 16) { $("mxHint").textContent = "Введите ключ владельца в поле выше."; return; }
+    btn.disabled = true; btn.textContent = "Подключаю…";
+    cfFetch(API + "?p=maxsetup&key=" + encodeURIComponent(key)).then(function (o) {
+      var j = o && o.j;
+      $("mxHint").innerHTML = j && j.ok ? "✅ Вебхук MAX подключён: " + esc(j.url) + ". Напишите боту «Старт» и нажмите «Проверить и найти ошибку»." : "❌ Не вышло: " + esc((j && (j.why || j.error)) || "функция не ответила (загружена ли свежая версия?)");
+    }).then(function () { btn.disabled = false; btn.textContent = "Подключить вебхук MAX"; });
+  });
+  $("mxGo").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this, out = $("mxOut");
+    if (key.length < 16) { out.innerHTML = ""; $("mxHint").textContent = "Введите ключ владельца в поле выше."; return; }
+    btn.disabled = true; btn.textContent = "Проверяю…"; out.innerHTML = ""; $("mxCopy").style.display = "none";
+    var k = encodeURIComponent(key);
+    Promise.all([
+      cfFetch(API + "?p=health"), cfFetch(API + "?p=status&key=" + k), cfFetch(API + "?p=maxinfo&key=" + k),
+      TG_API ? cfFetch(TG_API + "?p=health") : Promise.resolve(null), TG_API ? cfFetch(TG_API + "?p=status&key=" + k) : Promise.resolve(null)
+    ]).then(function (r) {
+      var yh = r[0], ys = r[1], mi = r[2], wh = r[3], ws = r[4], rows = [], bad = 0, warn = 0, rep = [];
+      function add(level, title, text, fix) {
+        if (level === "bad") bad++; if (level === "warn") warn++;
+        var ic = level === "ok" ? "✅" : level === "warn" ? "⚠️" : level === "bad" ? "❌" : "ℹ️";
+        rep.push(ic + " " + title + (text ? " — " + String(text).replace(/<[^>]+>/g, "") : ""));
+        var h = "<tr><td style='width:34px;vertical-align:top'>" + ic + "</td><td><b>" + esc(title) + "</b><div class='meta'>" + (text || "") + "</div>";
+        if (fix && level !== "ok" && level !== "info") h += "<details open style='margin-top:4px'><summary style='color:var(--ac)'>Как исправить</summary>" + fix + "</details>";
+        rows.push(h + "</td></tr>");
+      }
+      var h = yh && yh.j, sj = ys && ys.j && ys.j.ok ? ys.j : null, wj = ws && ws.j && ws.j.ok ? ws.j : null;
+      if (!h) { add("bad", "Функция в Яндексе не отвечает этой странице", "Проверьте адрес функции выше и что загружена свежая версия function.zip.", ""); }
+      else {
+        add(verGE(h.v, NEED_V) ? "ok" : "warn", "Версия функции: " + esc(h.v), verGE(h.v, NEED_V) ? "Актуальная." : "Есть новее (" + NEED_V + "): загрузите свежий function.zip в Яндекс.", "");
+        if (ys && ys.st === 403) add("bad", "Ключ владельца не подошёл", "Проверьте <code>ADMIN_KEY</code> в Яндексе и поле выше.", CF.key);
+        // ---- MAX
+        add(h.MAX ? "ok" : "bad", h.MAX ? "Бот MAX включён в функции" : "Бот MAX выключен", h.MAX ? "Заданы MAX_BOT_TOKEN и MAX_SECRET." : "Не заданы <code>MAX_BOT_TOKEN</code> и/или <code>MAX_SECRET</code>.", MX.vars);
+        var m = mi && mi.j;
+        if (h.MAX && m) {
+          if (!m.ok) add("bad", "MAX не принял токен или недоступен", esc(m.why || ""), MX.token);
+          else {
+            add("ok", "MAX принял токен", "Бот: " + esc(m.bot || "(имя не передано)"));
+            add(m.hookOk ? "ok" : "bad", m.hookOk ? "Вебхук подключён" : "Вебхук не подключён", m.hookOk ? "" : "Сейчас: " + esc(m.webhook || "пусто") + ". Нужен: " + esc(m.expected || ""), MX.hook);
+            var lg = m.log || [], errs = lg.filter(function (x) { return /ответ MAX|сбой связи|ОШИБКА|отклонён/.test(x); });
+            if (errs.length) add("bad", "В журнале бота есть ошибки", errs.slice(-4).map(esc).join("<br>"), MX.token);
+            else if (!lg.length && m.hookOk) add("warn", "Журнал бота пуст: событий от MAX не приходило", "С момента последнего запуска функции. Напишите боту «Старт» и повторите проверку.", MX.silent);
+            else add("ok", "События от MAX приходят", "Последнее в журнале: " + esc(lg.slice(-1)[0] || ""));
+          }
+        }
+        // ---- лимит (Яндекс)
+        var q = sj && sj.quota;
+        add(h.QUOTA === "storage" ? "ok" : "bad", "Хранилище лимита (Яндекс): " + esc(h.QUOTA || "?"), h.QUOTA === "storage" ? "Лимит: " + esc(h.QUOTA_LIMIT) + " тем в месяц." : "Функция не видит переменные хранилища: лимит не применяется.", MX.quotaVars);
+        if (q && q.mode === "storage") {
+          if (q.test && q.test.ok) add("ok", "Запись в хранилище работает", "Проверочный файл записан и прочитан.");
+          else add("bad", "Хранилище не принимает запись", esc((q.test && q.test.why) || q.lastError || "нет ответа"), MX.quotaS3);
+        }
+        // ---- лимит (Telegram через воркер)
+        if (wh && wh.j) {
+          var w = wh.j;
+          add(w.QUOTA === "via-yandex" ? "ok" : "bad", "Лимит в Telegram-боте: " + esc(w.QUOTA || "?"), w.QUOTA === "via-yandex" ? "Воркер спрашивает счётчик у Яндекса." : "Воркер не видит PAY_URL или BOT_RELAY_KEY: лимит в Telegram не применяется.", MX.quotaRemote);
+          if (wj && sj && sj.relayFp && wj.relayFp) {
+            if (sj.relayFp !== wj.relayFp) add("bad", "BOT_RELAY_KEY в Яндексе и Cloudflare РАЗНЫЙ", "Из-за этого Яндекс отвергает запросы воркера (403), и лимит в Telegram молча не работает. Длина: Яндекс " + sj.relayLen + ", Cloudflare " + wj.relayLen + ".", MX.quotaRemote);
+            else add("ok", "BOT_RELAY_KEY в Яндексе и Cloudflare совпадает", "");
+          }
+          var rq = wj && wj.quota && wj.quota.remote;
+          if (rq) add(rq.ok ? "ok" : "bad", rq.ok ? "Воркер достаёт счётчик из Яндекса" : "Воркер не может достать счётчик из Яндекса", esc(rq.why || ""), MX.quotaRemote);
+          add(verGE(w.v, NEED_V) ? "ok" : "warn", "Версия воркера: " + esc(w.v), verGE(w.v, NEED_V) ? "" : "Есть новее (" + NEED_V + "): дождитесь сборки в Cloudflare.", CF.oldVersion);
+        } else if (TG_API) add("warn", "Воркер Cloudflare не ответил", "Проверьте адрес воркера выше.", CF.unreachable);
+        if (h.test) add("warn", "Оплата в ТЕСТОВОМ режиме", "Перед настоящими продажами уберите <code>ROBOKASSA_TEST</code> и <code>MASTER_CODE</code>.", "");
+      }
+      var head = bad ? "Найдено проблем: " + bad + (warn ? ", замечаний: " + warn : "") + ". Исправляйте сверху вниз." : (warn ? "Работает, замечаний: " + warn + "." : "Всё в порядке ✅");
+      $("mxHint").textContent = head;
+      out.innerHTML = "<table style='margin-top:8px'>" + rows.join("") + "</table>";
+      mxReport = "Отчёт помощника по MAX и лимиту (" + new Date().toLocaleString("ru-RU") + ")\n" + head + "\n" + rep.join("\n");
+      $("mxCopy").style.display = "inline-block";
+    }).then(function () { btn.disabled = false; btn.textContent = "Проверить и найти ошибку"; });
+  });
+  $("mxCopy").addEventListener("click", function () { copy(mxReport, this); });
+
+  // ===== Помощники без ИИ =====
+  function genKey() { var a = new Uint8Array(24); (window.crypto || window.msCrypto).getRandomValues(a); return Array.prototype.map.call(a, function (b) { return ("0" + b.toString(16)).slice(-2); }).join(""); }
+  $("genBtn").addEventListener("click", function () { $("genOut").value = genKey(); });
+  $("genCopy").addEventListener("click", function () { if (!$("genOut").value) $("genOut").value = genKey(); copy($("genOut").value, this); });
+  $("genOut").value = genKey();
+
+  var VARS_DEL = {
+    y: { ROBOKASSA_TEST: "тестовый режим оплаты: удалить перед продажами", MASTER_CODE: "служебный код открывает платные режимы бесплатно: удалить перед продажами",
+         TELEGRAM_BOT_TOKEN: "Telegram-бот работает в Cloudflare, в Яндексе токен не нужен", TELEGRAM_SECRET: "Telegram-бот работает в Cloudflare", ADMIN_TG_ID: "Telegram-бот работает в Cloudflare" },
+    c: { ROBOKASSA_TEST: "тестовый режим оплаты: удалить перед продажами (и в Cloudflare тоже)", MASTER_CODE: "служебный код: удалить перед продажами" }
+  };
+  var VARS = {
+    y: { need: ["CODE_SECRET", "ADMIN_KEY", "ROBOKASSA_LOGIN", "ROBOKASSA_PASS1", "ROBOKASSA_PASS2", "BOT_RELAY_URL", "BOT_RELAY_KEY", "QUOTA_BUCKET", "QUOTA_S3_KEY", "QUOTA_S3_SECRET", "MAX_BOT_TOKEN", "MAX_SECRET"],
+         opt: ["QUOTA_LIMIT", "ROBOKASSA_TEST", "ROBOKASSA_HASH", "MASTER_CODE", "REVOKED", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_FROM", "SITE_URL", "FN_URL", "PAY_URL", "NOTIFY_OWNER", "TELEGRAM_BOT_TOKEN", "TELEGRAM_SECRET", "ADMIN_TG_ID", "TELEGRAM_API_HOST", "QUOTA_S3_HOST"] },
+    c: { need: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_SECRET", "ADMIN_TG_ID", "ADMIN_KEY", "CODE_SECRET", "BOT_RELAY_KEY"],
+         opt: ["NOTIFY_OWNER", "ROBOKASSA_TEST", "MASTER_CODE", "REVOKED", "TELEGRAM_API_HOST", "FN_URL", "PAY_URL", "SITE_URL"] }
+  };
+  function lev(a, b) {
+    var d = [], i, j;
+    for (i = 0; i <= a.length; i++) { d[i] = [i]; }
+    for (j = 1; j <= b.length; j++) d[0][j] = j;
+    for (i = 1; i <= a.length; i++) for (j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  $("vnGo").addEventListener("click", function () {
+    var set = VARS[$("vnWhere").value], names = $("vnIn").value.split(/[\s,;=]+/).map(function (x) { return x.trim(); }).filter(Boolean), have = {}, html = [];
+    names.forEach(function (n) { have[n] = 1; });
+    var all = set.need.concat(set.opt);
+    var miss = set.need.filter(function (n) { return !have[n]; });
+    var del = VARS_DEL[$("vnWhere").value] || {};
+    names.forEach(function (n) {
+      if (del[n]) { html.push("<div class='msg err'>🗑 <code>" + esc(n) + "</code>: " + esc(del[n]) + ".</div>"); return; }
+      if (all.indexOf(n) >= 0) return;
+      var best = "", bd = 99;
+      all.forEach(function (c) { var dd = lev(n.toUpperCase(), c); if (dd < bd) { bd = dd; best = c; } });
+      html.push("<div class='msg err'>❓ <code>" + esc(n) + "</code>: такой переменной проект не знает." + (bd <= 3 ? " Возможно, опечатка, должно быть <code>" + best + "</code>." : " Если она не нужна, можно удалить.") + (n !== n.trim() || /[а-яё]/i.test(n) ? " Проверьте раскладку: имена пишутся латиницей." : "") + "</div>");
+    });
+    if (miss.length) html.unshift("<div class='msg err'>❌ Не хватает: " + miss.map(function (n) { return "<code>" + n + "</code>"; }).join(", ") + "</div>");
+    if (!miss.length && !html.length) html.push("<div class='msg okk'>✅ Все обязательные переменные на месте, лишних нет.</div>");
+    else if (!miss.length) html.unshift("<div class='msg okk'>✅ Все обязательные переменные на месте.</div>");
+    $("vnOut").innerHTML = html.join("");
+  });
+
+  function lcCalc() {
+    var d = Math.max(parseInt($("lcDays").value, 10) || 0, 0), t = Math.max(parseInt($("lcTopics").value, 10) || 0, 0), w = Math.max(parseInt($("lcWork").value, 10) || 0, 0);
+    var total = d * (t + 6 * w), rec = Math.max(Math.ceil(total * 1.2 / 10) * 10, 10);
+    $("lcOut").innerHTML = "Такому занятию нужно примерно <b>" + total + "</b> запросов в месяц. Разумный лимит с запасом 20%: <b>" + rec + "</b> (<code>QUOTA_LIMIT=" + rec + "</code>).";
+  }
+  ["lcDays", "lcTopics", "lcWork"].forEach(function (id) { $(id).addEventListener("input", lcCalc); });
+  lcCalc();
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-open]"), function (b) {
+    b.addEventListener("click", function () {
+      var key = encodeURIComponent($("key").value.trim()), w = b.getAttribute("data-open"), u = "";
+      if (w === "health") u = API + "?p=health";
+      else if (w === "status") u = API + "?p=status&key=" + key;
+      else if (w === "maxinfo") u = API + "?p=maxinfo&key=" + key;
+      else if (w === "wh") u = TG_API ? TG_API + "?p=health" : "";
+      else if (w === "ws") u = TG_API ? TG_API + "?p=status&key=" + key : "";
+      if (!u) { alert("Сначала заполните адрес воркера выше."); return; }
+      if (/key=$/.test(u) || /key=&/.test(u)) { alert("Сначала введите ключ владельца выше."); return; }
+      window.open(u, "_blank", "noopener");
+    });
+  });
+
+  // ===== Чек-лист перед продажами =====
+  var TODO = [
+    { id: "test", t: "Тестовая оплата выключена: ROBOKASSA_TEST удалена в Яндексе и в Cloudflare", auto: true },
+    { id: "master", t: "Служебный код MASTER_CODE удалён (и в Яндексе, и в Cloudflare)", auto: true },
+    { id: "pay", t: "Оплата включена: заданы боевой логин и пароли №1 и №2", auto: true },
+    { id: "hash", t: "Алгоритм подписи в кабинете Робокассы совпадает с ROBOKASSA_HASH (по умолчанию md5)" },
+    { id: "urls", t: "В кабинете Робокассы Result URL без «?p=result», метод GET; Success и Fail URL ведут на сайт" },
+    { id: "realpay", t: "Пробный платёж «Поддержать проект» на 50 ₽ прошёл, уведомление владельцу пришло" },
+    { id: "quota", t: "Хранилище лимита принимает запись (в бакете появилась папка q/)", auto: true },
+    { id: "relay", t: "BOT_RELAY_KEY в Яндексе и Cloudflare совпадает", auto: true },
+    { id: "max", t: "Бот MAX отвечает: вебхук подключён, «Старт» работает", auto: true },
+    { id: "ver", t: "Функция и воркер на актуальной версии", auto: true },
+    { id: "site", t: "Сайт на хостинге обновлён: виден счётчик остатка, «Безлимит» с кодом" },
+    { id: "life", t: "В бакете создано правило удаления q/ через 40 дней" },
+    { id: "budget", t: "В Биллинге Яндекса создан бюджет с уведомлением на 100–300 ₽" },
+    { id: "secrets", t: "Секреты, попавшие в переписку (токен MAX, MAX_SECRET, MASTER_CODE, пароли), заменены на новые" },
+    { id: "law", t: "Политика и согласие проверены юристом (хеши лимита, бот MAX, раздел 12 оферты)" }
+  ];
+  function todoGet() { try { return JSON.parse(lsGet("adm.todo") || "{}"); } catch (e) { return {}; } }
+  function todoRender(failed) {
+    var st = todoGet(), done = 0, html = "";
+    TODO.forEach(function (x) { if (st[x.id]) done++; });
+    TODO.forEach(function (x) {
+      var bad = failed && failed[x.id];
+      html += "<label class='chk' style='color:" + (bad ? "var(--bad)" : "var(--tx)") + "'><input type='checkbox' data-todo='" + x.id + "'" + (st[x.id] ? " checked" : "") + "><span>" + esc(x.t) + (x.auto ? " <span class='meta'>(проверяется автоматически)</span>" : "") + (bad ? "<div class='meta' style='color:var(--bad)'>" + esc(bad) + "</div>" : "") + "</span></label>";
+    });
+    $("todoList").innerHTML = html;
+    $("todoHint").textContent = "Готово " + done + " из " + TODO.length + ". Отметки хранятся в этом браузере.";
+  }
+  $("todoList").addEventListener("change", function (e) {
+    var id = e.target && e.target.getAttribute && e.target.getAttribute("data-todo"); if (!id) return;
+    var st = todoGet(); if (e.target.checked) st[id] = 1; else delete st[id];
+    lsSet("adm.todo", JSON.stringify(st)); todoRender();
+  });
+  $("todoReset").addEventListener("click", function () { if (confirm("Снять все отметки чек-листа?")) { lsDel("adm.todo"); todoRender(); } });
+  $("todoAuto").addEventListener("click", function () {
+    var key = $("key").value.trim(), btn = this;
+    if (key.length < 16) { $("todoHint").textContent = "Введите ключ владельца в поле выше."; return; }
+    btn.disabled = true; btn.textContent = "Проверяю…";
+    var k = encodeURIComponent(key);
+    Promise.all([cfFetch(API + "?p=status&key=" + k), cfFetch(API + "?p=health"), cfFetch(API + "?p=maxinfo&key=" + k),
+      TG_API ? cfFetch(TG_API + "?p=health") : Promise.resolve(null), TG_API ? cfFetch(TG_API + "?p=status&key=" + k) : Promise.resolve(null)
+    ]).then(function (r) {
+      var ys = r[0] && r[0].j && r[0].j.ok ? r[0].j : null, yh = r[1] && r[1].j, mi = r[2] && r[2].j, wh = r[3] && r[3].j, ws = r[4] && r[4].j && r[4].j.ok ? r[4].j : null;
+      var st = todoGet(), failed = {};
+      function res(id, ok, why) { if (ok) st[id] = 1; else { delete st[id]; if (why) failed[id] = why; } }
+      if (!ys) { $("todoHint").textContent = "Функция в Яндексе не ответила или ключ владельца не подошёл: проверьте поля выше."; return; }
+      res("test", ys.test === false && (!wh || wh.test === false), ys.test ? "В Яндексе всё ещё включён ROBOKASSA_TEST" : wh && wh.test ? "В Cloudflare всё ещё стоит ROBOKASSA_TEST" : "");
+      res("master", !ys.master && (!ws || !ws.master), ys.master ? "В Яндексе задан MASTER_CODE" : ws && ws.master ? "В Cloudflare задан MASTER_CODE" : "");
+      res("pay", !!ys.pay, "Оплата выключена: не хватает логина или паролей Робокассы");
+      res("quota", !!(ys.quota && ys.quota.mode === "storage" && ys.quota.test && ys.quota.test.ok), ys.quota && ys.quota.test && ys.quota.test.why ? "Хранилище: " + ys.quota.test.why : "Хранилище лимита не настроено или не отвечает");
+      res("relay", !!(ws && ys.relayFp && ws.relayFp && ys.relayFp === ws.relayFp), !ws ? "Воркер не ответил (адрес и ключ выше)" : "BOT_RELAY_KEY в Яндексе и Cloudflare разный");
+      res("max", !!(mi && mi.ok && mi.hookOk), mi && mi.ok ? "Вебхук MAX не подключён" : "Бот MAX не подключён или токен не принят");
+      res("ver", !!(verGE(ys.v, NEED_V) && (!wh || verGE(wh.v, NEED_V))), "Нужна версия " + NEED_V + " или новее (функция: " + ys.v + (wh ? ", воркер: " + wh.v : "") + ")");
+      lsSet("adm.todo", JSON.stringify(st)); todoRender(failed);
+      var bad = Object.keys(failed).length;
+      $("todoHint").textContent = bad ? "Автопроверка: не готово пунктов — " + bad + " (отмечены красным). Остальные пункты отметьте сами." : "Автопроверка пройдена: всё проверяемое готово. Остальные пункты отметьте сами.";
+    }).then(function () { btn.disabled = false; btn.textContent = "Проверить автоматически"; });
+  });
+  todoRender();
+
+  // ===== Хватит ли бесплатного объёма Яндекса =====
+  function fyCalc() {
+    var n = function (id) { return Math.max(parseFloat($(id).value) || 0, 0); };
+    var people = n("fyPeople"), per = n("fyTopics"), site = Math.min(n("fySite"), 100) / 100;
+    var topics = people * per, put = Math.round(topics * (site * 2 + (1 - site))), get = Math.round(topics * (site * 2 + (1 - site)) + people * 4 * site * 2), calls = Math.round(topics * 1.3 + people * 6);
+    var over = Math.max(put - 10000, 0), cost = Math.round(over / 10000 * 17);
+    var warn = put > 10000 || get > 100000 || calls > 1000000;
+    var el = $("fyOut"); el.className = "msg " + (warn ? "err" : "okk");
+    el.innerHTML = "Тем в месяц: <b>" + Math.round(topics) + "</b>. Записей в хранилище ≈ <b>" + put + "</b> из 10 000 бесплатных, чтений ≈ <b>" + get + "</b> из 100 000, вызовов функции ≈ <b>" + calls + "</b> из 1 000 000. " +
+      (put > 10000 ? "Записей больше бесплатного: сверх ≈ " + over + " записей, это порядка <b>" + cost + " ₽</b> в месяц (оценка)." : "Бесплатного объёма хватает.") + (get > 100000 ? " Чтений больше бесплатного." : "");
+  }
+  ["fyPeople", "fyTopics", "fySite"].forEach(function (id) { $(id).addEventListener("input", fyCalc); });
+  fyCalc();
+
+  // ===== Отзыв кодов =====
+  var B32 = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  function revoked() { try { return JSON.parse(lsGet("adm.revoked") || "[]").map(String); } catch (e) { return []; } }
+  function saveRevoked(a) {
+    var seen = {}, out = [];
+    a.forEach(function (x) { x = String(x); if (/^\d{1,10}$/.test(x) && !seen[x]) { seen[x] = 1; out.push(x); } });
+    out.sort(function (a, b) { return a - b; });
+    lsSet("adm.revoked", JSON.stringify(out));
+  }
+  function isRevoked(inv) { return revoked().indexOf(String(inv)) >= 0; }
+  function renderRevoked() { $("revList").value = revoked().join(","); renderHist(); }
+  // номер платежа и срок читаются из самого кода (подпись не проверяется: для этого нужен секрет функции)
+  function decodeCode(text) {
+    var s = String(text || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (s.indexOf("SPK") === 0) s = s.slice(3);
+    if (s.length !== 24) return null;
+    var bits = "";
+    for (var i = 0; i < s.length; i++) { var v = B32.indexOf(s[i]); if (v < 0) return null; bits += ("00000" + v.toString(2)).slice(-5); }
+    var bytes = [];
+    for (var j = 0; j + 8 <= bits.length; j += 8) bytes.push(parseInt(bits.slice(j, j + 8), 2));
+    if (bytes.length < 6) return null;
+    var inv = ((bytes[0] * 16777216) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3]);
+    var d = (bytes[4] << 8) + bytes[5];
+    return { inv: inv, days: d };
+  }
+  function revStatus(t, kind) { var e = $("revStatus"); e.style.display = "block"; e.className = "msg " + kind; e.innerHTML = t; }
+  function doRevoke(text) {
+    text = String(text || "").trim();
+    if (!text) { revStatus("Вставьте код или номер платежа.", "err"); return false; }
+    var inv = null, info = "";
+    if (/^\d{1,10}$/.test(text)) { inv = text; }
+    else {
+      var d = decodeCode(text);
+      if (!d) { revStatus("Не удалось прочитать код. Проверьте, что он скопирован целиком (SPK-XXXXXX-XXXXXX-XXXXXX-XXXXXX), или введите номер платежа цифрами.", "err"); return false; }
+      inv = String(d.inv); info = " (код на " + declDays(d.days) + ")";
+    }
+    var list = revoked();
+    if (list.indexOf(inv) >= 0) { revStatus("Номер " + esc(inv) + " уже в списке отозванных.", "okk"); return true; }
+    list.push(inv); saveRevoked(list); renderRevoked();
+    revStatus("Номер <b>" + esc(inv) + "</b>" + info + " добавлен в список ниже. <b>Осталось вставить список в переменную REVOKED в Яндексе</b> (инструкция под списком).", "okk");
+    return true;
+  }
+  $("revGo").addEventListener("click", function () { if (doRevoke($("revIn").value)) $("revIn").value = ""; });
+  $("hist").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-rev]"); if (!b) return;
+    if (confirm("Отозвать код с номером " + b.dataset.rev + "?")) { doRevoke(b.dataset.rev); $("revCard").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+  });
+  $("revCopy").addEventListener("click", function () {
+    var v = $("revList").value;
+    if (!v) { revStatus("Список пуст: сначала отзовите хотя бы один код.", "err"); return; }
+    copy(v, this);
+  });
+  $("revAdd").addEventListener("click", function () {
+    var t = prompt("Вставьте номера, которые уже есть в REVOKED в Яндексе (через запятую). Они добавятся к списку, чтобы при вставке не потерять старые.");
+    if (t == null) return;
+    var nums = String(t).split(/[^0-9]+/).filter(Boolean);
+    saveRevoked(revoked().concat(nums)); renderRevoked();
+  });
+  $("revClear").addEventListener("click", function () {
+    if (confirm("Очистить список отозванных на этой странице? В Яндексе он не изменится.")) { lsDel("adm.revoked"); renderRevoked(); }
+  });
+  renderRevoked();
+})();
+</script>
+<script>
+(function(){
+  var K="spk_issue_open", st={};
+  try { st = JSON.parse(localStorage.getItem(K) || "{}"); } catch (e) {}
+  var ds = document.querySelectorAll("details.cc");
+  ds.forEach(function (d) {
+    var k = d.getAttribute("data-k");
+    if (k in st) d.open = !!st[k];
+    d.addEventListener("toggle", function () {
+      st[k] = d.open;
+      try { localStorage.setItem(K, JSON.stringify(st)); } catch (e) {}
+    });
+  });
+  var bar = document.getElementById("collBar");
+  if (bar) bar.addEventListener("click", function (ev) {
+    var b = ev.target.closest("button"); if (!b) return;
+    var open = b.getAttribute("data-open") === "1";
+    ds.forEach(function (d) { d.open = open; });
+  });
+})();
+</script>
+</body>
+</html>
