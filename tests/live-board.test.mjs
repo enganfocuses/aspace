@@ -151,3 +151,22 @@ test('conflict resolution refuses a provider that changed after the user inspect
  await assert.rejects(()=>a.resolve('reserve',versions),e=>e.status===409);
  assert.equal(s.live().items[1].t,'Newer change');
 });
+
+
+test('concurrent edits to different fields of one board object merge without conflict',()=>{
+ const base=sample();
+ const local={...structuredClone(base),items:base.items.map(x=>x.id==='a'?{...x,x:45,y:60}:x)};
+ const remote={...structuredClone(base),items:base.items.map(x=>x.id==='a'?{...x,t:'Edited text',c:'#71384f'}:x)};
+ const merged=mergeBoard(base,local,remote);
+ assert.equal(merged.ok,true);
+ assert.deepEqual(merged.value.items[0],{...base.items[0],x:45,y:60,t:'Edited text',c:'#71384f'});
+});
+
+test('concurrent edits to the same object position remain an explicit conflict',()=>{
+ const base=sample();
+ const local={...structuredClone(base),items:base.items.map(x=>x.id==='a'?{...x,x:45,y:60}:x)};
+ const remote={...structuredClone(base),items:base.items.map(x=>x.id==='a'?{...x,x:90,y:110}:x)};
+ const merged=mergeBoard(base,local,remote);
+ assert.equal(merged.ok,false);
+ assert.ok(merged.conflicts.some(x=>x.includes('items:a.x')||x.includes('items:a.y')));
+});
