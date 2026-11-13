@@ -1041,11 +1041,38 @@ async function callView(m){
     }));
     externalCard.append(row);
   }
-  const J={'Content-Type':'application/json'},g=E('div',{className:'grid'});
-  g.append(E('div',{className:'card new',onclick:async()=>{const n=prompt('Название комнаты','Комната');if(n==null)return;calls.items.push({id:uid()+uid(),name:n||'Комната'});await save('meta/calls',calls);go(callView)}},'＋ Постоянная комната'));
-  calls.items.forEach(c=>g.append(E('div',{className:'card'},E('b',{textContent:c.name}),E('div',{className:'mut',textContent:link('c',c.id)}),E('div',{className:'row'},
+  const directLinks=(await load('meta/call-links'))||{items:[]};
+  if(!Array.isArray(directLinks.items))directLinks.items=[];
+  if(!Array.isArray(calls.items))calls.items=[];
+  const directGrid=E('div',{className:'grid'});
+  directGrid.append(E('div',{className:'card new',onclick:async()=>{
+    const n=prompt('Название постоянной ссылки Aspace','Моя ссылка');
+    if(n===null)return;
+    const item={id:uid()+uid(),name:n.trim()||'Ссылка Aspace',createdAt:Date.now()};
+    directLinks.items.push(item);
+    await save('meta/call-links',directLinks);
+    copyLink(link('c',item.id));
+    alert('Постоянная ссылка Aspace создана и скопирована. Её можно отправить ученику.');
+    go(callView);
+  }},'＋ Создать постоянную ссылку Aspace'));
+  directLinks.items.forEach(item=>directGrid.append(E('div',{className:'card'},
+    E('b',{textContent:item.name||'Ссылка Aspace'}),
+    E('div',{className:'mut',textContent:link('c',item.id)}),
+    E('div',{className:'row'},
+      B('Открыть',()=>go(mm=>roomUI(mm,item.id,item.name||'Видеозвонок',true))),
+      B('🔗 Скопировать',()=>{copyLink(link('c',item.id));say2('Ссылка Aspace скопирована')}),
+      B('Убрать из списка',async()=>{
+        if(!confirm('Убрать ссылку из вашего списка? Уже отправленная ссылка продолжит работать у тех, у кого она есть.'))return;
+        directLinks.items=directLinks.items.filter(x=>x.id!==item.id);
+        await save('meta/call-links',directLinks);go(callView);
+      })
+    )
+  )));
+  const roomsGrid=E('div',{className:'grid'});
+  roomsGrid.append(E('div',{className:'card new',onclick:async()=>{const n=prompt('Название постоянной комнаты','Комната');if(n==null)return;calls.items.push({id:uid()+uid(),name:n.trim()||'Комната'});await save('meta/calls',calls);go(callView)}},'＋ Постоянная комната'));
+  calls.items.forEach(c=>roomsGrid.append(E('div',{className:'card'},E('b',{textContent:c.name}),E('div',{className:'mut',textContent:link('c',c.id)}),E('div',{className:'row'},
     B('Открыть',()=>go(mm=>roomUI(mm,c.id,c.name,true))),
-    B('🔗',()=>{copyLink(link('c',c.id));alert('Постоянная ссылка скопирована')}),
+    B('🔗 Скопировать',()=>{copyLink(link('c',c.id));alert('Ссылка на комнату скопирована')}),
     B('🗑',async()=>{if(!confirm('Удалить комнату? Ссылка перестанет быть в списке.'))return;calls.items=calls.items.filter(x=>x.id!==c.id);await save('meta/calls',calls);go(callView)})))));
   const title=E('input',{placeholder:'Название встречи'}),dt=E('input',{type:'datetime-local'}),
     dur=E('select',{},...[30,45,60,90].map(x=>E('option',{value:x,textContent:x+' мин'}))),
@@ -1059,7 +1086,9 @@ async function callView(m){
     E('span',{className:'row'},
       B('📅 В Яндекс Календарь',()=>{icsDl([e],'call.ics')}),
       B('🗑',async()=>{ev.items=ev.items.filter(x=>x.id!==e.id);await save('meta/events',ev);go(callView)})))));
-  m.append(E('h2',{textContent:'Видеозвонки'}),E('div',{className:'row',style:'margin-bottom:12px'},B('⚡ Быстрый звонок Aspace',()=>go(mm=>roomUI(mm,uid(),'Быстрый звонок',true)))),g,externalCard,
+  m.append(E('h2',{textContent:'Видеозвонки'}),E('div',{className:'row',style:'margin-bottom:12px'},B('⚡ Быстрый звонок Aspace',()=>go(mm=>roomUI(mm,uid(),'Быстрый звонок',true)))),
+    E('h3',{textContent:'Постоянные ссылки Aspace'}),E('p',{className:'mut',textContent:'Создайте отдельную ссылку на звонок, не создавая комнату. Ссылка сохраняется в этом списке, её можно копировать и отправлять ученикам.'}),directGrid,
+    E('h3',{textContent:'Постоянные комнаты'}),E('p',{className:'mut',textContent:'Именованные комнаты для повторных встреч. У каждой комнаты своя постоянная ссылка.'}),roomsGrid,externalCard,
     E('h2',{textContent:'Расписание и Яндекс Календарь'}),E('div',{className:'card'},E('div',{className:'row'},title,dt,dur,sel,add)),list,
     E('div',{className:'card',style:'margin-top:12px'},E('b',{textContent:'Яндекс Календарь'}),
       E('div',{className:'mut',textContent:'Скачайте файл .ics и импортируйте его в Яндекс Календаре (Добавить → Импорт). Подписка по ссылке и CalDAV на статическом хостинге недоступны.'}),
