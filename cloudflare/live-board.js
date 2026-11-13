@@ -101,7 +101,7 @@ export function createLiveBoard({key,firebaseDatabaseURL,primaryPath='/docs/'+ke
  async function save(value,existing,options={}){
   if(!canWrite())throw failure('View-only access',403);
   const previous=existing||await queue.get(key);
-  const record={...previous,id:crypto.randomUUID(),value:cleanBoard(value),
+  const record={...previous,id:previous?.id||crypto.randomUUID(),value:cleanBoard(value),
    base:previous?.base??options.base??last?.value??null,
    primaryHash:previous?.primaryHash??last?.primaryHash??null,
    mirrorKnown:previous?.mirrorKnown??Boolean(last?.mirrored||last?.source==='cloudflare'),createdAt:previous?.createdAt||Date.now()};
