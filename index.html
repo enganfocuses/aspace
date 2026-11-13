@@ -110,7 +110,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .t{display:block;width:100%;max-height:100%;overflow:hidden;text-align:center;outline:none;white-space:pre-wrap;word-break:break-word;line-height:1.3;min-height:1.3em}
 .it.note .t{text-align:left}.it.txt .tw{padding:2px}
 .it.txt:hover .bgl,.it.txt.sel .bgl{outline:1px dashed #7f9bbd;outline-offset:2px}
-.it>i{position:absolute;left:50%;top:-14px;transform:translateX(-50%);width:46px;height:10px;border-radius:99px;background:#7f9bbd99;cursor:move;opacity:0;transition:opacity .15s;z-index:2;touch-action:none}
+.it>i{position:absolute;left:50%;top:-14px;transform:translateX(-50%);width:46px;height:10px;border-radius:99px;background:#7f9bbd99;cursor:move;opacity:0;transition:opacity .15s;z-index:2;touch-action:none}.it:not(.frame){cursor:grab;touch-action:none}.it:not(.frame):active{cursor:grabbing}.it .timer-actions{display:flex;justify-content:center;gap:8px;margin-top:5px}.it .timer-actions button{font-size:12px;padding:5px 10px;min-height:28px;border-radius:10px}.it .timer-actions button:disabled{opacity:.4;cursor:default}.it .timer-value{gap:3px}
 .it:hover>i,.it.sel>i{opacity:1}
 .it.sel{outline:2px solid #7f9bbd;outline-offset:3px;border-radius:6px}
 .g{position:absolute;right:-9px;bottom:-9px;width:16px;height:16px;border-radius:50%;background:#fffef9;border:2px solid #7f9bbd;cursor:nwse-resize;display:none;z-index:3;touch-action:none}
@@ -1626,23 +1626,31 @@ async function openBoard(m,id,guest,shareToken=null){
         if(e.shiftKey)selectMany(selectedItems.includes(n)?selectedItems.filter(q=>q!==n):[...selectedItems,n]);
         else if(!selectedItems.includes(n)||e.target.closest('.g,.sb,.t'))select(n);
       },true);
-      drag(hd,el,n);wrap.insertBefore(el,n.k==='frame'?cv.nextSibling:null)}
+      drag(el,el,n);wrap.insertBefore(el,n.k==='frame'?cv.nextSibling:null)}
     geom(el,n);
-    if(n.k==='emo'){el._bg.textContent=n.t;el._bg.style.fontSize=Math.min(n.w,n.h)*.8+'px'}
+    if(n.k==='emo'){el._bg.textContent=n.t;el._bg.style.fontSize=Math.min(n.w,n.h)*.8+'px';el._bg.style.color=n.col||'#1f1f2b'}
     el.classList.toggle('locked',!!n.locked);
     if(el._t){el._t.contentEditable=String(!guest&&!n.locked);styleT(el._t,n);if(document.activeElement!==el._t)el._t.textContent=n.t||''}
     if(FILLK.includes(n.k))el._bg.style.background=n.c;
-    el.classList.toggle('retro-timer',!!n.deadline);
-    if(n.deadline){
-      n.w=Math.max(140,n.w);n.h=n.w;geom(el,n);
+    const isTimer=Boolean(n.durationMs||n.deadline);el.classList.toggle('retro-timer',isTimer);
+    if(isTimer){
+      n.w=Math.max(140,n.w);n.h=n.w;
+      if(n.deadline&&!n.durationMs){n.durationMs=Math.max(1000,n.deadline-Date.now());n.remainingMs=Math.max(0,n.deadline-Date.now());n.running=true}
+      if(n.running&&n.deadline&&n.deadline<=Date.now()){n.remainingMs=0;n.running=false;n.deadline=null}
+      geom(el,n);
       if(!el._clock){
         el._clock=E('div',{className:'timer-value',contentEditable:false,role:'timer',ariaLabel:'Таймер'});
         const dial=E('div',{className:'timer-dial',ariaHidden:'true'});
         for(const [label,position] of [['XII','north'],['III','east'],['VI','south'],['IX','west']])dial.append(E('span',{className:'clock-numeral '+position,textContent:label}));
         el._hand=E('span',{className:'timer-hand'});dial.append(el._hand,E('span',{className:'timer-pin'}));
         el._readout=E('span',{className:'timer-readout'});el._timerStatus=E('span',{className:'timer-caption'});
-        el._clock.append(dial,el._readout,el._timerStatus);el.append(el._clock);drag(el._clock,el,n);
+        const timerActions=E('div',{className:'timer-actions'});
+        el._timerStart=E('button',{type:'button',textContent:'▶ Пуск',onclick:()=>{if(n.running||n.locked||guest)return;n.remainingMs=Math.max(0,n.remainingMs??n.durationMs);if(!n.remainingMs)return;n.deadline=Date.now()+n.remainingMs;n.running=true;push(n);upsert(n)}});
+        el._timerPause=E('button',{type:'button',textContent:'Ⅱ Пауза',onclick:()=>{if(!n.running||n.locked||guest)return;n.remainingMs=Math.max(0,n.deadline-Date.now());n.deadline=null;n.running=false;push(n);upsert(n)}});
+        timerActions.append(el._timerStart,el._timerPause);
+        el._clock.append(dial,el._readout,el._timerStatus,timerActions);el.append(el._clock);
       }
+      el._timerStart.disabled=!!n.running||!n.remainingMs;el._timerPause.disabled=!n.running;
       updateTimerClock(n,el);
     }
     if(n.poll){if(!el._poll){el._poll=E('div',{className:'session-widget',contentEditable:false});el._poll.onpointerdown=e=>e.stopPropagation()}el._poll.replaceChildren(...n.poll.options.map((label,i)=>B(label+' · '+Object.values(n.poll.ballots||{}).filter(v=>v===i).length,()=>{if(guest||n.locked)return;n.poll.ballots={...n.poll.ballots,[pollVoter]:i};push(n);upsert(n)})));el.querySelector('.t')?.append(el._poll)}
@@ -1879,6 +1887,8 @@ async function openBoard(m,id,guest,shareToken=null){
     const holder=E('span',{className:'palette-swatch'}),s=E('button',{className:'sw',title:'Цвет фигуры '+c,onclick:()=>fmt('c',c)});s.style.background=c;holder.append(s);if(!defaultShapePalette.includes(c)){const rm=B('×',()=>{shapePalette=shapePalette.filter(x=>x!==c);ls.s('aspace-shape-palette',shapePalette);drawShapes()},'sw-remove');rm.title='Удалить цвет';holder.append(rm)}return holder
   }))};
   drawShapes();fillSec.append(shapeSwatches);
+  const symbolColorLabel=E('span',{className:'mut',textContent:'Цвет символа'}),symbolColorSwatches=E('div',{className:'row nw',style:'gap:6px;align-items:center'});
+  [...INK,'#ffffff','#71384f','#8b5e34'].forEach(c=>{const sw=B('',()=>fmt('col',c),'sw');sw.style.background=c;sw.title='Цвет символа '+c;symbolColorSwatches.append(sw)});fillSec.append(symbolColorLabel,symbolColorSwatches);
   const shapeColor=E('input',{type:'color',value:'#b7d1ea',title:'Спектр: любой цвет фигуры',style:'width:34px;height:34px;padding:2px;border:0;border-radius:50%;cursor:pointer;flex:none'});
   shapeColor.oninput=()=>fmt('c',shapeColor.value);
   const saveShapeColor=()=>{const v=shapeColor.value.toLowerCase();if(!shapePalette.includes(v)){shapePalette.push(v);ls.s('aspace-shape-palette',shapePalette);drawShapes()}fmt('c',v)};
@@ -1955,7 +1965,7 @@ async function openBoard(m,id,guest,shareToken=null){
   fbar.append(E('div',{className:'format-main'},lockButton,formatTabs.text,formatTabs.fill,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
   function updateFormatSections(){
     const editable=selectedItems.length===1&&!sel?.locked;
-    const allowed={text:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='txt'),fill:editable&&!sel.deadline&&FILLK.includes(sel.k),links:editable&&SHAPES.includes(sel.k)};
+    const allowed={text:editable&&!sel.durationMs&&(FILLK.includes(sel.k)||sel.k==='txt'||sel.k==='emo'),fill:editable&&!sel.durationMs&&(FILLK.includes(sel.k)||sel.k==='emo'),links:editable&&SHAPES.includes(sel.k)};
     if(!allowed[formatTab])formatTab=null;
     for(const [key,section] of [['text',fontSec],['fill',fillSec],['links',wireTools]]){formatTabs[key].hidden=!allowed[key];formatTabs[key].classList.toggle('on',formatTab===key);formatTabs[key].setAttribute('aria-expanded',String(formatTab===key));section.style.display=formatTab===key?'flex':'none'}
     formatBody.hidden=!formatTab;
@@ -1992,7 +2002,7 @@ async function openBoard(m,id,guest,shareToken=null){
   function createTimer(){
     const raw=prompt('Таймер: сколько минут?','5');if(raw===null)return;
     const minutes=Number(raw.replace(',','.'));if(!Number.isFinite(minutes)||minutes<=0||minutes>1440)return say('Введи время от 0 до 1440 минут.');
-    add('note',...center(),{t:'Таймер',c:'#eef2ff',deadline:Date.now()+minutes*60000,durationMs:minutes*60000,w:220,h:220});
+    add('note',...center(),{t:'Таймер',c:'#eef2ff',durationMs:minutes*60000,remainingMs:minutes*60000,running:false,deadline:null,w:220,h:220});
   }
   function createVote(){
     const question=prompt('Вопрос для голосования');if(!question?.trim())return;
@@ -2003,12 +2013,12 @@ async function openBoard(m,id,guest,shareToken=null){
   const extras=mkpop();extras.append(E('b',{textContent:'Инструменты для совместной работы'}),E('div',{className:'row'},B('Таймер',createTimer),B('Голосование',createVote),B('Заметка',()=>{hidePops();setTool('note')}),B('Комментарий',()=>add('note',...center(),{t:'Комментарий: ',c:'#e3edff'})),B('Реакция 👍',()=>add('emo',...center(),{t:'👍'}))));
   tbar.append(sep(),tb('comment','Добавить комментарий',()=>add('note',...center(),{t:'Комментарий: ',c:'#e3edff'})),tb('vote','Голосование',createVote),tb('timer','Таймер',createTimer),tb('plus','Ещё инструменты',()=>showPop(extras)));
   function updateTimerClock(n,el){
-    const seconds=Math.max(0,Math.ceil((n.deadline-Date.now())/1000));
+    const seconds=Math.max(0,Math.ceil((n.running?Math.max(0,n.deadline-Date.now()):(n.remainingMs??n.durationMs??0))/1000));
     el._readout.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
-    el._timerStatus.textContent=seconds?'До конца':'Время вышло';
+    el._timerStatus.textContent=seconds?(n.running?'Идёт':'На паузе'):'Время вышло';
     el._hand.style.transform='rotate('+((seconds%60)*6)+'deg)';el.classList.toggle('timer-expired',seconds===0);
   }
-  const sessionTicker=setInterval(()=>{for(const n of items)if(n.deadline&&els[n.id]?._clock)updateTimerClock(n,els[n.id])},500);
+  const sessionTicker=setInterval(()=>{for(const n of items)if(n.durationMs&&els[n.id]?._clock){if(n.running&&n.deadline<=Date.now()){n.remainingMs=0;n.running=false;n.deadline=null;push(n);upsert(n)}else updateTimerClock(n,els[n.id])}},500);
   const hist=E('div',{className:'bar hist'},tb('undo','Отменить (Ctrl+Z)',doUndo),tb('redo','Повторить (Ctrl+Y)',doRedo));
   const zl=E('span',{className:'zl',textContent:'100%'}),zoom=E('div',{className:'bar zoom'},B('−',()=>setZ(z/1.2)),zl,B('+',()=>setZ(z*1.2)),B('100%',()=>setZ(1)));
   /* видео-окно */
@@ -2215,7 +2225,6 @@ async function openBoard(m,id,guest,shareToken=null){
   });
   mi('Помощь',()=>alert('Выбери инструмент и нажми на доску. Рука — перемещение, колесо — прокрутка. Ctrl/Cmd+Z — отмена, Delete — удаление. Таймер и голосование сохраняются на доске. Голосовать могут участники с правом редактирования.'));
   if(isOwner)mi('← Список досок',()=>go(boardsView));
-  if(isOwner)mi('🧠 Психология · КПТ',()=>go(psychologyView));
   if(isOwner)mi('📊 Лимиты пространства',()=>go(usageView));
   if(boardTransport)saveFormat('Все версии · JSON',async()=>{
     try{const versions=await boardTransport.inspect(),url=URL.createObjectURL(new Blob([JSON.stringify(versions,null,2)],{type:'application/json'}));
