@@ -142,6 +142,29 @@ header b{font-size:20px;letter-spacing:-.04em;color:var(--wine);margin:0 0 20px;
 header button{width:100%;text-align:left;justify-content:flex-start;border-radius:10px;padding:11px 13px;background:transparent!important;color:#665b70!important;font-weight:550;box-shadow:none!important}
 header button:hover{background:var(--soft)!important;color:var(--wine)!important}
 header button:first-of-type{background:#eee8f7!important;color:var(--wine)!important}
+/* Aspace home navigation: architectural blueprint accent */
+header button.nav-home{
+  position:relative;isolation:isolate;overflow:hidden;
+  min-height:48px;padding:11px 64px 11px 13px!important;
+  border:1px solid #d8cbe6!important;border-radius:12px!important;
+  background:linear-gradient(112deg,#f5f0fa 0%,#ece6f4 54%,#e3edf7 100%)!important;
+  color:var(--wine-dark)!important;
+  box-shadow:inset 0 1px 0 #ffffffd9,0 5px 14px #4b365b12!important;
+  font-weight:700!important;letter-spacing:.01em;
+}
+header button.nav-home::after{
+  content:"";position:absolute;z-index:-1;right:7px;top:4px;bottom:4px;width:54px;
+  opacity:.82;pointer-events:none;
+  background-repeat:no-repeat;background-position:center;background-size:contain;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 64' fill='none' stroke='%237b638f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 55h76M14 55V27l18-13 18 13v28M24 55V34h16v21M56 55V20h20v35M52 20h28L66 8 52 20ZM60 27h12M60 34h12M60 41h12M60 48h12M19 27h26M19 32h5m24 0h-5M28 39v7m8-7v7'/%3E%3Cpath d='M6 59h78' stroke='%23b49bc9'/%3E%3C/svg%3E");
+  transition:transform .2s ease,opacity .2s ease;
+}
+header button.nav-home:hover{
+  background:linear-gradient(112deg,#eee6f7 0%,#e5dcef 54%,#dceaf7 100%)!important;
+  border-color:#bda9d2!important;box-shadow:0 7px 18px #4b365b1c!important;
+}
+header button.nav-home:hover::after{transform:translateY(-2px);opacity:1}
+
 #main{min-width:0;min-height:0;flex:1;overflow:auto;padding:28px 34px;background:var(--bg)}
 h1,h2,h3{color:#35283f;letter-spacing:-.025em}
 button{border:0;border-radius:9px;padding:9px 14px;background:var(--lav);color:#35283f;font-weight:600;box-shadow:none;transition:background .15s,transform .08s}
@@ -671,7 +694,7 @@ const say2=t=>{const e=E('div',{className:'toast',textContent:t});e.style.displa
 addEventListener('hashchange',()=>location.reload());
 let cleanup=()=>{};
 const main=()=>$('#main');
-const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Образование',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title){main().className='workspace-view';main().append(E('nav',{className:'section-breadcrumb',ariaLabel:'Навигация раздела'},B('⌂ Домой',goHome),E('span',{textContent:'ASPACE / '+title})))}await fn(main())};
+const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Образование',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
 function loginView(message=''){
