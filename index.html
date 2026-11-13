@@ -1063,16 +1063,16 @@ async function callView(m){
   const directGrid=E('div',{className:'grid'});
   const configureDirectRoute=async item=>{
     const choice=prompt('Куда направлять ученика по этой постоянной ссылке?\\n1 — звонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');
-    if(choice===null)return;
-    if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return}
+    if(choice===null)return false;
+    if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return false}
     item.destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];
     delete item.destinationUrl;
     if(item.destination!=='aspace'){
       const service=externalServices.find(x=>x.field===(item.destination==='telemost'?'telemostUrl':'saluteUrl'));
       const raw=prompt('Вставь прямую ссылку-приглашение '+service.name+'. Она будет открываться у ученика.',externalCalls[service.field]||'');
-      if(raw===null)return;
+      if(raw===null)return false;
       const target=validExternalUrl(raw.trim(),service);
-      if(!target){alert('Ссылка не прошла проверку. Нужна действующая HTTPS-ссылка-приглашение '+service.name+'.');return}
+      if(!target){alert('Ссылка не прошла проверку. Нужна действующая HTTPS-ссылка-приглашение '+service.name+'.');return false}
       item.destinationUrl=target;
     }
     await save('meta/call-links',directLinks);
@@ -1081,14 +1081,15 @@ async function callView(m){
       body:JSON.stringify({role:'viewer',destination:item.destination,destinationUrl:item.destinationUrl||null,updatedAt:Date.now()})
     });
     if(!publicRoute.ok)throw new Error('Не удалось сохранить публичный маршрут для ученика (HTTP '+publicRoute.status+'). Проверь Firebase Rules.');
-    go(callView);
+    go(callView);return true;
   };
   directGrid.append(E('div',{className:'card new',onclick:async()=>{
     const n=prompt('Название постоянной ссылки','Моя ссылка');
     if(n===null)return;
     const item={id:uid()+uid(),name:n.trim()||'Постоянная ссылка',createdAt:Date.now(),destination:'aspace'};
     directLinks.items.push(item);
-    await configureDirectRoute(item);
+    const configured=await configureDirectRoute(item);
+    if(!configured){directLinks.items=directLinks.items.filter(x=>x.id!==item.id);await save('meta/call-links',directLinks);return}
     copyLink(link('c',item.id));
     alert('Постоянная ссылка создана и скопирована. Ученик будет направлен в выбранный сервис.');
     go(callView);
