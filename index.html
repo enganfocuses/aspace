@@ -1005,6 +1005,42 @@ async function roomUI(m,id,name,back){
 async function callView(m){
   const me={ics:'/calendar.ics'};
   const calls=(await load('meta/calls'))||{items:[]},ev=(await load('meta/events'))||{items:[]};
+  const externalCalls=(await load('meta/call-services'))||{};
+  const externalServices=[
+    {name:'Яндекс Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'],path:/^\/j\/[^/]+\/?$/},
+    {name:'Салют Джаз',field:'saluteUrl',hosts:['salutejazz.ru','jazz.sberbank.ru'],path:/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i}
+  ];
+  const validExternalUrl=(raw,service)=>{
+    try{const url=new URL(raw);if(url.protocol!=='https:'||!service.hosts.includes(url.hostname)||url.username||url.password||url.port||!service.path.test(url.pathname))return '';return url.href}catch{return ''}
+  };
+  function launchExternal(service,url){
+    const width=Math.min(480,Math.max(320,window.innerWidth-24)),height=Math.min(620,Math.max(420,window.innerHeight-80));
+    const left=Math.max(0,Math.round(window.screenX+window.outerWidth-width)),top=Math.max(0,Math.round(window.screenY));
+    const popup=window.open('about:blank','_blank','popup=yes,resizable=yes,scrollbars=yes,width='+width+',height='+height+',left='+left+',top='+top);
+    if(popup){try{popup.opener=null;popup.location.replace(url);return}catch{try{popup.close()}catch{}}}
+    const notice=E('div',{className:'card',role:'status',style:'position:sticky;bottom:12px;z-index:20;margin:12px 0;border:1px solid #c8b8e8;background:#fff'});
+    notice.append(E('b',{textContent:'Не удалось открыть отдельное окно '+service.name+'.'}),E('p',{className:'mut',textContent:'Разрешите всплывающие окна для Aspace и повторите попытку. На телефонах браузер может открыть отдельную вкладку.'}),
+      B('Повторить открытие окна',()=>launchExternal(service,url)),
+      E('a',{className:'mbtn',href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Открыть звонок в отдельной вкладке'}),
+      B('Закрыть',()=>notice.remove()));
+    m.prepend(notice);
+  }
+  const externalCard=E('div',{className:'card',style:'margin:12px 0'});
+  externalCard.append(E('h3',{textContent:'Подключение к внешним сервисам'}),E('p',{className:'mut',textContent:'Сначала открывается небольшое отдельное окно. Если браузер блокирует его, разрешите всплывающие окна и повторите попытку или откройте звонок в отдельной вкладке. На телефонах отдельная вкладка — нормальный вариант. Aspace остаётся открытым.'}));
+  for(const service of externalServices){
+    const row=E('div',{className:'row',style:'align-items:center;margin:10px 0;flex-wrap:wrap'});
+    const status=E('span',{className:'mut',textContent:validExternalUrl(externalCalls[service.field]||'',service)?'Ссылка настроена':'Ссылка не добавлена'});
+    row.append(E('b',{textContent:service.name}),status,
+      B('Подключиться',()=>{const url=validExternalUrl(externalCalls[service.field]||'',service);if(url)launchExternal(service,url);else alert('Сначала добавьте прямую ссылку-приглашение через «Настроить ссылку».')}));
+    if(currentUser?.uid===CFG.ownerUid)row.append(B('Настроить ссылку',async()=>{
+      const raw=prompt('Вставьте прямую ссылку-приглашение '+service.name+'. Чтобы удалить её, оставьте поле пустым.',externalCalls[service.field]||'');
+      if(raw===null)return;const url=raw.trim()?validExternalUrl(raw.trim(),service):'';
+      if(raw.trim()&&!url){alert('Нужна прямая HTTPS-ссылка на комнату '+service.name+'.');return}
+      if(url)externalCalls[service.field]=url;else delete externalCalls[service.field];
+      await save('meta/call-services',externalCalls);status.textContent=url?'Ссылка настроена':'Ссылка не добавлена';
+    }));
+    externalCard.append(row);
+  }
   const J={'Content-Type':'application/json'},g=E('div',{className:'grid'});
   g.append(E('div',{className:'card new',onclick:async()=>{const n=prompt('Название комнаты','Комната');if(n==null)return;calls.items.push({id:uid()+uid(),name:n||'Комната'});await save('meta/calls',calls);go(callView)}},'＋ Постоянная комната'));
   calls.items.forEach(c=>g.append(E('div',{className:'card'},E('b',{textContent:c.name}),E('div',{className:'mut',textContent:link('c',c.id)}),E('div',{className:'row'},
@@ -1023,7 +1059,7 @@ async function callView(m){
     E('span',{className:'row'},
       B('📅 В Яндекс Календарь',()=>{icsDl([e],'call.ics')}),
       B('🗑',async()=>{ev.items=ev.items.filter(x=>x.id!==e.id);await save('meta/events',ev);go(callView)})))));
-  m.append(E('h2',{textContent:'Видеозвонки'}),E('div',{className:'row',style:'margin-bottom:12px'},B('⚡ Быстрый звонок',()=>go(mm=>roomUI(mm,uid(),'Быстрый звонок',true)))),g,
+  m.append(E('h2',{textContent:'Видеозвонки'}),E('div',{className:'row',style:'margin-bottom:12px'},B('⚡ Быстрый звонок Aspace',()=>go(mm=>roomUI(mm,uid(),'Быстрый звонок',true)))),g,externalCard,
     E('h2',{textContent:'Расписание и Яндекс Календарь'}),E('div',{className:'card'},E('div',{className:'row'},title,dt,dur,sel,add)),list,
     E('div',{className:'card',style:'margin-top:12px'},E('b',{textContent:'Яндекс Календарь'}),
       E('div',{className:'mut',textContent:'Скачайте файл .ics и импортируйте его в Яндекс Календаре (Добавить → Импорт). Подписка по ссылке и CalDAV на статическом хостинге недоступны.'}),
