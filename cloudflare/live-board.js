@@ -22,8 +22,11 @@ export function createLiveBoard({key,firebaseDatabaseURL,primaryPath='/docs/'+ke
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
   const headers={'X-Firebase-ETag':'true'};
   if(method==='PUT'){
-   if(!etag)throw failure('Firebase did not expose the document version',428);
-   headers['if-match']=etag;headers['Content-Type']='application/json';
+   // Firebase ETags are useful for protecting concurrent edits, but some
+   // browser/proxy combinations do not expose the response header. Do not
+   // let a missing ETag turn every otherwise-valid save into a local draft.
+   if(etag)headers['if-match']=etag;
+   headers['Content-Type']='application/json';
   }
   try{
    const r=await fetchImpl(base+primaryPath+'.json'+(token?'?auth='+encodeURIComponent(token):''),{
@@ -154,7 +157,28 @@ export function createLiveBoard({key,firebaseDatabaseURL,primaryPath='/docs/'+ke
     if(!merged.ok){notify('local','conflict',{conflicts:merged.conflicts});return remember(desired,'local',{pending:true,conflict:true,conflicts:merged.conflicts})}
     desired=merged.value;
    }
-   if(!same(desired,live.value))live=await primary('PUT',desired,live.etag);
+   if(!same(desired,live.value)){
+    try{live=await primary('PUT',desired,live.etag)}
+    catch(error){
+     // Firebase may reject a conditional write if another tab/device saved
+     // between our read and write. Re-read once and merge against the known
+     // ancestor instead of stranding the draft as a permanent conflict.
+     if(error.status!==412)throw error;
+     const latest=await primary('GET');
+     if(same(latest.value,desired))live=latest;
+     else{
+      const ancestor=record.cloudValue||record.base;
+      if(!ancestor)throw failure('Firebase changed during save and the draft has no confirmed ancestor');
+      const merged=mergeBoard(ancestor,desired,latest.value);
+      if(!merged.ok){
+       notify('local','conflict',{conflicts:merged.conflicts});
+       return remember(desired,'local',{pending:true,conflict:true,conflicts:merged.conflicts});
+      }
+      desired=merged.value;
+      live=same(desired,latest.value)?latest:await primary('PUT',desired,latest.etag);
+     }
+    }
+   }
   }
   // Firebase succeeded. Keep any newer tab's draft; own draft can be removed.
   await removeDraft(record.id);
