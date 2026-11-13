@@ -1007,8 +1007,8 @@ async function callView(m){
   const calls=(await load('meta/calls'))||{items:[]},ev=(await load('meta/events'))||{items:[]};
   const externalCalls=(await load('meta/call-services'))||{};
   const externalServices=[
-    {name:'Яндекс Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'],path:/^\\/j\\/[^/]+\\/?$/},
-    {name:'Салют Джаз',field:'saluteUrl',hosts:['salutejazz.ru','jazz.sberbank.ru'],path:/^\\/(?:calls\\/)?(?:sber-)?[a-z0-9]{6,}\\/?$/i}
+    {name:'Яндекс Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'],path:/^\/j\/[^/]+\/?$/},
+    {name:'Салют Джаз',field:'saluteUrl',hosts:['salutejazz.ru','jazz.sberbank.ru'],path:/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i}
   ];
   const validExternalUrl=(raw,service)=>{
     try{const url=new URL(raw);if(url.protocol!=='https:'||!service.hosts.includes(url.hostname)||url.username||url.password||url.port||!service.path.test(url.pathname))return '';return url.href}catch{return ''}
