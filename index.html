@@ -492,6 +492,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .it.retro-timer .timer-controls button:disabled{opacity:.42!important}
 .it.retro-timer .g{z-index:6}.it.retro-timer .sb{z-index:7}
 @media(max-width:520px){.it.retro-timer .timer-controls{gap:3px!important}.it.retro-timer .timer-controls button{padding:4px 6px!important;font-size:8px!important}}
+
+/* Timer card: rectangular matte glass backing, circular dial without an outer outline. */
+.it.retro-timer{border-radius:22px!important;overflow:hidden!important;background:linear-gradient(145deg,rgba(238,229,255,.72),rgba(111,48,78,.68))!important;border:0!important;outline:0!important;box-shadow:0 10px 26px rgba(55,29,63,.16),inset 0 1px 0 rgba(255,255,255,.55)!important;backdrop-filter:blur(16px) saturate(120%);-webkit-backdrop-filter:blur(16px) saturate(120%)}
+.it.retro-timer::before,.it.retro-timer::after{content:none!important;display:none!important;border:0!important;box-shadow:none!important}
+.it.retro-timer .bgl{inset:8px!important;border:0!important;border-radius:16px!important;background:rgba(248,244,253,.34)!important;box-shadow:inset 0 1px 8px rgba(255,255,255,.38)!important}
+.it.retro-timer .timer-value{inset:12px!important}
+.it.retro-timer .timer-dial{width:96px;height:96px;border-radius:50%!important;border:0!important;outline:0!important;box-shadow:inset 0 0 0 2px rgba(139,94,157,.2),0 3px 12px rgba(68,39,77,.12)!important}
+
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
