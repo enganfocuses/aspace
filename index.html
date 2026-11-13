@@ -895,6 +895,22 @@ async function testGuestCallAccess(id){
   return{ok:cleanup.ok,step:cleanup.ok?'Готово':'Удаление тестового сигнала',status:cleanup.status};
 }
 async function roomUI(m,id,name,back){
+  // A permanent link may route a guest directly to its configured provider.
+  if(!(currentUser&&currentUser.uid===CFG.ownerUid)){
+    try{
+      const routeResponse=await fetch(DB()+'/shares/'+encodeURIComponent(id)+'/meta.json',{cache:'no-store'});
+      const route=routeResponse.ok?await routeResponse.json():null;
+      if(route?.destination&&route.destination!=='aspace'&&route.destinationUrl){
+        const target=new URL(route.destinationUrl);
+        const allowed=route.destination==='telemost'
+          ? ['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'].includes(target.hostname)&&/^\/j\/[^/]+\/?$/.test(target.pathname)
+          : route.destination==='salute'
+            ? ['salutejazz.ru','jazz.sberbank.ru'].includes(target.hostname)&&/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname)
+            : false;
+        if(target.protocol==='https:'&&allowed&&!target.username&&!target.password&&!target.port){location.replace(target.href);return}
+      }
+    }catch(error){console.warn('Не удалось прочитать маршрут постоянной ссылки:',error)}
+  }
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
   const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
   const openVideo=()=>{
@@ -1045,22 +1061,47 @@ async function callView(m){
   if(!Array.isArray(directLinks.items))directLinks.items=[];
   if(!Array.isArray(calls.items))calls.items=[];
   const directGrid=E('div',{className:'grid'});
-  directGrid.append(E('div',{className:'card new',onclick:async()=>{
-    const n=prompt('Название постоянной ссылки Aspace','Моя ссылка');
-    if(n===null)return;
-    const item={id:uid()+uid(),name:n.trim()||'Ссылка Aspace',createdAt:Date.now()};
-    directLinks.items.push(item);
+  const configureDirectRoute=async item=>{
+    const choice=prompt('Куда направлять ученика по этой постоянной ссылке?\\n1 — звонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');
+    if(choice===null)return false;
+    if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return false}
+    item.destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];
+    delete item.destinationUrl;
+    if(item.destination!=='aspace'){
+      const service=externalServices.find(x=>x.field===(item.destination==='telemost'?'telemostUrl':'saluteUrl'));
+      const raw=prompt('Вставь прямую ссылку-приглашение '+service.name+'. Она будет открываться у ученика.',externalCalls[service.field]||'');
+      if(raw===null)return false;
+      const target=validExternalUrl(raw.trim(),service);
+      if(!target){alert('Ссылка не прошла проверку. Нужна действующая HTTPS-ссылка-приглашение '+service.name+'.');return false}
+      item.destinationUrl=target;
+    }
     await save('meta/call-links',directLinks);
+    const publicRoute=await fetch(DB()+'/shares/'+encodeURIComponent(item.id)+'/meta.json',{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({role:'viewer',destination:item.destination,destinationUrl:item.destinationUrl||null,updatedAt:Date.now()})
+    });
+    if(!publicRoute.ok)throw new Error('Не удалось сохранить публичный маршрут для ученика (HTTP '+publicRoute.status+'). Проверь Firebase Rules.');
+    go(callView);return true;
+  };
+  directGrid.append(E('div',{className:'card new',onclick:async()=>{
+    const n=prompt('Название постоянной ссылки','Моя ссылка');
+    if(n===null)return;
+    const item={id:uid()+uid(),name:n.trim()||'Постоянная ссылка',createdAt:Date.now(),destination:'aspace'};
+    directLinks.items.push(item);
+    const configured=await configureDirectRoute(item);
+    if(!configured){directLinks.items=directLinks.items.filter(x=>x.id!==item.id);await save('meta/call-links',directLinks);return}
     copyLink(link('c',item.id));
-    alert('Постоянная ссылка Aspace создана и скопирована. Её можно отправить ученику.');
+    alert('Постоянная ссылка создана и скопирована. Ученик будет направлен в выбранный сервис.');
     go(callView);
-  }},'＋ Создать постоянную ссылку Aspace'));
+  }},'＋ Создать постоянную ссылку'));
   directLinks.items.forEach(item=>directGrid.append(E('div',{className:'card'},
-    E('b',{textContent:item.name||'Ссылка Aspace'}),
+    E('b',{textContent:item.name||'Постоянная ссылка'}),
+    E('div',{className:'mut',textContent:'Направление: '+(item.destination==='telemost'?'Яндекс Телемост':item.destination==='salute'?'Салют Джаз':'Aspace')}),
     E('div',{className:'mut',textContent:link('c',item.id)}),
     E('div',{className:'row'},
+      B('Куда подключаться',()=>configureDirectRoute(item)),
       B('Открыть',()=>go(mm=>roomUI(mm,item.id,item.name||'Видеозвонок',true))),
-      B('🔗 Скопировать',()=>{copyLink(link('c',item.id));say2('Ссылка Aspace скопирована')}),
+      B('🔗 Скопировать',()=>{copyLink(link('c',item.id));say2('Постоянная ссылка скопирована')}),
       B('Убрать из списка',async()=>{
         if(!confirm('Убрать ссылку из вашего списка? Уже отправленная ссылка продолжит работать у тех, у кого она есть.'))return;
         directLinks.items=directLinks.items.filter(x=>x.id!==item.id);
