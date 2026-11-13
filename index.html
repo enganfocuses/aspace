@@ -903,9 +903,9 @@ async function roomUI(m,id,name,back){
       if(route?.destination&&route.destination!=='aspace'&&route.destinationUrl){
         const target=new URL(route.destinationUrl);
         const allowed=route.destination==='telemost'
-          ? ['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'].includes(target.hostname)&&/^\\/j\\/[^/]+\\/?$/.test(target.pathname)
+          ? ['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'].includes(target.hostname)&&/^\/j\/[^/]+\/?$/.test(target.pathname)
           : route.destination==='salute'
-            ? ['salutejazz.ru','jazz.sberbank.ru'].includes(target.hostname)&&/^\\/(?:calls\\/)?(?:sber-)?[a-z0-9]{6,}\\/?$/i.test(target.pathname)
+            ? ['salutejazz.ru','jazz.sberbank.ru'].includes(target.hostname)&&/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname)
             : false;
         if(target.protocol==='https:'&&allowed&&!target.username&&!target.password&&!target.port){location.replace(target.href);return}
       }
