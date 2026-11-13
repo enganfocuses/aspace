@@ -171,10 +171,11 @@ test('shape hover exposes four draggable connector ports; Shift drag selects cur
 });
 
 
-test('board menu no longer exposes Psychology while other usage tools remain',()=>{
- const boardMenu=index.slice(index.indexOf("mi('Помощь'"),index.indexOf("if(boardTransport)saveFormat"));
- assert.doesNotMatch(boardMenu,/Психология/);
- assert.match(boardMenu,/Лимиты пространства/);
+test('board menu no longer exposes Psychology, Help or workspace limits',()=>{
+ const start=index.indexOf("mi('Скрыть / показать курсоры участников'");
+ const end=index.indexOf("if(boardTransport)saveFormat",start);
+ const boardMenu=index.slice(start,end);
+ assert.doesNotMatch(boardMenu,/Психология|Помощь|Лимиты пространства/);
 });
 
 test('new board timers start paused and have explicit start and pause controls',()=>{
@@ -202,7 +203,7 @@ test('board object dragging is isolated from the drawing surface and saves once 
  assert.doesNotMatch(drag,/geom\(el,n\);push\(n\)/);
  assert.match(drag,/if\(moved\)\{r\.emit\('i'/);
  assert.match(drag,/persistNow\(\)/);
- assert.match(index,/\.wrap>\.it\{z-index:3!important;pointer-events:auto;touch-action:none\}/);
+ assert.match(index,/\.wrap>\.it\{z-index:3;pointer-events:auto;touch-action:none\}/);
 });
 
 test('timer has a round engraved wine-colored retro clock design',()=>{
