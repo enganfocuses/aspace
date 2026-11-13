@@ -150,7 +150,7 @@ test('shape connectors offer draggable straight and curved arrows',()=>{
 
 
 test('completed drawing and erase gestures are queued for immediate board save',()=>{
- assert.match(index,/const persistNow=\(\)=>\{persist\(\);if\(guest\|\|disposed\)return;clearTimeout\(tm\);void queueSharedDraft\(snapshot\(\)\)\}/);
+ assert.match(index,/const persistNow=\(\)=>\{persist\(\);if\(guest\|\|disposed\)return;clearTimeout\(tm\);const state=snapshot\(\);void r\.emit\('boardstate',\{state\}\);void queueSharedDraft\(state\)\}/);
  assert.match(index,/cv\.onpointerup=e=>\{[^\n]*cur=null;persistNow\(\)\}/);
  assert.match(index,/r\.emit\('clr',\{\}\);persistNow\(\)/);
 });
@@ -220,4 +220,19 @@ test('board menu no longer contains Help or workspace limits shortcuts',()=>{
  const end=index.indexOf("if(boardTransport)saveFormat('Все версии",start);
  const menu=index.slice(start,end);
  assert.doesNotMatch(menu,/Помощь|Лимиты пространства/);
+});
+
+
+test('board sends a full live snapshot after a completed local edit and applies peer snapshots',()=>{
+ assert.match(index,/r\.emit\('boardstate',\{state\}\)/);
+ assert.match(index,/r\.on\('boardstate',x=>\{const state=x\.data\?\.state/);
+ assert.match(index,/applySnapshot\(state\);displayedBase=cloneBoard\(state\)/);
+});
+
+test('eraser removes intersecting strokes and broadcasts deletions instead of painting transparent overlays',()=>{
+ assert.match(index,/const eraseAt=\(x,y\)=>/);
+ assert.match(index,/strokes=strokes\.filter\(st=>!ids\.has\(st\.id\)\)/);
+ assert.match(index,/removed\.forEach\(st=>r\.emit\('ds',\{id:st\.id\}\)\)/);
+ assert.match(index,/if\(cur\.erase\)\{eraseAt\(x,y\);cur\.p\.push\(x,y\)\}/);
+ assert.match(index,/const seg=\(s,a\)=>\{if\(s\.e\)return/);
 });

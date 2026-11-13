@@ -1570,11 +1570,12 @@ async function openBoard(m,id,guest,shareToken=null){
   const persist=(remote=false)=>{if(guest||disposed)return;if(isOwner&&!remote)usageTracker.recordAction('boards/'+id);editEpoch++;clearTimeout(tm);
     tm=setTimeout(()=>{void queueSharedDraft(snapshot())},1200);
   };
-  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);void queueSharedDraft(snapshot())};
+  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);const state=snapshot();void r.emit('boardstate',{state});void queueSharedDraft(state)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},90);persist()};
   /* штрихи */
-  const paint=(c,s,a,er)=>{c.globalCompositeOperation=er?'destination-out':'source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke();c.globalCompositeOperation='source-over'};
-  const seg=(s,a)=>{if(s.e){paint(ctx,s,a,1);paint(ctxM,s,a,1);return}const c=s.m?ctxM:ctx;paint(c,s,a,0);
+  const paint=(c,s,a,er)=>{c.globalCompositeOperation='source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke()};
+  const eraseAt=(x,y)=>{const radius=eraserWidth/2;const dist=(px,py,ax,ay,bx,by)=>{const dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l)):0;return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))};const removed=strokes.filter(st=>{if(st.e)return false;for(let i=0;i<st.p.length;i+=2){if(i===0){if(Math.hypot(x-st.p[i],y-st.p[i+1])<=radius+st.w/2)return true}else if(dist(x,y,st.p[i-2],st.p[i-1],st.p[i],st.p[i+1])<=radius+st.w/2)return true}return false});if(removed.length){const ids=new Set(removed.map(st=>st.id));strokes=strokes.filter(st=>!ids.has(st.id));redraw();removed.forEach(st=>r.emit('ds',{id:st.id}));persist()}};
+  const seg=(s,a)=>{if(s.e)return;const c=s.m?ctxM:ctx;paint(c,s,a,0);
     if(s.ar&&s.p.length>=4){const n=s.p.length,x2=s.p[n-2],y2=s.p[n-1],an=Math.atan2(y2-s.p[n-3],x2-s.p[n-4]),l=12+s.w*3;c.beginPath();c.moveTo(x2-l*Math.cos(an-.45),y2-l*Math.sin(an-.45));c.lineTo(x2,y2);c.lineTo(x2-l*Math.cos(an+.45),y2-l*Math.sin(an+.45));c.stroke()}};
   const redraw=()=>{ctx.clearRect(0,0,W,H);ctxM.clearRect(0,0,W,H);strokes.forEach(s=>seg(s,0))};
   /* элементы */
@@ -1724,11 +1725,11 @@ async function openBoard(m,id,guest,shareToken=null){
     if(tool==='hand'){pan={x:e.clientX,y:e.clientY,l:sc.scrollLeft,t:sc.scrollTop};cv.style.cursor='grabbing';return}
     if(PLACE.includes(tool)){add(tool,x,y);setTool('select');return}
     if(tool==='line'||tool==='arrow'){cur={id:uid(),c:color,w:width,ar:tool==='arrow'?1:0,ln:1,e:0,m:0,p:[x,y,x,y]};strokes.push(cur);redraw();flush();return}
-    const er=tool==='eraser',mk=tool==='marker';cur={id:uid(),c:er?'#000':color,w:er?eraserWidth:mk?20:width,e:er?1:0,m:mk?1:0,p:[x,y]};strokes.push(cur);seg(cur,0);sent=0;flush()};
+    const er=tool==='eraser',mk=tool==='marker';cur={id:uid(),c:er?'#000':color,w:er?eraserWidth:mk?20:width,e:er?1:0,m:mk?1:0,p:[x,y]};if(!er){strokes.push(cur);seg(cur,0);sent=0;flush()}else{cur.erase=true;eraseAt(x,y)}};
   cv.onpointercancel=endMarquee;
   cv.onpointermove=e=>{if(marquee){updateMarquee(...pt(e));return}if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
-    const[x,y]=pt(e);if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>90)flush()};
-  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;flush();rec({t:'s',s:cur});cur=null;persistNow()};
+    const[x,y]=pt(e);if(cur.erase){eraseAt(x,y);cur.p.push(x,y)}else if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;cur.p.push(x,y);seg(cur,n-2)}if(Date.now()-lastT>90&&!cur.erase)flush()};
+  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;if(!cur.erase){flush();rec({t:'s',s:cur})}else{r.emit('boardstate',{state:snapshot()})}cur=null;persistNow()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
   // Secondary mouse buttons always pan the viewport regardless of the selected tool.
   // Capture-phase prevents right click on contenteditable objects from moving them.
@@ -1761,6 +1762,7 @@ async function openBoard(m,id,guest,shareToken=null){
   sc.addEventListener('touchmove',e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),nz=Math.min(2.5,Math.max(.25,pinch.z*dist/pinch.dist));const x=pinch.x/pinch.z,y=pinch.y/pinch.z;z=nz;applyZ();sc.scrollLeft=x*z-(a.clientX+b.clientX)/2+sc.getBoundingClientRect().left;sc.scrollTop=y*z-(a.clientY+b.clientY)/2+sc.getBoundingClientRect().top},{passive:false});
   sc.addEventListener('touchend',e=>{if(e.touches.length<2){pinch=null;queueViewport()}});
   /* синхронизация */
+  r.on('boardstate',x=>{const state=x.data?.state;if(!state||guest||disposed)return;applySnapshot(state);displayedBase=cloneBoard(state)});
   r.on('sp',x=>{const o=x.data;if(!o)return;let s=strokes.find(q=>q.id===o.id);const had=!!s;if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a);persist(true)});
   r.on('ds',x=>{strokes=strokes.filter(q=>q.id!==x.data.id);redraw();persist(true)});
   r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);if(selectedItems.includes(n))selectMany(selectedItems);persist(true)});
