@@ -150,7 +150,7 @@ test('shape connectors offer draggable straight and curved arrows',()=>{
 
 
 test('completed drawing and erase gestures are queued for immediate board save',()=>{
- assert.match(index,/const persistNow=\(\)=>\{persist\(\);if\(guest\|\|disposed\)return;clearTimeout\(tm\);void queueSharedDraft\(snapshot\(\)\)\}/);
+ assert.match(index,/const persistNow=\(\)=>\{persist\(\);if\(guest\|\|disposed\)return;clearTimeout\(tm\);const state=snapshot\(\);void r\.emit\('boardstate',\{state\}\);void queueSharedDraft\(state\)\}/);
  assert.match(index,/cv\.onpointerup=e=>\{[^\n]*cur=null;persistNow\(\)\}/);
  assert.match(index,/r\.emit\('clr',\{\}\);persistNow\(\)/);
 });
