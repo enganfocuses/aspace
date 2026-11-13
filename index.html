@@ -433,6 +433,17 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 @media(max-width:1100px){.home-sections .section-copy strong,.home-sections .section-calls .section-copy strong{font-size:18px}}
 @media(max-width:480px){.home-sections .section-copy strong,.home-sections .section-calls .section-copy strong{font-size:16px}.home-sections .section-copy>span{font-size:10px}}
 
+/* Drag board objects directly: no separate top grab handle. */
+.bfull .it>i{display:none!important}
+.bfull .it{cursor:grab}
+.bfull .it:active{cursor:grabbing}
+.bfull .it .t{cursor:text}
+.object-color-control{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border:1px solid var(--line);border-radius:9px;background:var(--card);font-size:12px;font-weight:600;white-space:nowrap}
+.object-color-picker{width:34px!important;height:34px;padding:2px!important;border:0!important;border-radius:8px!important;cursor:pointer}
+.object-color-control[hidden]{display:none!important}
+.timer-controls{display:flex;justify-content:center;gap:8px;margin-top:8px}
+.timer-controls button{padding:6px 12px;border-radius:8px;font-size:13px;min-width:86px}
+.timer-controls button:disabled{opacity:.4;cursor:not-allowed}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
@@ -1594,7 +1605,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if(gy!==null){const candidates=[y,y+n.h/2,y+n.h],nearest=candidates.reduce((best,v)=>Math.abs(v-gy)<Math.abs(best-gy)?v:best,candidates[0]);y+=gy-nearest}
     guideLayer.replaceChildren();if(gx!==null)guideLayer.append(E('div',{className:'snap-guide v',style:`left:${gx}px`}));if(gy!==null)guideLayer.append(E('div',{className:'snap-guide h',style:`top:${gy}px`}));return{x:Math.max(0,x),y:Math.max(0,y)};
   };
-  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button||e.target.closest('.g,.sb'))return;if(h===el&&e.target.closest('.t'))return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
+  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button||e.target.closest('.g,.sb,.wire-port,.timer-controls,.session-widget'))return;if(h===el&&e.target.closest('.t')&&el.dataset.symbolObject!=='true')return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
       const group=selectedItems.filter(q=>q!==n&&!q.locked).map(q=>({q,dx:q.x-n.x,dy:q.y-n.y}));
       h.onpointermove=ev=>{if(n.locked||guest)return;const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);n.x=Math.max(p.x,...group.map(o=>-o.dx));n.y=Math.max(p.y,...group.map(o=>-o.dy));geom(el,n);push(n);for(const {q,dx,dy} of group){if(q.locked||!els[q.id])continue;q.x=n.x+dx;q.y=n.y+dy;geom(els[q.id],q);push(q)}};
       h.onpointerup=()=>{h.onpointermove=h.onpointerup=null;clearGuides();fit()}})};
@@ -1626,14 +1637,14 @@ async function openBoard(m,id,guest,shareToken=null){
         if(e.shiftKey)selectMany(selectedItems.includes(n)?selectedItems.filter(q=>q!==n):[...selectedItems,n]);
         else if(!selectedItems.includes(n)||e.target.closest('.g,.sb,.t'))select(n);
       },true);
-      drag(hd,el,n);wrap.insertBefore(el,n.k==='frame'?cv.nextSibling:null)}
+      el.dataset.symbolObject=String(n.k==='emo'||(n.k==='txt'&&Object.values(SYMS).some(group=>group.split(' ').includes(n.t))));drag(el,el,n);wrap.insertBefore(el,n.k==='frame'?cv.nextSibling:null)}
     geom(el,n);
-    if(n.k==='emo'){el._bg.textContent=n.t;el._bg.style.fontSize=Math.min(n.w,n.h)*.8+'px'}
+    if(n.k==='emo'){el._bg.textContent=n.t;el._bg.style.fontSize=Math.min(n.w,n.h)*.8+'px';el._bg.style.color=n.c||'#1f1f2b'}
     el.classList.toggle('locked',!!n.locked);
     if(el._t){el._t.contentEditable=String(!guest&&!n.locked);styleT(el._t,n);if(document.activeElement!==el._t)el._t.textContent=n.t||''}
     if(FILLK.includes(n.k))el._bg.style.background=n.c;
     el.classList.toggle('retro-timer',!!n.deadline);
-    if(n.deadline){
+    if(n.deadline||Number.isFinite(n.timerDurationMs)){
       n.w=Math.max(140,n.w);n.h=n.w;geom(el,n);
       if(!el._clock){
         el._clock=E('div',{className:'timer-value',contentEditable:false,role:'timer',ariaLabel:'Таймер'});
@@ -1641,7 +1652,11 @@ async function openBoard(m,id,guest,shareToken=null){
         for(const [label,position] of [['XII','north'],['III','east'],['VI','south'],['IX','west']])dial.append(E('span',{className:'clock-numeral '+position,textContent:label}));
         el._hand=E('span',{className:'timer-hand'});dial.append(el._hand,E('span',{className:'timer-pin'}));
         el._readout=E('span',{className:'timer-readout'});el._timerStatus=E('span',{className:'timer-caption'});
-        el._clock.append(dial,el._readout,el._timerStatus);el.append(el._clock);drag(el._clock,el,n);
+        const startTimer=B('▶ Пуск',()=>{if(guest||n.locked)return;const left=Math.max(0,Number(n.timerRemainingMs??(n.deadline? n.deadline-Date.now():n.timerDurationMs||0)));if(!left)return;n.timerRemainingMs=left;n.deadline=Date.now()+left;n.timerRunning=true;updateTimerClock(n,el);push(n);persistNow()});
+        const pauseTimer=B('Ⅱ Пауза',()=>{if(guest||n.locked||!n.deadline)return;n.timerRemainingMs=Math.max(0,n.deadline-Date.now());n.deadline=null;n.timerRunning=false;updateTimerClock(n,el);push(n);persistNow()});
+        el._timerControls=E('div',{className:'timer-controls'},startTimer,pauseTimer);
+        el._timerControls.onpointerdown=e=>e.stopPropagation();
+        el._clock.append(dial,el._readout,el._timerStatus,el._timerControls);el.append(el._clock);
       }
       updateTimerClock(n,el);
     }
@@ -1938,7 +1953,7 @@ async function openBoard(m,id,guest,shareToken=null){
     (source.arrows||=[]).push({to:target.id,color:'#71384f',bend:0});
     queueWires();push(source);select(source);say('');
   },true);
-  const syncBar=()=>{if(!sel)return;wireControls(sel);fsel.value=sel.f||'Open Sans';ssel.value=sel.fs||16;bB.classList.toggle('on',!!sel.b);bI.classList.toggle('on',!!sel.i);bU.classList.toggle('on',!!sel.ul)};
+  const syncBar=()=>{if(!sel)return;wireControls(sel);fsel.value=sel.f||'Open Sans';ssel.value=sel.fs||16;if(/^#[0-9a-f]{6}$/i.test(sel.c||''))objectColor.value=sel.c;bB.classList.toggle('on',!!sel.b);bI.classList.toggle('on',!!sel.i);bU.classList.toggle('on',!!sel.ul)};
   const lockButton=B('Заблокировать',()=>{
     if(guest||!selectedItems.length)return;
     const locked=!selectedItems.every(n=>n.locked);
@@ -1952,11 +1967,14 @@ async function openBoard(m,id,guest,shareToken=null){
   for(const [key,label,title] of [['text','Aa','Текст и шрифт'],['fill','Цвет','Заливка'],['links','↗','Связи и стрелки']])formatTabs[key]=E('button',{textContent:label,title,ariaLabel:title,ariaExpanded:'false',onclick:()=>chooseFormat(key)});
   const duplicateSelected=E('button',{textContent:'⧉',title:'Дублировать',ariaLabel:'Дублировать',onclick:()=>{for(const n of [...selectedItems])dup(n)}});
   const deleteSelected=E('button',{textContent:'×',title:'Удалить',ariaLabel:'Удалить',onclick:()=>{for(const n of [...selectedItems])delItem(n)}});
-  fbar.append(E('div',{className:'format-main'},lockButton,formatTabs.text,formatTabs.fill,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
+  const objectColor=E('input',{type:'color',value:'#800020',title:'Изменить цвет стикера, фигуры или символа',ariaLabel:'Изменить цвет объекта',className:'object-color-picker',oninput:e=>fmt('c',e.target.value.toLowerCase())});
+  const objectColorLabel=E('label',{className:'object-color-control',title:'Цвет объекта'},E('span',{textContent:'Цвет'}),objectColor);
+  fbar.append(E('div',{className:'format-main'},lockButton,formatTabs.text,formatTabs.fill,objectColorLabel,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
   function updateFormatSections(){
     const editable=selectedItems.length===1&&!sel?.locked;
-    const allowed={text:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='txt'),fill:editable&&!sel.deadline&&FILLK.includes(sel.k),links:editable&&SHAPES.includes(sel.k)};
+    const allowed={text:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='txt'),fill:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='emo'),links:editable&&SHAPES.includes(sel.k)};
     if(!allowed[formatTab])formatTab=null;
+    objectColorLabel.hidden=!(editable&&(FILLK.includes(sel.k)||sel.k==='emo'));
     for(const [key,section] of [['text',fontSec],['fill',fillSec],['links',wireTools]]){formatTabs[key].hidden=!allowed[key];formatTabs[key].classList.toggle('on',formatTab===key);formatTabs[key].setAttribute('aria-expanded',String(formatTab===key));section.style.display=formatTab===key?'flex':'none'}
     formatBody.hidden=!formatTab;
   }
@@ -1992,7 +2010,8 @@ async function openBoard(m,id,guest,shareToken=null){
   function createTimer(){
     const raw=prompt('Таймер: сколько минут?','5');if(raw===null)return;
     const minutes=Number(raw.replace(',','.'));if(!Number.isFinite(minutes)||minutes<=0||minutes>1440)return say('Введи время от 0 до 1440 минут.');
-    add('note',...center(),{t:'Таймер',c:'#eef2ff',deadline:Date.now()+minutes*60000,durationMs:minutes*60000,w:220,h:220});
+    const durationMs=minutes*60000;
+    add('note',...center(),{t:'Таймер',c:'#eef2ff',timerDurationMs:durationMs,timerRemainingMs:durationMs,timerRunning:false,deadline:null,w:220,h:220});
   }
   function createVote(){
     const question=prompt('Вопрос для голосования');if(!question?.trim())return;
@@ -2003,12 +2022,16 @@ async function openBoard(m,id,guest,shareToken=null){
   const extras=mkpop();extras.append(E('b',{textContent:'Инструменты для совместной работы'}),E('div',{className:'row'},B('Таймер',createTimer),B('Голосование',createVote),B('Заметка',()=>{hidePops();setTool('note')}),B('Комментарий',()=>add('note',...center(),{t:'Комментарий: ',c:'#e3edff'})),B('Реакция 👍',()=>add('emo',...center(),{t:'👍'}))));
   tbar.append(sep(),tb('comment','Добавить комментарий',()=>add('note',...center(),{t:'Комментарий: ',c:'#e3edff'})),tb('vote','Голосование',createVote),tb('timer','Таймер',createTimer),tb('plus','Ещё инструменты',()=>showPop(extras)));
   function updateTimerClock(n,el){
-    const seconds=Math.max(0,Math.ceil((n.deadline-Date.now())/1000));
+    const running=!!n.deadline;
+    let remaining=running?Math.max(0,n.deadline-Date.now()):Math.max(0,Number(n.timerRemainingMs??n.timerDurationMs??0));
+    if(running&&remaining===0){n.timerRemainingMs=0;n.deadline=null;n.timerRunning=false;push(n);persistNow()}
+    const seconds=Math.ceil(remaining/1000);
     el._readout.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
-    el._timerStatus.textContent=seconds?'До конца':'Время вышло';
+    el._timerStatus.textContent=seconds?(running?'Идёт':'На паузе'):'Время вышло';
     el._hand.style.transform='rotate('+((seconds%60)*6)+'deg)';el.classList.toggle('timer-expired',seconds===0);
+    if(el._timerControls){const [start,pause]=el._timerControls.children;start.disabled=running||seconds===0;pause.disabled=!running;}
   }
-  const sessionTicker=setInterval(()=>{for(const n of items)if(n.deadline&&els[n.id]?._clock)updateTimerClock(n,els[n.id])},500);
+  const sessionTicker=setInterval(()=>{for(const n of items)if((n.deadline||Number.isFinite(n.timerDurationMs))&&els[n.id]?._clock)updateTimerClock(n,els[n.id])},500);
   const hist=E('div',{className:'bar hist'},tb('undo','Отменить (Ctrl+Z)',doUndo),tb('redo','Повторить (Ctrl+Y)',doRedo));
   const zl=E('span',{className:'zl',textContent:'100%'}),zoom=E('div',{className:'bar zoom'},B('−',()=>setZ(z/1.2)),zl,B('+',()=>setZ(z*1.2)),B('100%',()=>setZ(1)));
   /* видео-окно */
@@ -2215,7 +2238,6 @@ async function openBoard(m,id,guest,shareToken=null){
   });
   mi('Помощь',()=>alert('Выбери инструмент и нажми на доску. Рука — перемещение, колесо — прокрутка. Ctrl/Cmd+Z — отмена, Delete — удаление. Таймер и голосование сохраняются на доске. Голосовать могут участники с правом редактирования.'));
   if(isOwner)mi('← Список досок',()=>go(boardsView));
-  if(isOwner)mi('🧠 Психология · КПТ',()=>go(psychologyView));
   if(isOwner)mi('📊 Лимиты пространства',()=>go(usageView));
   if(boardTransport)saveFormat('Все версии · JSON',async()=>{
     try{const versions=await boardTransport.inspect(),url=URL.createObjectURL(new Blob([JSON.stringify(versions,null,2)],{type:'application/json'}));
