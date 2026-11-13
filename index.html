@@ -1695,7 +1695,7 @@ async function openBoard(m,id,guest,shareToken=null){
   };
   window.addEventListener('online',retrySharedDraft);
   const persist=(remote=false)=>{if(guest||disposed)return;if(isOwner&&!remote)usageTracker.recordAction('boards/'+id);editEpoch++;clearTimeout(tm);
-    tm=setTimeout(()=>{void queueSharedDraft(snapshot())},1200);
+    tm=setTimeout(()=>{void queueSharedDraft(snapshot())},350);
   };
   const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);const state=snapshot();void r.emit('boardstate',{state});void queueSharedDraft(state)};
   const push=n=>{if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},90);persist()};
@@ -2464,8 +2464,8 @@ async function openBoard(m,id,guest,shareToken=null){
       }else if(!disposed)say('Доска сохранена на устройстве. Повторяем подключение…');
     }finally{polling=false}
   };
-  cloudPollTimer=setInterval(()=>{void pollBoard()},12000);
-  shareRecoveryTimer=setInterval(retrySharedDraft,15000);
+  cloudPollTimer=setInterval(()=>{void pollBoard()},4000);
+  shareRecoveryTimer=setInterval(retrySharedDraft,3000);
   const onSyncStatus=event=>{
     if(event.detail.key!=='boards/'+id||disposed)return;
     const labels={firebase:'Firebase',cloudflare:'Резерв Cloudflare',local:'На устройстве'};
