@@ -380,7 +380,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .home-sections .section-architecture{background:#dce5e9;color:#253744;border-color:#9aafb9}
 .section-architecture .section-art{background-color:#dce5e9;background-image:linear-gradient(0deg,#172b3bdc 0%,#172b3b30 62%,#172b3b08 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 700'%3E%3Cdefs%3E%3Cpattern id='g' width='36' height='36' patternUnits='userSpaceOnUse'%3E%3Cpath d='M36 0H0V36' fill='none' stroke='%236e8997' stroke-opacity='.34' stroke-width='1'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='900' height='700' fill='%23dce8eb'/%3E%3Crect width='900' height='700' fill='url(%23g)'/%3E%3Cg fill='none' stroke='%233c6476' stroke-width='8' stroke-linejoin='round'%3E%3Cpath d='M110 570V290L300 175l190 115v280M490 570V350l150-92 150 92v220M80 570h710M150 290h300M530 350h220'/%3E%3Cpath d='M210 570V390h180v180M555 570V420h120v150M245 420h110v150M580 450h70v120' stroke-width='5'/%3E%3Cpath d='M300 175V95m-25 0h50M640 258V155m-25 0h50' stroke-width='5'/%3E%3C/g%3E%3Cg fill='none' stroke='%23869eaa' stroke-width='3'%3E%3Ccircle cx='300' cy='175' r='28'/%3E%3Ccircle cx='640' cy='258' r='22'/%3E%3Cpath d='M110 620h680M110 638h680M95 280h15m-15 290h15M800 340h18m-18 230h18'/%3E%3C/g%3E%3C/svg%3E");background-size:cover,cover;background-position:center,center;background-repeat:no-repeat;filter:none}
 .section-architecture .section-copy{background:#f5f8f4ed;padding:20px 14px;outline:1px solid #78909b;outline-offset:-6px}
-.home-footer{display:flex;justify-content:center;gap:10px;margin-top:28px}.home-footer button{background:var(--lav);color:#49354f}
+.home-footer{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:28px;flex-wrap:wrap}.home-footer button{background:var(--lav);color:#49354f}.home-footer .architecture-shortcut{padding:6px 11px;font-size:12px;border:1px solid #cfc3da;background:#f7f3fa;color:#665174;box-shadow:none}
 @media(max-width:900px){.home-sections{grid-template-columns:repeat(2,minmax(0,1fr))}.home-sections .section-card{min-height:330px}}
 @media(max-width:480px){#main.home-menu{padding:24px 12px}.home-masthead{gap:12px}.home-sections{gap:9px}.home-sections .section-card{min-height:285px;padding:19px 10px}.section-copy strong{font-size:25px}.section-copy>span{font-size:12px}.section-copy{gap:10px}.section-calls .section-copy,.section-education .section-copy{padding:16px 9px}.home-sections .section-usage:before{font-size:80px}.bfull .fbar{top:118px}}
 .bfull .fbar{top:auto;bottom:calc(145px + env(safe-area-inset-bottom,0px))}
@@ -1039,7 +1039,6 @@ function homeView(m){
     ['Видеозвонки','Встречи и совместные занятия',()=>go(callView),'calls'],
     ['Образование','Курсы и материалы для уроков',()=>go(eduView),'education'],
     ['Психология','КПТ · курс, дневник и практики',()=>go(psychologyView),'psychology'],
-    ['Архитектура','Компоненты, связи, сервисы и диагностика',()=>go(architectureView),'architecture'],
     ['Тренажер','Speechcoach · панель сайта и коды доступа',()=>go(trainerView),'trainer'],
     ['Лимиты','Использование пространства',()=>go(usageView),'usage'],
     ['Резерв Cloudflare','Проверка и подготовка копий',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'),'reserve']
@@ -1048,7 +1047,7 @@ function homeView(m){
   for(const [title,description,action,key] of sections){
     const card=E('button',{className:'section-card section-'+key,onclick:action},E('span',{className:'section-art',ariaHidden:'true'}),E('span',{className:'section-copy'},E('strong',{textContent:title}),E('span',{textContent:description})),E('span',{className:'section-enter',textContent:'↗',ariaHidden:'true'}));grid.append(card);
   }
-  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()})));
+  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()})));
 }
 
 async function boardsView(m){
