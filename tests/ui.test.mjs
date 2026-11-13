@@ -203,7 +203,7 @@ test('board object dragging is isolated from the drawing surface and saves once 
  assert.doesNotMatch(drag,/geom\(el,n\);push\(n\)/);
  assert.match(drag,/if\(moved\)\{r\.emit\('i'/);
  assert.match(drag,/persistNow\(\)/);
- assert.match(index,/\.wrap>\.it\{z-index:3;pointer-events:auto;touch-action:none\}/);
+ assert.match(index,/\.wrap>\.it\{z-index:3;pointer-events:auto;background:transparent;touch-action:none\}/);
 });
 
 test('timer has a round engraved wine-colored retro clock design',()=>{
