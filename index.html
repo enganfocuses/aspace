@@ -472,6 +472,26 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .board-wires{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
 .wrap>.it{z-index:3;pointer-events:auto;background:transparent;touch-action:none}
 .wrap>.it.frame{z-index:2}
+
+/* Lavender and wine timer: soft matte translucent glass with a round enamel dial. */
+.it.retro-timer{z-index:5!important;border-radius:50%!important;overflow:visible!important;background:linear-gradient(145deg,rgba(238,229,255,.78),rgba(111,48,78,.82))!important;border:1px solid rgba(255,255,255,.72)!important;box-shadow:0 12px 30px rgba(55,29,63,.22),inset 0 1px 0 rgba(255,255,255,.82),inset 0 -8px 18px rgba(67,31,66,.18)!important;backdrop-filter:blur(16px) saturate(125%);-webkit-backdrop-filter:blur(16px) saturate(125%)}
+.it.retro-timer::before{content:"";position:absolute;inset:-5px;border-radius:50%;pointer-events:none;border:1px solid rgba(244,232,255,.9);box-shadow:0 0 0 3px rgba(112,68,121,.28),0 0 0 6px rgba(255,255,255,.28);z-index:4}
+.it.retro-timer::after{content:"";position:absolute;inset:7px;border-radius:50%;pointer-events:none;border:1px solid rgba(116,74,126,.28);z-index:4}
+.it.retro-timer .bgl{inset:12px!important;border-radius:50%!important;background:radial-gradient(circle at 35% 25%,rgba(255,252,255,.98),rgba(230,218,248,.96) 58%,rgba(198,171,215,.95))!important;box-shadow:inset 0 2px 10px rgba(67,37,83,.13),inset 0 0 0 1px rgba(255,255,255,.9)!important}
+.it.retro-timer .timer-value{inset:15px!important;color:#542b48!important;font-family:Georgia,'Times New Roman',serif!important;gap:5px!important}
+.it.retro-timer .timer-dial{width:96px;height:96px;border:1px solid rgba(109,69,126,.42);background:radial-gradient(circle,#fffaff 0 61%,#d9c8e9 62% 100%);box-shadow:inset 0 0 0 3px rgba(255,255,255,.82),inset 0 0 0 5px rgba(139,94,157,.24),0 3px 12px rgba(68,39,77,.12)}
+.it.retro-timer .clock-numeral{color:#62364f!important;font-size:10px!important}
+.it.retro-timer .timer-hand{background:#713b5b!important;box-shadow:0 0 2px rgba(65,31,56,.45)!important}
+.it.retro-timer .timer-pin{background:radial-gradient(circle at 35% 30%,#fff,#9b719f)!important;border:1px solid #74445f!important}
+.it.retro-timer .timer-readout{font:700 24px/1 Georgia,'Times New Roman',serif!important;letter-spacing:.05em;color:#592e4b!important;text-shadow:0 1px rgba(255,255,255,.9)!important}
+.it.retro-timer .timer-caption{font:italic 10px Georgia,serif!important;letter-spacing:.1em;color:#8b617f!important}
+.it.retro-timer .timer-controls{display:flex!important;justify-content:center;gap:5px!important;margin-top:3px!important}
+.it.retro-timer .timer-controls button{min-width:0!important;padding:5px 8px!important;border:1px solid rgba(111,66,104,.38)!important;border-radius:999px!important;background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(214,197,233,.9))!important;color:#5a304d!important;font:700 9px Georgia,serif!important;box-shadow:inset 0 1px rgba(255,255,255,.95),0 2px 5px rgba(65,35,64,.12)!important;white-space:nowrap}
+.it.retro-timer .timer-controls button:first-child{background:linear-gradient(145deg,#f0e8ff,#cbb5e3)!important}
+.it.retro-timer .timer-controls button:last-child{background:linear-gradient(145deg,#f4dfe9,#c98da8)!important;color:#54283f!important}
+.it.retro-timer .timer-controls button:disabled{opacity:.42!important}
+.it.retro-timer .g{z-index:6}.it.retro-timer .sb{z-index:7}
+@media(max-width:520px){.it.retro-timer .timer-controls{gap:3px!important}.it.retro-timer .timer-controls button{padding:4px 6px!important;font-size:8px!important}}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
@@ -1684,7 +1704,8 @@ async function openBoard(m,id,guest,shareToken=null){
         el._readout=E('span',{className:'timer-readout'});el._timerStatus=E('span',{className:'timer-caption'});
         const startTimer=B('▶ Пуск',()=>{if(guest||n.locked)return;const left=Math.max(0,Number(n.timerRemainingMs??(n.deadline? n.deadline-Date.now():n.timerDurationMs||0)));if(!left)return;n.timerRemainingMs=left;n.deadline=Date.now()+left;n.timerRunning=true;updateTimerClock(n,el);push(n);persistNow()});
         const pauseTimer=B('Ⅱ Пауза',()=>{if(guest||n.locked||!n.deadline)return;n.timerRemainingMs=Math.max(0,n.deadline-Date.now());n.deadline=null;n.timerRunning=false;updateTimerClock(n,el);push(n);persistNow()});
-        el._timerControls=E('div',{className:'timer-controls'},startTimer,pauseTimer);
+        const stopTimer=B('■ Стоп',()=>{if(guest||n.locked)return;n.timerRemainingMs=Number(n.timerDurationMs)||0;n.deadline=null;n.timerRunning=false;updateTimerClock(n,el);push(n);persistNow()});
+        el._timerControls=E('div',{className:'timer-controls'},startTimer,pauseTimer,stopTimer);
         el._timerControls.onpointerdown=e=>e.stopPropagation();
         el._clock.append(dial,el._readout,el._timerStatus,el._timerControls);el.append(el._clock);
       }
@@ -2058,9 +2079,9 @@ async function openBoard(m,id,guest,shareToken=null){
     if(running&&remaining===0){n.timerRemainingMs=0;n.deadline=null;n.timerRunning=false;push(n);persistNow()}
     const seconds=Math.ceil(remaining/1000);
     el._readout.textContent=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
-    el._timerStatus.textContent=seconds?(running?'Идёт':'На паузе'):'Время вышло';
+    el._timerStatus.textContent=seconds?(running?'Идёт':(remaining===Number(n.timerDurationMs)?'Готов':'На паузе')):'Время вышло';
     el._hand.style.transform='rotate('+((seconds%60)*6)+'deg)';el.classList.toggle('timer-expired',seconds===0);
-    if(el._timerControls){const [start,pause]=el._timerControls.children;start.disabled=running||seconds===0;pause.disabled=!running;}
+    if(el._timerControls){const [start,pause,stop]=el._timerControls.children;start.disabled=running||seconds===0;pause.disabled=!running;stop.disabled=remaining===Number(n.timerDurationMs)&&!running;}
   }
   const sessionTicker=setInterval(()=>{for(const n of items)if((n.deadline||Number.isFinite(n.timerDurationMs))&&els[n.id]?._clock)updateTimerClock(n,els[n.id])},500);
   const hist=E('div',{className:'bar hist'},tb('undo','Отменить (Ctrl+Z)',doUndo),tb('redo','Повторить (Ctrl+Y)',doRedo));
