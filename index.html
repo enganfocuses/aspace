@@ -1594,7 +1594,7 @@ async function openBoard(m,id,guest,shareToken=null){
     if(gy!==null){const candidates=[y,y+n.h/2,y+n.h],nearest=candidates.reduce((best,v)=>Math.abs(v-gy)<Math.abs(best-gy)?v:best,candidates[0]);y+=gy-nearest}
     guideLayer.replaceChildren();if(gx!==null)guideLayer.append(E('div',{className:'snap-guide v',style:`left:${gx}px`}));if(gy!==null)guideLayer.append(E('div',{className:'snap-guide h',style:`top:${gy}px`}));return{x:Math.max(0,x),y:Math.max(0,y)};
   };
-  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button||e.target.closest('.g,.sb'))return;if(h===el&&e.target.closest('.t'))return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
+  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button||e.target.closest('.g,.sb'))return;if(h===el&&e.target.closest('.t,.timer-actions'))return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
       const group=selectedItems.filter(q=>q!==n&&!q.locked).map(q=>({q,dx:q.x-n.x,dy:q.y-n.y}));
       h.onpointermove=ev=>{if(n.locked||guest)return;const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);n.x=Math.max(p.x,...group.map(o=>-o.dx));n.y=Math.max(p.y,...group.map(o=>-o.dy));geom(el,n);push(n);for(const {q,dx,dy} of group){if(q.locked||!els[q.id])continue;q.x=n.x+dx;q.y=n.y+dy;geom(els[q.id],q);push(q)}};
       h.onpointerup=()=>{h.onpointermove=h.onpointerup=null;clearGuides();fit()}})};
@@ -1635,7 +1635,7 @@ async function openBoard(m,id,guest,shareToken=null){
     const isTimer=Boolean(n.durationMs||n.deadline);el.classList.toggle('retro-timer',isTimer);
     if(isTimer){
       n.w=Math.max(140,n.w);n.h=n.w;
-      if(n.deadline&&!n.durationMs){n.durationMs=Math.max(1000,n.deadline-Date.now());n.remainingMs=Math.max(0,n.deadline-Date.now());n.running=true}
+      if(n.deadline&&n.running===undefined){n.remainingMs=Math.max(0,n.deadline-Date.now());n.running=true}if(n.deadline&&!n.durationMs)n.durationMs=Math.max(1000,n.remainingMs||n.deadline-Date.now());
       if(n.running&&n.deadline&&n.deadline<=Date.now()){n.remainingMs=0;n.running=false;n.deadline=null}
       geom(el,n);
       if(!el._clock){
@@ -1959,7 +1959,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const formatBody=E('div',{className:'format-body',hidden:true},fontSec,fillSec,wireTools);
   const formatTabs={};
   const chooseFormat=tab=>{formatTab=formatTab===tab?null:tab;updateFormatSections();queueFormatPosition()};
-  for(const [key,label,title] of [['text','Aa','Текст и шрифт'],['fill','Цвет','Заливка'],['links','↗','Связи и стрелки']])formatTabs[key]=E('button',{textContent:label,title,ariaLabel:title,ariaExpanded:'false',onclick:()=>chooseFormat(key)});
+  for(const [key,label,title] of [['text','Aa','Текст и шрифт'],['fill','🎨','Изменить цвет'],['links','↗','Связи и стрелки']])formatTabs[key]=E('button',{textContent:label,title,ariaLabel:title,ariaExpanded:'false',onclick:()=>chooseFormat(key)});
   const duplicateSelected=E('button',{textContent:'⧉',title:'Дублировать',ariaLabel:'Дублировать',onclick:()=>{for(const n of [...selectedItems])dup(n)}});
   const deleteSelected=E('button',{textContent:'×',title:'Удалить',ariaLabel:'Удалить',onclick:()=>{for(const n of [...selectedItems])delItem(n)}});
   fbar.append(E('div',{className:'format-main'},lockButton,formatTabs.text,formatTabs.fill,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
