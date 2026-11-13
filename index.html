@@ -548,6 +548,57 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .it.retro-timer .g{z-index:6}.it.retro-timer .sb{z-index:7}
 @media(max-width:520px){.it.retro-timer .timer-controls{gap:4px!important}.it.retro-timer .timer-controls button{padding:5px 7px!important;font-size:10px!important}}
 
+
+/* Minimal timer: no backing, wine-colored time, compact side controls. */
+.it.retro-timer{
+  z-index:5!important;container-type:inline-size;
+  border:0!important;outline:0!important;border-radius:0!important;
+  overflow:visible!important;background:transparent!important;
+  box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
+.it.retro-timer::before,.it.retro-timer::after{content:none!important;display:none!important}
+.it.retro-timer .bgl{inset:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.it.retro-timer .timer-value{
+  position:absolute!important;inset:0!important;
+  display:flex!important;flex-direction:row!important;
+  align-items:center!important;justify-content:center!important;
+  gap:clamp(7px,3cqw,16px)!important;padding:0!important;
+  color:#71364f!important;font-family:inherit!important;
+}
+.it.retro-timer .timer-dial{display:none!important}
+.it.retro-timer .timer-readout{
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:clamp(18px,18cqw,52px)!important;
+  font-weight:600!important;line-height:1!important;
+  letter-spacing:-.035em!important;color:#71364f!important;
+  text-shadow:none!important;font-variant-numeric:tabular-nums;
+  white-space:nowrap!important;
+}
+.it.retro-timer .timer-caption{display:none!important}
+.it.retro-timer .timer-controls{
+  display:flex!important;flex-direction:column!important;
+  justify-content:center!important;align-items:center!important;
+  gap:clamp(2px,1.2cqw,6px)!important;margin:0!important;
+}
+.it.retro-timer .timer-controls button{
+  position:relative!important;display:grid!important;place-items:center!important;
+  width:clamp(22px,10cqw,34px)!important;height:clamp(22px,10cqw,34px)!important;
+  min-width:0!important;padding:0!important;
+  border:0!important;border-radius:50%!important;
+  background:transparent!important;color:#71364f!important;
+  box-shadow:none!important;font-size:0!important;line-height:1!important;
+}
+.it.retro-timer .timer-controls button::before{
+  display:block!important;font:600 clamp(14px,6cqw,20px)/1 system-ui,sans-serif!important;
+  color:inherit!important;
+}
+.it.retro-timer .timer-controls button:nth-child(1)::before{content:"▶"}
+.it.retro-timer .timer-controls button:nth-child(2)::before{content:"Ⅱ"}
+.it.retro-timer .timer-controls button:nth-child(3)::before{content:"↺"}
+.it.retro-timer .timer-controls button:hover{background:rgba(113,54,79,.10)!important}
+.it.retro-timer .timer-controls button:disabled{opacity:.35!important}
+.it.retro-timer .g{z-index:6}.it.retro-timer .sb{z-index:7}
+
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
