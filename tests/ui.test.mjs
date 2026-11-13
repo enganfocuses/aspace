@@ -182,7 +182,7 @@ test('new board timers start paused and have explicit start and pause controls',
  assert.match(index,/timerDurationMs:durationMs,timerRemainingMs:durationMs,timerRunning:false,deadline:null/);
  assert.match(index,/▶ Пуск/);
  assert.match(index,/Ⅱ Пауза/);
- assert.match(index,/textContent=seconds\?\(running\?'Идёт':'На паузе'\):'Время вышло'/);
+ assert.match(index,/textContent=seconds\?\(running\?'Идёт':\(remaining===Number\(n\.timerDurationMs\)\?'Готов':'На паузе'\)\):'Время вышло'/);
 });
 
 test('symbols can be dragged directly and their color is editable from the selection bar',()=>{
