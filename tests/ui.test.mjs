@@ -191,3 +191,32 @@ test('symbols can be dragged directly and their color is editable from the selec
  assert.match(index,/objectColorLabel\.hidden=!\(editable&&\(FILLK\.includes\(sel\.k\)\|\|sel\.k==='emo'\)\)/);
  assert.match(index,/el\._bg\.style\.color=n\.c\|\|'#1f1f2b'/);
 });
+
+
+test('board object dragging is isolated from the drawing surface and saves once on release',()=>{
+ const begin=index.indexOf('const drag=(h,el,n)=>{');
+ const end=index.indexOf('const upsert=n=>{',begin);
+ const drag=index.slice(begin,end);
+ assert.match(drag,/e\.stopPropagation\(\)/);
+ assert.match(drag,/h\.setPointerCapture\(e\.pointerId\)/);
+ assert.doesNotMatch(drag,/geom\(el,n\);push\(n\)/);
+ assert.match(drag,/if\(moved\)\{r\.emit\('i'/);
+ assert.match(drag,/persistNow\(\)/);
+ assert.match(index,/\.wrap>\.it\{z-index:3!important;pointer-events:auto;touch-action:none\}/);
+});
+
+test('timer has a round engraved wine-colored retro clock design',()=>{
+ assert.match(index,/\.it\.retro-timer\{[^}]*border-radius:50%/);
+ assert.match(index,/\.it\.retro-timer::before/);
+ assert.match(index,/\.it\.retro-timer \.timer-dial/);
+ assert.match(index,/\.it\.retro-timer \.clock-numeral/);
+ assert.match(index,/\.it\.retro-timer \.timer-readout/);
+ assert.match(index,/Number\.isFinite\(n\.timerDurationMs\)\|\|!!n\.deadline/);
+});
+
+test('board menu no longer contains Help or workspace limits shortcuts',()=>{
+ const start=index.indexOf("mi('Скрыть / показать курсоры участников'");
+ const end=index.indexOf("if(boardTransport)saveFormat('Все версии",start);
+ const menu=index.slice(start,end);
+ assert.doesNotMatch(menu,/Помощь|Лимиты пространства/);
+});
