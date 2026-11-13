@@ -898,8 +898,8 @@ async function roomUI(m,id,name,back){
   // A permanent link may route a guest directly to its configured provider.
   if(!(currentUser&&currentUser.uid===CFG.ownerUid)){
     try{
-      const routes=(await load('meta/call-links'))||{items:[]};
-      const route=routes.items?.find(x=>x.id===id);
+      const routeResponse=await fetch(DB()+'/shares/'+encodeURIComponent(id)+'/meta.json',{cache:'no-store'});
+      const route=routeResponse.ok?await routeResponse.json():null;
       if(route?.destination&&route.destination!=='aspace'&&route.destinationUrl){
         const target=new URL(route.destinationUrl);
         const allowed=route.destination==='telemost'
@@ -1076,6 +1076,11 @@ async function callView(m){
       item.destinationUrl=target;
     }
     await save('meta/call-links',directLinks);
+    const publicRoute=await fetch(DB()+'/shares/'+encodeURIComponent(item.id)+'/meta.json',{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({role:'viewer',destination:item.destination,destinationUrl:item.destinationUrl||null,updatedAt:Date.now()})
+    });
+    if(!publicRoute.ok)throw new Error('Не удалось сохранить публичный маршрут для ученика (HTTP '+publicRoute.status+'). Проверь Firebase Rules.');
     go(callView);
   };
   directGrid.append(E('div',{className:'card new',onclick:async()=>{
