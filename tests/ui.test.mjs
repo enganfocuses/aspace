@@ -169,3 +169,25 @@ test('shape hover exposes four draggable connector ports; Shift drag selects cur
  assert.match(index,/startX:sx,startY:sy/);
  assert.match(index,/bend:wireMode==='curved'\?100:0/);
 });
+
+
+test('board menu no longer exposes Psychology while other usage tools remain',()=>{
+ const boardMenu=index.slice(index.indexOf("mi('Помощь'"),index.indexOf("if(boardTransport)saveFormat"));
+ assert.doesNotMatch(boardMenu,/Психология/);
+ assert.match(boardMenu,/Лимиты пространства/);
+});
+
+test('new board timers start paused and have explicit start and pause controls',()=>{
+ assert.match(index,/timerDurationMs:durationMs,timerRemainingMs:durationMs,timerRunning:false,deadline:null/);
+ assert.match(index,/▶ Пуск/);
+ assert.match(index,/Ⅱ Пауза/);
+ assert.match(index,/textContent=seconds\?\(running\?'Идёт':'На паузе'\):'Время вышло'/);
+});
+
+test('symbols can be dragged directly and their color is editable from the selection bar',()=>{
+ assert.match(index,/drag\(el,el,n\)/);
+ assert.match(index,/el\.dataset\.symbolObject=String\(n\.k==='emo'/);
+ assert.match(index,/\.bfull \.it>i\{display:none!important\}/);
+ assert.match(index,/objectColorLabel\.hidden=!\(editable&&\(FILLK\.includes\(sel\.k\)\|\|sel\.k==='emo'\)\)/);
+ assert.match(index,/el\._bg\.style\.color=n\.c\|\|'#1f1f2b'/);
+});
