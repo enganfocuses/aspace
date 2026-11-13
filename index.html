@@ -444,6 +444,34 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .timer-controls{display:flex;justify-content:center;gap:8px;margin-top:8px}
 .timer-controls button{padding:6px 12px;border-radius:8px;font-size:13px;min-width:86px}
 .timer-controls button:disabled{opacity:.4;cursor:not-allowed}
+/* Retro wine timer: round engraved brass-and-enamel case */
+.it.retro-timer{z-index:5!important;border-radius:50%;overflow:visible;background:radial-gradient(circle at 35% 25%,#8e5266 0%,#71384f 46%,#4d2638 100%);border:5px ridge #a77a63;box-shadow:inset 0 0 0 3px #e0c5a0,inset 0 0 0 7px #54283c,0 8px 20px #2e172b55}
+.it.retro-timer::before{content:"";position:absolute;inset:-5px;border-radius:50%;pointer-events:none;border:3px double #d5b58c;box-shadow:0 0 0 2px #54283c,0 0 0 5px #a77a63,0 0 0 7px #54283c;z-index:4}
+.it.retro-timer::after{content:"";position:absolute;inset:5px;border-radius:50%;pointer-events:none;border:1px dashed #e4cba8;opacity:.9;z-index:4}
+.it.retro-timer .bgl{inset:10px;border-radius:50%;background:radial-gradient(circle at 38% 28%,#fff9e9,#e9d8b8 72%,#c9ad87);box-shadow:inset 0 2px 7px #54283c55,inset 0 0 0 2px #8d654f}
+.it.retro-timer .tw{display:none}
+.it.retro-timer .timer-value{position:absolute;inset:12px;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#54283c;font-family:Georgia,'Times New Roman',serif}
+.it.retro-timer .timer-dial{position:relative;width:92px;height:92px;flex:none;border-radius:50%;border:2px solid #9d775b;background:radial-gradient(circle,#fff9e9 0 60%,#e5cfaa 61% 100%);box-shadow:inset 0 0 0 3px #fff9e8,inset 0 0 0 5px #b18a69,0 2px 5px #54283c33}
+.it.retro-timer .clock-numeral{position:absolute;font:700 10px Georgia,serif;color:#54283c;line-height:1}
+.it.retro-timer .clock-numeral.north{top:7px;left:50%;transform:translateX(-50%)}
+.it.retro-timer .clock-numeral.east{right:8px;top:50%;transform:translateY(-50%)}
+.it.retro-timer .clock-numeral.south{bottom:7px;left:50%;transform:translateX(-50%)}
+.it.retro-timer .clock-numeral.west{left:8px;top:50%;transform:translateY(-50%)}
+.it.retro-timer .timer-hand{position:absolute;left:calc(50% - 1px);top:18px;width:2px;height:28px;background:#71384f;border-radius:3px;transform-origin:50% 100%;box-shadow:0 0 1px #54283c}
+.it.retro-timer .timer-pin{position:absolute;left:calc(50% - 4px);top:calc(50% - 4px);width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f8e8c6,#986c4e);border:1px solid #71384f}
+.it.retro-timer .timer-readout{font:700 24px/1 Georgia,'Times New Roman',serif;letter-spacing:.04em;color:#54283c;text-shadow:0 1px #fff}
+.it.retro-timer .timer-caption{font:italic 10px Georgia,serif;letter-spacing:.08em;text-transform:uppercase;color:#8b5a65}
+.it.retro-timer .timer-controls{gap:5px;margin-top:1px}
+.it.retro-timer .timer-controls button{min-width:0;padding:4px 8px;border:1px solid #9b715c;border-radius:999px;background:linear-gradient(#fff5df,#d9bd96);color:#54283c;font:700 10px Georgia,serif;box-shadow:inset 0 1px #fff9,0 1px 2px #54283c33}
+.it.retro-timer .timer-controls button:disabled{opacity:.45}
+.it.retro-timer .g{z-index:6}
+.it.retro-timer .sb{z-index:7}
+.it.retro-timer.timer-expired{filter:saturate(.72)}
+/* Keep board objects above the drawing layers and make their hit area explicit. */
+.wrap canvas{z-index:0}
+.board-wires{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+.wrap>.it{z-index:3;pointer-events:auto;background:transparent;touch-action:none}
+.wrap>.it.frame{z-index:2}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
@@ -1605,10 +1633,11 @@ async function openBoard(m,id,guest,shareToken=null){
     if(gy!==null){const candidates=[y,y+n.h/2,y+n.h],nearest=candidates.reduce((best,v)=>Math.abs(v-gy)<Math.abs(best-gy)?v:best,candidates[0]);y+=gy-nearest}
     guideLayer.replaceChildren();if(gx!==null)guideLayer.append(E('div',{className:'snap-guide v',style:`left:${gx}px`}));if(gy!==null)guideLayer.append(E('div',{className:'snap-guide h',style:`top:${gy}px`}));return{x:Math.max(0,x),y:Math.max(0,y)};
   };
-  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button||e.target.closest('.g,.sb,.wire-port,.timer-controls,.session-widget'))return;if(h===el&&e.target.closest('.t')&&el.dataset.symbolObject!=='true')return;e.preventDefault();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
-      const group=selectedItems.filter(q=>q!==n&&!q.locked).map(q=>({q,dx:q.x-n.x,dy:q.y-n.y}));
-      h.onpointermove=ev=>{if(n.locked||guest)return;const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);n.x=Math.max(p.x,...group.map(o=>-o.dx));n.y=Math.max(p.y,...group.map(o=>-o.dy));geom(el,n);push(n);for(const {q,dx,dy} of group){if(q.locked||!els[q.id])continue;q.x=n.x+dx;q.y=n.y+dy;geom(els[q.id],q);push(q)}};
-      h.onpointerup=()=>{h.onpointermove=h.onpointerup=null;clearGuides();fit()}})};
+  const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button!==0||e.target.closest('.g,.sb,.wire-port,.timer-controls,.session-widget'))return;if(h===el&&e.target.closest('.t')&&el.dataset.symbolObject!=='true')return;e.preventDefault();e.stopPropagation();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
+      const group=selectedItems.filter(q=>q!==n&&!q.locked).map(q=>({q,dx:q.x-n.x,dy:q.y-n.y}));let moved=false;
+      h.onpointermove=ev=>{if(n.locked||guest)return;const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);if(Math.abs(p.x-n.x)>0.5||Math.abs(p.y-n.y)>0.5)moved=true;n.x=Math.max(p.x,...group.map(o=>-o.dx));n.y=Math.max(p.y,...group.map(o=>-o.dy));geom(el,n);for(const {q,dx,dy} of group){if(q.locked||!els[q.id])continue;q.x=n.x+dx;q.y=n.y+dy;geom(els[q.id],q)}};
+      const finish=()=>{h.onpointermove=h.onpointerup=h.onpointercancel=null;clearGuides();fit();if(moved){r.emit('i',{n});for(const {q} of group)r.emit('i',{n:q});persistNow()}};
+      h.onpointerup=finish;h.onpointercancel=finish;},{capture:true})};
   const upsert=n=>{
     let el=els[n.id];
     if(!el){
@@ -1643,7 +1672,7 @@ async function openBoard(m,id,guest,shareToken=null){
     el.classList.toggle('locked',!!n.locked);
     if(el._t){el._t.contentEditable=String(!guest&&!n.locked);styleT(el._t,n);if(document.activeElement!==el._t)el._t.textContent=n.t||''}
     if(FILLK.includes(n.k))el._bg.style.background=n.c;
-    el.classList.toggle('retro-timer',!!n.deadline);
+    el.classList.toggle('retro-timer',Number.isFinite(n.timerDurationMs)||!!n.deadline);
     if(n.deadline||Number.isFinite(n.timerDurationMs)){
       n.w=Math.max(140,n.w);n.h=n.w;geom(el,n);
       if(!el._clock){
@@ -2236,9 +2265,7 @@ async function openBoard(m,id,guest,shareToken=null){
     const left=Math.min(...xs),top=Math.min(...ys),right=Math.max(...xs),bottom=Math.max(...ys);
     setZ(Math.min((sc.clientWidth-160)/Math.max(1,right-left),(sc.clientHeight-180)/Math.max(1,bottom-top),2));sc.scrollLeft=Math.max(0,left*z-90);sc.scrollTop=Math.max(0,top*z-90);queueViewport();
   });
-  mi('Помощь',()=>alert('Выбери инструмент и нажми на доску. Рука — перемещение, колесо — прокрутка. Ctrl/Cmd+Z — отмена, Delete — удаление. Таймер и голосование сохраняются на доске. Голосовать могут участники с правом редактирования.'));
   if(isOwner)mi('← Список досок',()=>go(boardsView));
-  if(isOwner)mi('📊 Лимиты пространства',()=>go(usageView));
   if(boardTransport)saveFormat('Все версии · JSON',async()=>{
     try{const versions=await boardTransport.inspect(),url=URL.createObjectURL(new Blob([JSON.stringify(versions,null,2)],{type:'application/json'}));
       E('a',{href:url,download:(d.name||'board')+'.versions.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);
