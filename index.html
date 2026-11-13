@@ -2161,17 +2161,22 @@ function build(text,topic,N=18){
 }
 /*EDU-END*/
 async function eduView(m){
-  // This section is a static local HTML course builder, without load(), save(),
-  // Firebase, Worker APIs, shared storage, or server-side processing.
-  const courseUrl='./education/speakout-b1plus-builder.html?theme='+currentTheme();
-  const title=E('h2',{textContent:'Образование · HTML-сборщик Speakout B1+'});
-  const open=B('↗ Открыть сборщик на весь экран',()=>window.open(courseUrl,'_blank','noopener,noreferrer'));
-  const download=E('a',{href:courseUrl,download:'Speakout-B1plus-Course-Builder.html',className:'course-download',textContent:'⬇ Скачать локальный HTML-сборщик',style:'display:inline-block;padding:12px;color:#795779'});
-  const frame=E('iframe',{src:courseUrl,title:'Speakout B1+ — локальный HTML-сборщик',
-    loading:'lazy',referrerPolicy:'no-referrer',
-    style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
-  frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads');
-  m.append(title,E('div',{className:'row',style:'margin:12px 0'},open,download),frame);
+  // Course builders are standalone local HTML tools; no Firebase or Worker writes.
+  const tools=[
+    {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html',desc:'Student’s Book + Workbook Without Key · 2025 · 12 Files / 36 lessons'},
+    {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html',desc:'Существующий сборщик Speakout B1+'}
+  ];
+  m.append(E('h2',{textContent:'Образование · HTML-сборщики'}));
+  tools.forEach(tool=>{
+    const card=E('section',{className:'card',style:'margin:14px 0;padding:16px'});
+    const heading=E('h3',{textContent:tool.title});
+    const desc=E('p',{className:'mut',textContent:tool.desc});
+    const open=B('↗ Открыть на весь экран',()=>window.open(tool.url+'?theme='+currentTheme(),'_blank','noopener,noreferrer'));
+    const download=E('a',{href:tool.url,download:tool.file,textContent:'⬇ Скачать HTML',style:'display:inline-block;padding:10px;color:#795779'});
+    const frame=E('iframe',{src:tool.url+'?theme='+currentTheme(),title:tool.title,loading:'lazy',referrerPolicy:'no-referrer',style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
+    frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads');
+    card.append(heading,desc,E('div',{className:'row',style:'margin:10px 0'},open,download),frame);m.append(card);
+  });
 }
 
 start();

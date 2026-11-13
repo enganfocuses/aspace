@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>English File Elementary 5th Edition — Course Builder</title>
+<style>
+:root{--bg:#f7f4fa;--panel:#fff;--ink:#30243a;--muted:#766b80;--accent:#76527f;--accent2:#a77a9f;--line:#e7deeb;--soft:#f0e8f3;--ok:#287b5a;--bad:#a33d52}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,Arial,sans-serif}header{background:linear-gradient(120deg,#49334f,#795779);color:white;padding:24px max(18px,calc((100% - 1320px)/2))}header h1{margin:0 0 5px;font-size:clamp(23px,4vw,34px)}header p{margin:0;color:#f0e8f2}.wrap{max-width:1320px;margin:auto;padding:18px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.toolbar input{flex:1;min-width:180px}input,select,button,textarea{font:inherit;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:white;color:var(--ink)}button{cursor:pointer;background:var(--soft);border-color:#d9c9df}button.primary{background:var(--accent);color:white;border-color:var(--accent)}button:disabled{opacity:.45;cursor:not-allowed}.layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:16px}.side,.content{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0}.side{height:max-content;position:sticky;top:10px;max-height:calc(100vh - 20px);overflow:auto}.side h3{margin:0 0 8px}.unitbtn{display:block;width:100%;text-align:left;margin:4px 0;background:white;border-color:transparent}.unitbtn.active,.lessonbtn.active{background:var(--soft);border-color:#d9c9df}.lessonbtn{display:block;width:100%;text-align:left;margin:3px 0 3px 12px;padding:7px 9px;font-size:13px;background:white;border-color:transparent}.meta,.small{color:var(--muted);font-size:13px}.tag{display:inline-block;background:var(--soft);border-radius:30px;padding:3px 9px;font-size:12px;margin:2px}.hero{padding:16px;border-radius:14px;background:linear-gradient(130deg,#f4edf7,#fbf9fc);border:1px solid var(--line);margin-bottom:14px}.hero h2{margin:0 0 4px}.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}.tab.active{background:var(--accent);color:white}.panel{display:none}.panel.active{display:block}.lesson{border:1px solid var(--line);border-radius:13px;padding:15px;margin:12px 0}.lesson h3{margin:0 0 8px}.teachbox,.theory{background:#f8f3fa;border-left:4px solid var(--accent);padding:12px 14px;border-radius:10px;margin:12px 0}.theory p{margin:6px 0}.vocabgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px;margin:8px 0 14px}.vocabgrid div{display:flex;flex-direction:column;padding:9px 11px;background:#fbf9fc;border:1px solid var(--line);border-radius:9px}.vocabgrid span{color:var(--muted);font-size:13px}.task{background:#fbf9fc;border:1px solid var(--line);border-radius:12px;padding:13px;margin:10px 0}.task p{margin:6px 0}.options label{display:block;margin:6px 0}.feedback{font-weight:600;margin-top:8px}.good{color:var(--ok)}.wrong{color:var(--bad)}.answer{display:none;border-left:3px solid var(--ok);padding:8px 12px;margin-top:8px;background:#f2faf6}.answer.show{display:block}.task input[type=text]{max-width:260px}textarea{width:100%;min-height:100px}.progress{height:8px;background:var(--soft);border-radius:20px;overflow:hidden}.progress span{display:block;height:100%;background:var(--accent);width:0}.footer{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:18px}.hide-student .teacher-only{display:none!important}.hide-student .answer{display:none!important}.notice{background:#fff8e9;border:1px solid #ead9b8;padding:10px 12px;border-radius:10px;margin:12px 0}.muted{color:var(--muted)}@media(max-width:850px){.layout{grid-template-columns:1fr}.side{position:static;max-height:none}.side nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}.lessonbtn{margin-left:0}}@media print{header,.toolbar,.side,.tabs,.footer,.no-print{display:none!important}.layout{display:block}.content{border:0}.panel{display:block!important}.lesson{break-inside:avoid}.answer{display:block!important}}
+</style></head><body>
+<header><h1>English File Elementary · Fifth Edition</h1><p>Student’s Book + Workbook Without Key · Oxford University Press · 2025</p></header>
+<div class="wrap">
+<div class="toolbar no-print"><input id="search" placeholder="Найти урок, грамматику или лексику…"><button id="teacher">Режим преподавателя: выкл.</button><button id="print">Печать / PDF</button><button id="export">Экспорт урока</button></div>
+<div class="layout"><aside class="side no-print"><h3>Содержание курса</h3><div class="meta">12 Files · 36 уроков A/B/C · Practical English · повторение</div><div class="progress" style="margin:10px 0"><span id="progress"></span></div><div class="small" id="progressText">Выполнено 0 из 36 уроков</div><nav id="nav"></nav><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div class="small">Навигация Workbook: номера страниц указаны рядом с соответствующими уроками. Разделы Practical English и Can you remember...? сохранены отдельными блоками.</div></aside>
+<main class="content"><div id="view"></div></main></div></div>
+<script>
+const units=[
+{n:1,name:"Hello!",lessons:[
+["A","Hello, everybody","verb be (+); subject pronouns","days of the week; numbers 0–20","vowel sounds; word stress",8,4],
+["B","A world of sport","verb be (−) and (?)","countries; numbers 21–100","/tʃ/, /ʃ/, /dʒ/; word stress",10,6],
+["C","Open your books","possessive adjectives: my, your, etc.","classroom language; the alphabet","/əʊ/, /uː/, /æ/; sentence stress",12,8]]},
+{n:2,name:"People and things",lessons:[
+["A","Your desk and you","singular and plural nouns","things; in, on, under","final -s and -es",16,12],
+["B","Made in the USA","adjectives; modifiers very / really / quite","colours; adjectives","long and short vowel sounds",18,14],
+["C","Don’t worry. Be happy!","imperatives; let’s","feelings","linking",20,16]]},
+{n:3,name:"Daily life",lessons:[
+["A","Great Britain?","present simple (+) and (−)","verb phrases: cook dinner, etc.","third person -s",24,18],
+["B","Goodbye to the office?","present simple (?)","jobs","/ɜː/ and /ə/",26,20],
+["C","Are you a ‘dog person’?","word order in questions","question words","sentence stress",28,22]]},
+{n:4,name:"Family and routines",lessons:[
+["A","Who’s that in the photo?","possessive ’s; Whose…?","family","/ɪ/; the letter o",32,26],
+["B","Eat, sleep, repeat","prepositions of time, place, and movement","daily routine","linking",34,28],
+["C","Blue Zones","position of adverbs; expressions of frequency","months; adverbs and expressions of frequency","the letter h",36,30]]},
+{n:5,name:"Abilities and now",lessons:[
+["A","Sing me a song","can / can’t","verb phrases: buy a pizza, etc.","sentence stress",40,32],
+["B","What a noise!","present continuous: be + verb-ing","noise: verbs and verb phrases","vowel sounds",42,34],
+["C","I ♥ London","present simple or present continuous?","weather and seasons; places in London","vowel sounds",44,36]]},
+{n:6,name:"Stories and preferences",lessons:[
+["A","A traditional story","object pronouns: me, you, him, etc.","learning words from a story","/aʊ/, /əʊ/, /ɪ/",48,40],
+["B","I don’t like Mondays","like + verb-ing","ordinal numbers; the date","/eɪ/ and /ɒ/; saying the date",50,42],
+["C","Making music","revision: be or do?","music; giving opinions","sounds in music vocabulary",52,44]]},
+{n:7,name:"Past experiences",lessons:[
+["A","This is me","past simple of be: was / were","word formation: write + writer","sentence stress",56,46],
+["B","Small mistake, big problem","past simple: regular verbs","past time expressions","-ed endings",58,48],
+["C","Happy New Year","past simple: irregular verbs","go, have, get","sentence stress",60,50]]},
+{n:8,name:"Places and events",lessons:[
+["A","A murder in the family","past simple: regular and irregular verbs","irregular verbs","past simple verb forms",64,54],
+["B","A house with a history","there is / there are; some / any + plural nouns","the house","/ɪə/ and /eə/",66,56],
+["C","Do you believe in ghosts?","there was / there were","prepositions: movement and place","silent letters",68,58]]},
+{n:9,name:"Food and comparison",lessons:[
+["A","What’s for dinner?","countable / uncountable nouns; a/an; some / any","food and drink","the letters ea",72,60],
+["B","White gold","quantifiers: how much / how many; a lot of, etc.","food containers","/w/ and /v/",74,62],
+["C","Quizzes and quizzers","comparative adjectives","high numbers","/əʊ/; sentence stress",76,64]]},
+{n:10,name:"Plans and predictions",lessons:[
+["A","Top of the list","superlative adjectives","places and buildings","consonant groups",80,68],
+["B","In the footsteps of Marco Polo","be going to (plans); future time expressions","city holidays","sentence stress",82,70],
+["C","The cards don’t lie","be going to (predictions)","playing cards","the letters ear",84,72]]},
+{n:11,name:"Culture and choices",lessons:[
+["A","Culture shock","adverbs (manner and modifiers)","common adverbs","connected speech",88,74],
+["B","It’s on my list","verb + to + infinitive","more verb phrases","weak to; sentence stress",90,76],
+["C","Download the app","definite article: the or no the","phones and apps","the",92,78]]},
+{n:12,name:"Experiences and review",lessons:[
+["A","It’s a classic!","present perfect; irregular past participles","irregular past participles","sentence stress",96,82],
+["B","Let’s go out for dinner!","present perfect or past simple?","learning irregular verbs","irregular past participles",98,84],
+["C","National treasures","revision: question formation","review and consolidation","question intonation",100,86]]}
+];
+const vocab={
+1:[["hello","привет / здравствуйте","/həˈləʊ/"],["country","страна","/ˈkʌntri/"],["number","число; номер","/ˈnʌmbə/"],["classroom","класс; аудитория","/ˈklɑːsruːm/"]],
+2:[["desk","письменный стол","/desk/"],["colour","цвет","/ˈkʌlə/"],["happy","счастливый","/ˈhæpi/"],["under","под","/ˈʌndə/"]],
+3:[["work","работать; работа","/wɜːk/"],["usually","обычно","/ˈjuːʒuəli/"],["job","работа; профессия","/dʒɒb/"],["weekend","выходные","/ˌwiːkˈend/"]],
+4:[["daughter","дочь","/ˈdɔːtə/"],["husband","муж","/ˈhʌzbənd/"],["early","рано","/ˈɜːli/"],["sometimes","иногда","/ˈsʌmtaɪmz/"]],
+5:[["can","мочь; уметь","/kæn/"],["sing","петь","/sɪŋ/"],["weather","погода","/ˈweðə/"],["noisy","шумный","/ˈnɔɪzi/"]],
+6:[["story","история; рассказ","/ˈstɔːri/"],["him","его; ему","/hɪm/"],["date","дата","/deɪt/"],["opinion","мнение","/əˈpɪnjən/"]],
+7:[["yesterday","вчера","/ˈjestədeɪ/"],["ago","назад (о времени)","/əˈɡəʊ/"],["writer","писатель","/ˈraɪtə/"],["mistake","ошибка","/mɪˈsteɪk/"]],
+8:[["house","дом","/haʊs/"],["there was","там был / была / было","/ðeə wəz/"],["upstairs","наверху","/ˌʌpˈsteəz/"],["ghost","привидение","/ɡəʊst/"]],
+9:[["meal","приём пищи","/miːl/"],["bottle","бутылка","/ˈbɒtl/"],["enough","достаточно","/ɪˈnʌf/"],["cheaper","дешевле","/ˈtʃiːpə/"]],
+10:[["plan","план","/plæn/"],["probably","вероятно","/ˈprɒbəbli/"],["building","здание","/ˈbɪldɪŋ/"],["trip","поездка","/trɪp/"]],
+11:[["carefully","осторожно; внимательно","/ˈkeəfəli/"],["decide","решать","/dɪˈsaɪd/"],["app","приложение","/æp/"],["culture","культура","/ˈkʌltʃə/"]],
+12:[["ever","когда-либо","/ˈevə/"],["already","уже","/ɔːlˈredi/"],["yet","ещё; уже (в вопросах/отрицаниях)","/jet/"],["experience","опыт","/ɪkˈspɪəriəns/"]]
+};
+const grammar={
+1:"Глагол be связывает подлежащее с информацией о нём: I am, you/we/they are, he/she/it is. В отрицании добавляем not (I’m not; isn’t; aren’t). В вопросе be ставится перед подлежащим: Are you…? Для принадлежности используем my, your, his, her, its, our, their.",
+2:"Исчисляемые существительные имеют форму единственного и множественного числа. Обычно добавляем -s, иногда -es или меняем окончание. При описании используем прилагательное перед существительным или после be: a small desk; The desk is small. Imperatives используют базовую форму глагола: Open the book. Отрицание: Don’t worry. Let’s + глагол предлагает сделать что-то вместе.",
+3:"Present Simple описывает привычки, регулярные действия и факты. I/you/we/they work; he/she/it works. Отрицание: don’t / doesn’t + начальная форма. Вопрос: Do/Does + подлежащее + глагол? В вопросах используем what, where, when, why, who, how.",
+4:"Притяжательная форма ’s показывает принадлежность: Anna’s brother. Whose…? спрашивает, кому принадлежит предмет. Предлоги времени: at (время), on (дни/даты), in (месяцы/части дня). Наречия частотности обычно стоят перед смысловым глаголом, но после be: I usually walk; She is always busy.",
+5:"Can + начальная форма выражает способность или возможность; can’t — невозможность. В Present Continuous используем am/is/are + глагол-ing для действия сейчас или вокруг настоящего момента. Present Simple — привычки и факты; Present Continuous — происходящее сейчас. Сравните: It rains a lot here / It’s raining now.",
+6:"Object pronouns заменяют дополнение: me, you, him, her, it, us, them. После like можно использовать глагол с -ing: I like reading. В вопросах и отрицаниях с be используем be, а с другими глаголами — do/does: Are you…? Do you…?",
+7:"Was/were — прошедшие формы be: I/he/she/it was; you/we/they were. Вопрос: Was she…? Were they…? Для правильных глаголов добавляем -ed (work → worked); произношение окончания бывает /t/, /d/ или /ɪd/. В Past Simple вопрос и отрицание строятся с did/didn’t + начальная форма: Did you go? I didn’t go.",
+8:"Past Simple используется для завершённых событий в прошлом. Правильные глаголы получают -ed, неправильные имеют отдельную форму (go → went). There is/are описывает наличие в настоящем; there was/were — в прошлом. Some обычно употребляется в утвердительных предложениях, any — в вопросах и отрицаниях.",
+9:"Исчисляемые существительные можно посчитать (an apple, two apples); неисчисляемые обычно не имеют множественного числа (rice, water). A/an — с одним исчисляемым предметом; some — часто в утверждениях, any — в вопросах и отрицаниях. How much спрашивает о неисчисляемом, how many — об исчисляемом. Для сравнения коротких прилагательных часто добавляем -er: smaller; длинных — more: more expensive.",
+10:"Superlative показывает высшую степень: the tallest, the most interesting; есть неправильные формы, например the best. Be going to + начальная форма используется для намерений и планов: I’m going to study. Также конструкция выражает прогноз на основе видимых признаков: Look at those clouds. It’s going to rain.",
+11:"Наречия образа действия отвечают на вопрос how? и часто образуются добавлением -ly: slowly, carefully. После некоторых глаголов нужен to-infinitive: want to go, need to study, would like to see. Артикль the используем, когда говорим о конкретном или уже известном объекте; без the — о вещах в общем во множественном числе или неисчисляемых понятиях.",
+12:"Present Perfect: have/has + past participle. Он связывает прошлый опыт или действие с настоящим: I’ve visited Rome. Past Simple указывает на завершённое действие в определённое время: I visited Rome in 2022. Вопросы образуются с вспомогательным глаголом: Have you ever…? Для повторения вопросов важен порядок: question word + auxiliary + subject + main verb."
+};
+const examples={
+1:["I am from Spain.","She isn’t a teacher.","Are they in your class?"],
+2:["This is my desk. Those are two books.","The room is very small.","Don’t open the window. Let’s start."],
+3:["I work in a café.","He doesn’t drive to work.","Where do you live?"],
+4:["That is Maria’s brother. Whose bag is this?","I get up at seven.","She usually walks to work."],
+5:["I can swim, but I can’t dance.","They’re having dinner now.","I usually walk, but today I’m taking a bus."],
+6:["I know him. She likes us.","I enjoy listening to music.","Does he work here? Is he your teacher?"],
+7:["I was at home yesterday.","We watched a film last night.","Did you see the message?"],
+8:["They went to the cinema.","There are some books on the table.","There weren’t any shops here."],
+9:["I’d like an apple and some water.","How many eggs do we need? How much milk?","My car is faster than yours."],
+10:["This is the oldest building in the city.","We’re going to visit Rome.","Look! It’s going to fall."],
+11:["Please speak slowly.","I want to learn English.","The internet is useful; I like music."],
+12:["I’ve never tried sushi.","We went there last year.","Have you ever travelled alone?"]
+};
+const quiz={
+1:[["Choose the correct form: She ___ from Italy.",["am","is","are"],1,"She is from Italy."],["Make a question: ___ you a student?",["Am","Is","Are"],2,"Are you a student?"],["Choose the possessive adjective: This is Anna. ___ phone is new.",["His","Her","Their"],1,"Her phone is new."]],
+2:[["One child, two ___.",["childs","children","childes"],1,"Children — irregular plural."],["The books are ___ the desk.",["on","at","to"],0,"On the desk."],["Choose the imperative.",["You open the door?","Opening the door.","Open the door."],2,"Open the door."]],
+3:[["He ___ coffee every morning.",["drink","drinks","drinking"],1,"He drinks — add -s for he/she/it."],["___ she work here?",["Do","Does","Is"],1,"Does she work here?"],["Choose the correct question.",["Where you live?","Where do you live?","Where does live you?"],1,"Where do you live?"]],
+4:[["This is ___ car. (the car belongs to Tom)",["Toms","Tom’s","Tom"],1,"Tom’s car."],["I get up ___ 7 o’clock.",["in","on","at"],2,"At 7 o’clock."],["Choose the correct position: She ___ goes to bed early.",["usually","goes usually","is usually go"],0,"She usually goes…"]],
+5:[["My sister ___ speak French.",["can","cans","is can"],0,"Can does not change for he/she/it."],["They ___ TV now.",["watch","are watching","watches"],1,"Present Continuous: are + watching."],["I usually ___, but now I ___ .",["walk / am running","am walking / run","walks / running"],0,"Habit = Present Simple; now = Present Continuous."]],
+6:[["I love Anna. I love ___.",["she","her","hers"],1,"Object pronoun: her."],["He enjoys ___ books.",["read","reading","to reading"],1,"Enjoy + -ing."],["___ you like jazz?",["Are","Do","Does"],1,"Do you like…?"]],
+7:[["They ___ at school yesterday.",["was","were","are"],1,"They were."],["We ___ a new café last week.",["visit","visited","visiting"],1,"Regular past: visited."],["___ you call me last night?",["Did","Were","Do"],0,"Did + subject + base verb."]],
+8:[["Last night we ___ home late.",["come","came","comes"],1,"Come → came."],["There ___ a small garden behind the house.",["are","is","am"],1,"There is + singular."],["There ___ any people in the room.",["wasn’t","weren’t","isn’t"],1,"There weren’t + plural." ]],
+9:[["Can I have ___ orange, please?",["a","an","some"],1,"An orange."],["___ water do you drink?",["How many","How much","How often"],1,"How much + uncountable noun."],["A train is usually ___ than a bus.",["fast","faster","fastest"],1,"Comparative: faster than."]],
+10:[["It’s ___ hotel in town.",["the most expensive","more expensive","expensiver"],0,"The most expensive."],["We ___ visit our friends tomorrow.",["going","are going to","go to"],1,"Be going to + infinitive."],["Look at the sky! It ___ snow.",["is going to","going","will to"],0,"Visible evidence: is going to snow."]],
+11:[["He drives ___.",["careful","carefully","care"],1,"Adverb: carefully."],["I’d like ___ a table.",["book","booking","to book"],2,"Would like + to-infinitive."],["I love ___ music.",["the","a","— (no article)"],2,"General meaning: music, without the." ]],
+12:[["I ___ never ___ to Japan.",["have / been","did / been","has / be"],0,"Present Perfect: have + past participle."],["We ___ the film yesterday.",["have seen","saw","see"],1,"Finished time yesterday → Past Simple."],["___ you ever eaten sushi?",["Did","Have","Are"],1,"Have you ever + past participle?"]]
+};
+const practical=[
+["Episode 1 · A new city","checking in at a hotel; personal information; spelling and numbers","Workbook p.10"],
+["Episode 2 · First weeks in London","buying a coffee; telling the time; responding socially","Workbook p.24"],
+["Episode 3 · The real London","buying clothes; preferences; asking about items","Workbook p.38"],
+["Episode 4 · Ben’s show","asking the way; directions; describing where you live","Workbook p.52"],
+["Episode 5 · On Primrose Hill","going to a restaurant; menus; ordering food","Workbook p.66"],
+["Episode 6 · Good news, bad news","using public transport; asking for and understanding information","Workbook p.80"]
+];
+const review=[["Revise and Check 1&2","после Files 1–2","Workbook p.11"],["Revise and Check 3&4","после Files 3–4","Workbook p.25"],["Revise and Check 5&6","после Files 5–6","Workbook p.39"],["Can you remember...? 1–7","повторение Files 1–7","Workbook p.53"],["Can you remember...? 1–9","повторение Files 1–9","Workbook p.67"],["Can you remember...? 1–11","повторение Files 1–11","Workbook p.81"]];
+let current={u:1,l:0,tab:"study"},teacher=false,done=JSON.parse(localStorage.getItem("ef5done")||"{}");
+const $=id=>document.getElementById(id),escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function save(){localStorage.setItem("ef5done",JSON.stringify(done));updateProgress()}
+function updateProgress(){let n=Object.keys(done).filter(k=>done[k]).length;$("progress").style.width=(n/36*100)+"%";$("progressText").textContent="Выполнено "+n+" из 36 уроков"}
+function buildNav(filter=""){let out="";units.forEach(u=>{let ls=u.lessons.filter(l=>(u.name+" "+l.join(" ")).toLowerCase().includes(filter));if(filter&&!ls.length)return;out+=`<button class="unitbtn ${current.u===u.n?"active":""}" data-u="${u.n}">File ${u.n} · ${escapeHtml(u.name)}</button>`;ls.forEach((l,i)=>{let idx=u.lessons.indexOf(l),key=u.n+"-"+idx;out+=`<button class="lessonbtn ${current.u===u.n&&current.l===idx?"active":""}" data-l="${u.n}-${idx}">${done[key]?"✓ ":""}${l[0]} · ${escapeHtml(l[1])}</button>`})});$("nav").innerHTML=out;$("nav").querySelectorAll("[data-u]").forEach(b=>b.onclick=()=>show(+b.dataset.u,0));$("nav").querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{let [u,l]=b.dataset.l.split("-").map(Number);show(u,l)})}
+function show(u,l){current={u,l,tab:"study"};let unit=units[u-1],lesson=unit.lessons[l],key=u+"-"+l,qs=quiz[u];buildNav($("search").value.toLowerCase());let v=vocab[u].map(x=>`<div><b>${x[0]}</b><span>${x[1]}</span><span>${x[2]}</span></div>`).join("");let q=qs.map((x,i)=>`<div class="task"><b>${i+1}. ${x[0]}</b><div class="options">${x[1].map((a,j)=>`<label><input type="radio" name="q${i}" value="${j}"> ${escapeHtml(a)}</label>`).join("")}</div><button onclick="check(${i})">Проверить</button><div id="fb${i}" class="feedback"></div><div id="ans${i}" class="answer">${escapeHtml(x[3])}</div></div>`).join("");
+$("view").innerHTML=`<div class="hero"><div class="meta">ENGLISH FILE ELEMENTARY · FILE ${u} · WORKBOOK p.${lesson[6]}</div><h2>${lesson[0]} · ${escapeHtml(lesson[1])}</h2><div class="meta">Student’s Book p.${lesson[5]} · ${escapeHtml(unit.name)}</div><div class="tag">${escapeHtml(lesson[2])}</div><div class="tag">${escapeHtml(lesson[3])}</div><div class="tag">${escapeHtml(lesson[4])}</div></div>
+<div class="tabs no-print"><button class="tab active" data-tab="study">Урок</button><button class="tab" data-tab="practice">Практика</button><button class="tab" data-tab="speaking">Speaking & Writing</button><button class="tab" data-tab="teacher">Преподавателю</button></div>
+<section class="panel active" id="study"><div class="lesson"><h3>Грамматика — объяснение на русском</h3><div class="theory"><p>${grammar[u]}</p></div><h4>Примеры</h4><ul>${examples[u].map(x=>"<li>"+escapeHtml(x)+"</li>").join("")}</ul><div class="notice">Это авторский конспект по грамматической теме соответствующего урока, а не дословное воспроизведение учебника.</div></div><div class="lesson"><h3>Vocabulary · ключевые слова</h3><div class="vocabgrid">${v}</div><p class="small">Транскрипция дана в упрощённой IPA-форме. Для аудио произношения используйте материалы курса Oxford English Hub.</p></div><div class="lesson"><h3>Pronunciation · произношение</h3><p>${escapeHtml(lesson[4])}</p><p>Прочитайте примеры вслух, выделяя ударный слог и обращая внимание на связность речи.</p></div></section>
+<section class="panel" id="practice"><h3>Проверь себя</h3><p class="muted">Новые тренировочные задания по грамматическим целям урока. Это не копии упражнений из Workbook.</p>${q}<button class="primary" onclick="markDone()">Отметить урок завершённым</button></section>
+<section class="panel" id="speaking"><h3>Speaking</h3><div class="task"><b>Обсудите по-английски</b><ol><li>Give three examples connected with the lesson topic.</li><li>Ask your partner two follow-up questions.</li><li>Explain one thing you found difficult and why.</li></ol></div><div class="task"><b>Writing · короткая письменная практика</b><p>Напишите 5–7 собственных предложений, используя грамматику этого урока.</p><textarea id="writing" placeholder="Write your answer in English…"></textarea><div class="small">Черновик сохраняется на этом устройстве автоматически.</div><button onclick="saveWriting()">Сохранить текст</button><span id="writingStatus" class="small"></span></div><div class="task"><b>Дополнительное задание</b><p>Составьте мини-диалог из 6 реплик, включив не менее четырёх слов из Vocabulary.</p></div></section>
+<section class="panel" id="teacher"><h3>Заметки преподавателя</h3><div class="teachbox"><b>Цели:</b><ul><li>Понимать и использовать тему: ${escapeHtml(lesson[2])}.</li><li>Активно применять лексику: ${escapeHtml(lesson[3])}.</li><li>Отработать произношение: ${escapeHtml(lesson[4])}.</li></ul></div><p>Проведите короткую диагностику, затем объяснение, контролируемую практику и свободное высказывание. Попросите ученика придумать собственные примеры.</p><p class="teacher-only"><b>Ключ к встроенной практике:</b> ${qs.map((x,i)=>(i+1)+") "+x[1][x[2]]).join(" · ")}</p><p class="small">Ответы к оригинальному Workbook Without Key здесь не приводятся. Ключ выше относится только к авторским заданиям этого сборщика.</p></section>
+<div class="footer no-print"><button onclick="prev()">← Предыдущий урок</button><span class="small">File ${u} · Lesson ${l+1}/3</span><button class="primary" onclick="next()">Следующий урок →</button></div>`;
+$("view").querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab))});
+let saved=localStorage.getItem("ef5write-"+key);if(saved)$("writing").value=saved;document.body.classList.toggle("hide-student",!teacher);updateProgress();showCourseExtras()}
+function check(i){let picked=document.querySelector('input[name="q'+i+'"]:checked'),fb=$("fb"+i),ans=$("ans"+i);if(!picked){fb.textContent="Выберите вариант ответа.";fb.className="feedback wrong";return}let ok=+picked.value===quiz[current.u][i][2];fb.textContent=ok?"Верно!":"Пока неверно. Посмотрите объяснение.";fb.className="feedback "+(ok?"good":"wrong");ans.classList.add("show")}
+function markDone(){done[current.u+"-"+current.l]=true;save();buildNav($("search").value.toLowerCase());alert("Урок отмечен как завершённый.")}
+function saveWriting(){localStorage.setItem("ef5write-"+current.u+"-"+current.l,$("writing").value);$("writingStatus").textContent="Сохранено."}
+function prev(){let u=current.u,l=current.l-1;if(l<0){u=Math.max(1,u-1);l=2}show(u,l)}
+function next(){let u=current.u,l=current.l+1;if(l>2){u=Math.min(12,u+1);l=0}show(u,l)}
+$("search").addEventListener("input",e=>buildNav(e.target.value.toLowerCase()));
+$("teacher").onclick=()=>{teacher=!teacher;$("teacher").textContent="Режим преподавателя: "+(teacher?"вкл.":"выкл.");document.body.classList.toggle("hide-student",!teacher)};
+$("print").onclick=()=>window.print();
+$("export").onclick=()=>{let title=units[current.u-1].lessons[current.l][1];let doc="<!doctype html><html lang='ru'><meta charset='utf-8'><title>"+title+"</title><body>"+$("view").innerHTML+"</body></html>";let a=document.createElement("a"),url=URL.createObjectURL(new Blob([doc],{type:"text/html"}));a.href=url;a.download="English-File-Elementary-"+current.u+"-"+(current.l+1)+".html";a.click();URL.revokeObjectURL(url)};
+function showCourseExtras(){let extra=document.createElement("div");extra.className="lesson";extra.innerHTML="<h3>Курс и дополнительные разделы</h3><p><b>Practical English:</b></p>"+practical.map(x=>"<p>"+x[0]+" — "+x[1]+" <span class='small'>("+x[2]+")</span></p>").join("")+"<p><b>Повторение:</b></p>"+review.map(x=>"<p>"+x[0]+" — "+x[1]+" <span class='small'>("+x[2]+")</span></p>").join("")+"<p><b>Справочные разделы Student’s Book:</b> Communication (p.115), Writing Bank (p.127), Listening (p.132), Grammar Bank, Vocabulary Bank (p.156), Irregular Verbs (p.173), Sound Bank (p.174).</p><p class='small'>Номера разделов взяты из содержания Student’s Book / Workbook. В данном сборщике представлены учебные заметки и оригинальная практика; страницы и аудио Oxford не воспроизводятся.</p>";$("view").append(extra)}
+buildNav();show(1,0);
+</script></body></html>
