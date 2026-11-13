@@ -23,6 +23,21 @@ export function mergeBoard(base,local,remote){
   if(same(b,l))return structuredClone(r);
   conflicts.push(key);return structuredClone(l);
  };
+ const entity=(b,l,r,key)=>{
+  if(same(l,r)||same(b,r))return structuredClone(l);
+  if(same(b,l))return structuredClone(r);
+  // Merge independent fields of the same object: movement and text/color
+  // edits made by different participants should not conflict.
+  if([b,l,r].every(v=>v&&typeof v==='object'&&!Array.isArray(v))){
+   const out=Object.create(null);
+   for(const prop of new Set([...Object.keys(b),...Object.keys(l),...Object.keys(r)])){
+    const chosen=field(b[prop],l[prop],r[prop],key+'.'+prop);
+    if(chosen!==undefined)out[prop]=chosen;
+   }
+   return out;
+  }
+  conflicts.push(key);return structuredClone(l);
+ };
  const collection=(b,l,r,key)=>{
   if(![b,l,r].every(Array.isArray)){conflicts.push(key);return l||[]}
   const map=a=>new Map(a.map(x=>[x?.id,x]));
@@ -32,7 +47,7 @@ export function mergeBoard(base,local,remote){
   }
   const result=[];
   for(const id of new Set([...rm.keys(),...lm.keys(),...bm.keys()])){
-   const chosen=field(bm.get(id),lm.get(id),rm.get(id),key+':'+id);
+   const chosen=entity(bm.get(id),lm.get(id),rm.get(id),key+':'+id);
    if(chosen!==undefined)result.push(chosen);
   }
   return result;
