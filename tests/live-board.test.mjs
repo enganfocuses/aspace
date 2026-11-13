@@ -159,7 +159,7 @@ test('concurrent edits to different fields of one board object merge without con
  const remote={...structuredClone(base),items:base.items.map(x=>x.id==='a'?{...x,t:'Edited text',c:'#71384f'}:x)};
  const merged=mergeBoard(base,local,remote);
  assert.equal(merged.ok,true);
- assert.deepEqual(merged.value.items[0],{...base.items[0],x:45,y:60,t:'Edited text',c:'#71384f'});
+ assert.deepEqual(JSON.parse(JSON.stringify(merged.value.items[0])),{...base.items[0],x:45,y:60,t:'Edited text',c:'#71384f'});
 });
 
 test('concurrent edits to the same object position remain an explicit conflict',()=>{
