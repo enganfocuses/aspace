@@ -228,7 +228,7 @@ test('board menu no longer contains Help or workspace limits shortcuts',()=>{
 test('board sends a full live snapshot after a completed local edit and applies peer snapshots',()=>{
  assert.match(index,/r\.emit\('boardstate',\{state\}\)/);
  assert.match(index,/r\.on\('boardstate',x=>\{const state=x\.data\?\.state/);
- assert.match(index,/applySnapshot\(state\);displayedBase=cloneBoard\(state\)/);
+ assert.doesNotMatch(index,/applySnapshot\(state\);displayedBase=cloneBoard\(state\)/);
 });
 
 test('eraser removes intersecting strokes and broadcasts deletions instead of painting transparent overlays',()=>{

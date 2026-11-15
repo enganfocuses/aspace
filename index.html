@@ -1625,7 +1625,7 @@ async function openBoard(m,id,guest,shareToken=null){
   r.on('followack',m=>{const p=m.data;if(p&&p.to===r.id)say((p.name||'Участник')+' теперь следует за тобой')});
   const announce=()=>r.emit('presence',{id:r.id,name:myName,at:Date.now()});announce();presenceTimer=setInterval(()=>{announce();refreshPeers()},8000);
   let shareSyncChain=Promise.resolve(),shareRecoveryTimer=null,disposed=false,editEpoch=0,savedEpoch=0;
-  let unsyncedShareDraft=Boolean(localGuestDraft),displayedBase=cloneBoard(d0);
+  let unsyncedShareDraft=Boolean(localGuestDraft),displayedBase=cloneBoard(localGuestDraft?localGuestDraft.base??null:d0);
   const snapshot=()=>({name:d.name,strokes:cloneBoard(strokes),items:cloneBoard(items),bg,announcement:d.announcement||null,siteUrl:d.siteUrl||'',...(d.entryCall ? {entryCall:d.entryCall} : {}),...(d.jazzUrl ? {jazzUrl:d.jazzUrl} : {}),...(d.telemostUrl ? {telemostUrl:d.telemostUrl} : {}),upd:Date.now()});
   let locallyDismissedAnnouncement='';
   const announcementBox=E('aside',{className:'board-announcement',hidden:true,role:'status'});
@@ -1659,10 +1659,10 @@ async function openBoard(m,id,guest,shareToken=null){
     sc.className='bscroll '+bg;wrap.className='wrap '+bg;redraw();fit();
     if(siteChanged)renderSite();if(selectedItems.length)selectMany(selectedItems);
   };
-  const saveSharedDraft=async(data,epoch=editEpoch)=>{
+  const saveSharedDraft=async(data,epoch=editEpoch,base=displayedBase)=>{
     if(disposed||guest)return;
     try{
-      const result=boardTransport?await boardTransport.write(data,{base:displayedBase}):
+      const result=boardTransport?await boardTransport.write(data,{base}):
         boardShareToken?await shareWrite(boardShareToken,'board',data):{pending:!await save('boards/'+id,data),value:data};
       if(disposed)return;
       if(!result.value)result.value=data;
@@ -1684,8 +1684,9 @@ async function openBoard(m,id,guest,shareToken=null){
     }catch(error){unsyncedShareDraft=true;say('Черновик сохранён на устройстве: '+error.message)}
   };
   const queueSharedDraft=data=>{
-    const epoch=editEpoch;
-    shareSyncChain=shareSyncChain.then(()=>saveSharedDraft(data,epoch))
+    // Earlier queued saves may advance displayedBase before this job runs.
+    const epoch=editEpoch,base=cloneBoard(displayedBase);
+    shareSyncChain=shareSyncChain.then(()=>saveSharedDraft(data,epoch,base))
       .catch(error=>say('Ошибка сохранения: '+error.message));
     return shareSyncChain;
   };
@@ -1890,7 +1891,8 @@ async function openBoard(m,id,guest,shareToken=null){
   sc.addEventListener('touchmove',e=>{if(!pinch||e.touches.length!==2)return;e.preventDefault();const a=e.touches[0],b=e.touches[1],dist=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),nz=Math.min(2.5,Math.max(.25,pinch.z*dist/pinch.dist));const x=pinch.x/pinch.z,y=pinch.y/pinch.z;z=nz;applyZ();sc.scrollLeft=x*z-(a.clientX+b.clientX)/2+sc.getBoundingClientRect().left;sc.scrollTop=y*z-(a.clientY+b.clientY)/2+sc.getBoundingClientRect().top},{passive:false});
   sc.addEventListener('touchend',e=>{if(e.touches.length<2){pinch=null;queueViewport()}});
   /* синхронизация */
-  r.on('boardstate',x=>{const state=x.data?.state;if(!state||guest||disposed)return;applySnapshot(state);displayedBase=cloneBoard(state)});
+  // Peer broadcasts are previews, not acknowledgements from persistent storage.
+  r.on('boardstate',x=>{const state=x.data?.state;if(!state||disposed)return;if(!guest&&(unsyncedShareDraft||editEpoch!==savedEpoch))return;applySnapshot(state)});
   r.on('sp',x=>{const o=x.data;if(!o)return;let s=strokes.find(q=>q.id===o.id);const had=!!s;if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a);persist(true)});
   r.on('ds',x=>{strokes=strokes.filter(q=>q.id!==x.data.id);redraw();persist(true)});
   r.on('i',x=>{const o=x.data&&x.data.n;if(!o)return;let n=items.find(q=>q.id===o.id);if(n)Object.assign(n,o);else{n=o;items.push(n)}upsert(n);if(selectedItems.includes(n))selectMany(selectedItems);persist(true)});
