@@ -238,7 +238,7 @@ function exportUnit(){
  show(previous.u,previous.l);
  const safeName=unit.name.replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"");
  const title="English File Elementary · File "+unitNumber+" · "+unit.name;
- const exportCss=style+'
+ const exportCss=style+`
  .unit-export{max-width:1100px;margin:0 auto;padding:24px}
  .unit-lesson{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:0 0 24px;break-inside:avoid}
  .lesson-number{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
@@ -247,7 +247,7 @@ function exportUnit(){
  .answer-export .answer{display:block!important}
  .unit-export button,.unit-export .tabs,.unit-export .footer{display:none!important}
  @media print{body{background:#fff}.unit-export{padding:0}.unit-lesson{border:0;padding:0;margin:0 0 18px}.lesson{break-inside:avoid}}
- ';
+ `;
  const doc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeHtml(title)+'</title><style>'+exportCss+'</style></head><body><header><h1>'+escapeHtml(title)+'</h1><p>Student’s Book + Workbook · авторские конспекты и практика</p></header><main class="unit-export">'+parts.join("")+'</main></body></html>';
  const blobUrl=URL.createObjectURL(new Blob([doc],{type:"text/html;charset=utf-8"}));
  const link=document.createElement("a");link.href=blobUrl;link.download="English-File-Elementary-File-"+unitNumber+"-"+safeName+".html";
