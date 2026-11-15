@@ -7,7 +7,7 @@
 </style></head><body>
 <header><h1>English File Elementary · Fifth Edition</h1><p>Student’s Book + Workbook Without Key · Oxford University Press · 2025</p></header>
 <div class="wrap">
-<div class="toolbar no-print"><input id="search" placeholder="Найти урок, грамматику или лексику…"><button id="teacher">Режим преподавателя: выкл.</button><button id="print">Печать / PDF</button><button id="export">Экспорт урока</button></div>
+<div class="toolbar no-print"><input id="search" placeholder="Найти урок, грамматику или лексику…"><button id="teacher">Режим преподавателя: выкл.</button><button id="print">Печать / PDF</button><button id="export">Экспорт урока</button><button id="exportUnit" class="primary">Экспорт всего юнита</button></div>
 <div class="layout"><aside class="side no-print"><h3>Содержание курса</h3><div class="meta">12 Files · 36 уроков A/B/C · Practical English · повторение</div><div class="progress" style="margin:10px 0"><span id="progress"></span></div><div class="small" id="progressText">Выполнено 0 из 36 уроков</div><nav id="nav"></nav><hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><div class="small">Навигация Workbook: номера страниц указаны рядом с соответствующими уроками. Разделы Practical English и Can you remember...? сохранены отдельными блоками.</div></aside>
 <main class="content"><div id="view"></div></main></div></div>
 <script>
@@ -209,6 +209,52 @@ $("search").addEventListener("input",e=>buildNav(e.target.value.toLowerCase()));
 $("teacher").onclick=()=>{teacher=!teacher;$("teacher").textContent="Режим преподавателя: "+(teacher?"вкл.":"выкл.");document.body.classList.toggle("hide-student",!teacher)};
 $("print").onclick=()=>window.print();
 $("export").onclick=()=>{let title=units[current.u-1].lessons[current.l][1];let doc="<!doctype html><html lang='ru'><meta charset='utf-8'><title>"+title+"</title><body>"+$("view").innerHTML+"</body></html>";let a=document.createElement("a"),url=URL.createObjectURL(new Blob([doc],{type:"text/html"}));a.href=url;a.download="English-File-Elementary-"+current.u+"-"+(current.l+1)+".html";a.click();URL.revokeObjectURL(url)};
+
+function exportUnit(){
+ const unit=units[current.u-1],unitNumber=unit.n,previous={u:current.u,l:current.l};
+ const style=document.querySelector("style").textContent;
+ const parts=[];
+ for(let lessonIndex=0;lessonIndex<unit.lessons.length;lessonIndex++){
+  show(unitNumber,lessonIndex);
+  const source=$("view"),temp=document.createElement("div");
+  temp.innerHTML=source.innerHTML;
+  temp.querySelectorAll(".tabs,.footer,.no-print,button,.teacher-only,.feedback").forEach(node=>node.remove());
+  temp.querySelectorAll(".panel").forEach(panel=>{panel.style.display="block";panel.classList.add("export-panel")});
+  temp.querySelectorAll(".answer").forEach(answer=>{
+   const details=document.createElement("details");
+   details.className="answer-export";
+   const summary=document.createElement("summary");
+   summary.textContent="Показать ответ";
+   details.append(summary,answer.cloneNode(true));
+   answer.replaceWith(details);
+  });
+  const hero=temp.querySelector(".hero");
+  const panels=Array.from(temp.querySelectorAll(".panel"));
+  if(hero){
+   const lessonTitle=hero.querySelector("h2")?.textContent||("Урок "+(lessonIndex+1));
+   parts.push('<section class="unit-lesson"><div class="lesson-number">FILE '+unitNumber+' · LESSON '+(lessonIndex+1)+'</div>'+hero.outerHTML+panels.map(p=>p.outerHTML).join("")+'</section>');
+  }
+ }
+ show(previous.u,previous.l);
+ const safeName=unit.name.replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"");
+ const title="English File Elementary · File "+unitNumber+" · "+unit.name;
+ const exportCss=style+'
+ .unit-export{max-width:1100px;margin:0 auto;padding:24px}
+ .unit-lesson{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:0 0 24px;break-inside:avoid}
+ .lesson-number{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:8px}
+ .panel,.panel.active{display:block!important}
+ .answer-export{margin:8px 0;padding:8px 12px;background:#f2faf6;border-left:3px solid var(--ok);border-radius:6px}
+ .answer-export .answer{display:block!important}
+ .unit-export button,.unit-export .tabs,.unit-export .footer{display:none!important}
+ @media print{body{background:#fff}.unit-export{padding:0}.unit-lesson{border:0;padding:0;margin:0 0 18px}.lesson{break-inside:avoid}}
+ ';
+ const doc='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+escapeHtml(title)+'</title><style>'+exportCss+'</style></head><body><header><h1>'+escapeHtml(title)+'</h1><p>Student’s Book + Workbook · авторские конспекты и практика</p></header><main class="unit-export">'+parts.join("")+'</main></body></html>';
+ const blobUrl=URL.createObjectURL(new Blob([doc],{type:"text/html;charset=utf-8"}));
+ const link=document.createElement("a");link.href=blobUrl;link.download="English-File-Elementary-File-"+unitNumber+"-"+safeName+".html";
+ document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(blobUrl),1500);
+}
+$("exportUnit").onclick=exportUnit;
+
 function showCourseExtras(){let extra=document.createElement("div");extra.className="lesson";extra.innerHTML="<h3>Курс и дополнительные разделы</h3><p><b>Practical English:</b></p>"+practical.map(x=>"<p>"+x[0]+" — "+x[1]+" <span class='small'>("+x[2]+")</span></p>").join("")+"<p><b>Повторение:</b></p>"+review.map(x=>"<p>"+x[0]+" — "+x[1]+" <span class='small'>("+x[2]+")</span></p>").join("")+"<p><b>Справочные разделы Student’s Book:</b> Communication (p.115), Writing Bank (p.127), Listening (p.132), Grammar Bank, Vocabulary Bank (p.156), Irregular Verbs (p.173), Sound Bank (p.174).</p><p class='small'>Номера разделов взяты из содержания Student’s Book / Workbook. В данном сборщике представлены учебные заметки и оригинальная практика; страницы и аудио Oxford не воспроизводятся.</p>";$("view").append(extra)}
 buildNav();show(1,0);
 </script></body></html>
