@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const start=html.indexOf('  const saveSharedDraft=async(data,epoch=editEpoch)=>{');
+const start=html.indexOf('  const saveSharedDraft=async(');
 const end=html.indexOf('  const queueSharedDraft=',start);
 assert.ok(start>0&&end>start);
 const definition=html.slice(start,end);
