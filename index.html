@@ -2406,7 +2406,8 @@ async function openBoard(m,id,guest,shareToken=null){
   if(boardTransport&&!guest)mi('Разобрать конфликт сохранения',async()=>{
     try{
       const versions=await boardTransport.inspect();
-      const choice=prompt('Выбери общую версию доски. Она заменит другие версии после проверки, что они не изменились. При необходимости сначала скачай все версии JSON.\n1 — моя локальная версия\n2 — Firebase\n3 — резерв Cloudflare','');
+      const describeVersion=value=>value?((value.items||[]).length+' объектов, '+(value.strokes||[]).length+' штрихов; '+(Number.isFinite(Number(value.upd))?new Date(Number(value.upd)).toLocaleString('ru-RU'):'дата неизвестна')):'недоступна';
+      const choice=prompt('Выбери общую версию доски. Она заменит другие версии после проверки, что они не изменились. Сначала сохрани все версии через «Сохранить как → Все версии · JSON».\n\n1 — моя локальная версия: '+describeVersion(versions.draft)+'\n2 — Firebase: '+describeVersion(versions.primary?.value)+'\n3 — резерв Cloudflare: '+describeVersion(versions.reserve?.value),'');
       if(!['1','2','3'].includes(choice))return;
       const result=await boardTransport.resolve({'1':'local','2':'primary','3':'reserve'}[choice],versions);
       applySnapshot(result.value);displayedBase=cloneBoard(result.value);unsyncedShareDraft=false;savedEpoch=editEpoch;say('Конфликт разрешён, версия сохранена.');
