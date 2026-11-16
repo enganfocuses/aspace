@@ -1246,7 +1246,7 @@ async function roomUI(m,id,name,back){
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
   const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
   const openVideo=()=>{
-    if(externalTarget){const width=Math.min(480,Math.max(320,window.innerWidth-24)),height=Math.min(620,Math.max(420,window.innerHeight-80));const left=Math.max(0,Math.round(window.screenX+(window.outerWidth-width)/2)),top=Math.max(0,Math.round(window.screenY+(window.outerHeight-height)/2));const popup=window.open(externalTarget,'aspace-room-call','popup=yes,width='+width+',height='+height+',left='+left+',top='+top+',resizable=yes');if(!popup)alert('Браузер заблокировал отдельное окно. Разреши всплывающие окна для Aspace и нажми «Открыть видеозвонок» ещё раз.');return}
+    if(externalTarget){const width=Math.min(480,Math.max(320,window.innerWidth-24)),height=Math.min(620,Math.max(420,window.innerHeight-80));const left=Math.max(0,Math.round(window.screenX+(window.outerWidth-width)/2)),top=Math.max(0,Math.round(window.screenY+(window.outerHeight-height)/2));const popup=window.open(externalTarget,'aspace-room-call','popup=yes,width='+width+',height='+height+',left='+left+',top='+top+',resizable=yes');if(!popup){const tab=window.open(externalTarget,'_blank','noopener');if(!tab)alert('Браузер заблокировал окно и новую вкладку. Разреши всплывающие окна для Aspace и повтори попытку.')}return}
     if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
@@ -2528,7 +2528,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
   mp.append(themeControl());
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
-  if(boardVideoTarget){const openExternalBoardCall=()=>{const w=window.open(boardVideoTarget,'aspace-board-call','popup=yes,width=460,height=600,resizable=yes');if(!w)alert('Браузер заблокировал отдельное окно. Разреши всплывающие окна для Aspace и нажми кнопку ещё раз.')};const routeButton=B('Открыть видеозвонок',openExternalBoardCall,'board-call-route');root.append(routeButton);}
+  if(boardVideoTarget){const openExternalBoardCall=()=>{const w=window.open(boardVideoTarget,'aspace-board-call','popup=yes,width=460,height=600,resizable=yes');if(!w){const tab=window.open(boardVideoTarget,'_blank','noopener');if(!tab)alert('Браузер заблокировал окно и новую вкладку. Разреши всплывающие окна для Aspace и повтори попытку.')}};const routeButton=B('Открыть видеозвонок',openExternalBoardCall,'board-call-route');root.append(routeButton);}
   renderAnnouncement();m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
