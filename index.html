@@ -619,6 +619,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin{container-type:inline-size}
 .vwin .vbar>button.end-call,.vwin .vh button.end-call{width:80px;min-width:80px;max-width:80px;font-size:14px;white-space:nowrap;font-weight:600}
 @container (max-width:300px){.vwin .vbar,.vwin.home-call-window .vbar{gap:2px}.vwin .vbar>button,.vwin .vbar>details>summary{width:34px;min-width:34px;max-width:34px;font-size:34px}.vwin .vbar>button .ic{width:30px;height:30px}.vwin .vbar>button.end-call,.vwin .vh button.end-call{width:70px;min-width:70px;max-width:70px;font-size:13px}}
+
+.password-reset-dialog{width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #b7a28c;border-radius:22px;padding:25px;background:#f6efdf;color:#3b2934;box-shadow:0 18px 60px #17081366}.password-reset-dialog::backdrop{background:#24121c88}.password-reset-dialog form{display:grid;gap:12px}:root .password-reset-dialog h2,:root .password-reset-dialog p{margin:0;color:#3b2934}.password-reset-dialog h2{font-family:Georgia,serif;font-size:26px}.password-reset-dialog p{font-size:14px;line-height:1.55}:root .password-reset-dialog input{width:100%;background:#fffaf3;color:#3b2934;border:1px solid #b7a28c}:root .password-reset-dialog button{color:#49354f;background:#c8b8e8}:root .password-reset-dialog .reset-send{background:#71384f;color:#fff}.reset-status:empty{display:none}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
@@ -936,11 +938,31 @@ const main=()=>$('#main');
 const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Образование',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
+function passwordResetDialog(prefill=currentUser?.email||''){
+  const existing=document.querySelector('.password-reset-dialog');if(existing){existing.querySelector('input').focus();return}
+  const email=E('input',{type:'email',autocomplete:'email',required:true,value:prefill,placeholder:'Почта твоего аккаунта',ariaLabel:'Почта для восстановления'});
+  const status=E('p',{className:'reset-status',role:'status',ariaLive:'polite'}),send=E('button',{type:'submit',className:'reset-send',textContent:'Отправить письмо'});
+  const dialog=E('dialog',{className:'password-reset-dialog',ariaLabel:'Восстановление пароля Aspace'});
+  const cancel=E('button',{type:'button',textContent:'Закрыть',onclick:()=>dialog.close()});
+  const form=E('form',{onsubmit:async event=>{
+    event.preventDefault();if(send.disabled)return;send.disabled=true;email.disabled=true;status.textContent='Отправляем письмо…';
+    try{
+      if(!auth)throw Object.assign(Error(),{code:'auth/not-ready'});
+      auth.languageCode='ru';await auth.sendPasswordResetEmail(email.value.trim());
+      status.textContent='Если аккаунт с этой почтой существует, на неё придёт ссылка для смены пароля. Проверь также папку «Спам».';
+    }catch(error){
+      if(error.code==='auth/user-not-found'){status.textContent='Если аккаунт с этой почтой существует, на неё придёт ссылка для смены пароля. Проверь также папку «Спам».';return}
+      const messages={'auth/invalid-email':'Проверь адрес электронной почты.','auth/too-many-requests':'Слишком много попыток. Подожди и попробуй позже.','auth/network-request-failed':'Не удалось отправить письмо. Проверь интернет и повтори попытку.','auth/not-ready':'Подключение ещё не готово. Обнови страницу и попробуй снова.'};
+      status.textContent=messages[error.code]||'Не удалось отправить письмо. Попробуй позже.';send.disabled=false;
+    }finally{email.disabled=false}
+  }},E('h2',{textContent:'Забыла пароль?'}),E('p',{textContent:'Укажи почту, с которой входишь в Aspace. Отправим на неё ссылку для смены пароля.'}),email,send,status,cancel);
+  email.oninput=()=>{send.disabled=false;status.textContent=''};dialog.append(form);document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();email.focus();
+}
 function loginView(message=''){
   const root=$('#root'),email=E('input',{type:'email',placeholder:'Электронная почта',autocomplete:'username',required:true}),pass=E('input',{type:'password',placeholder:'Пароль',autocomplete:'current-password',required:true}),status=E('div',{className:'mut',textContent:message});
   const submit=E('button',{type:'submit',textContent:'Войти'}); 
   const card=E('form',{className:'box',onsubmit:async e=>{e.preventDefault();status.textContent='Подключаюсь к Firebase…';submit.disabled=true;try{if(!email.value.trim()||!pass.value){status.textContent='Введи электронную почту и пароль.';submit.disabled=false;return}const credential=await auth.signInWithEmailAndPassword(email.value.trim(),pass.value);status.textContent='Пароль принят. Проверяю UID владельца…';if(credential.user.uid!==CFG.ownerUid){status.textContent='Вход выполнен, но UID этой учётной записи не совпадает с UID владельца в config.js. Ожидаемый UID: '+CFG.ownerUid+'; UID аккаунта: '+credential.user.uid+'.';await auth.signOut();submit.disabled=false;return}}catch(e){const messages={'auth/invalid-credential':'Неверная электронная почта или пароль.','auth/user-not-found':'Пользователь не найден в этом Firebase-проекте.','auth/wrong-password':'Неверный пароль.','auth/too-many-requests':'Слишком много попыток. Подожди и попробуй позже.','auth/network-request-failed':'Не удалось связаться с Firebase. Проверь интернет и блокировщики.','auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication → Settings → Authorized domains.'};status.textContent=(messages[e.code]||e.message||'Неизвестная ошибка')+' ('+(e.code||'без кода')+')';submit.disabled=false}}});
-  card.append(E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,status);
+  card.append(E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,E('button',{type:'button',className:'forgot-password',textContent:'Забыла пароль',onclick:()=>passwordResetDialog(email.value.trim())}),status);
   root.replaceChildren(E('div',{className:'gate'},card));
 }
 function start(){
@@ -974,7 +996,7 @@ function goHome(){
 function shell(guest){
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
-  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Образование',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout')));
+  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Образование',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -1404,7 +1426,7 @@ function homeView(m){
   for(const [title,description,action,key] of sections){
     const card=E('button',{className:'section-card section-'+key,onclick:action},E('span',{className:'section-art',ariaHidden:'true'}),E('span',{className:'section-copy'},E('strong',{textContent:title}),E('span',{textContent:description})),E('span',{className:'section-enter',textContent:'↗',ariaHidden:'true'}));grid.append(card);
   }
-  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()})));
+  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
 }
 
 async function boardsView(m){
