@@ -31,6 +31,11 @@ test('viewer may use WebRTC signaling without gaining board navigation rights',(
   assert.ok(!templateCallWrite.includes("=== 'boardnav'"));
 });
 
+test('viewer cleanup cannot remove the complete nested call channel',()=>{
+  assert.match(viewerRoomWrite, /\\$message !== 'call'/);
+  assert.match(templateRoomWrite, /\\$msg !== 'call'/);
+});
+
 test('edit rights remain separate from the ephemeral signaling channel',()=>{
   assert.match(rules.rules.shares.$token.board['.write'],/role/);
   assert.match(rules.rules.shares.$token.assets.$asset['.write'],/role/);
