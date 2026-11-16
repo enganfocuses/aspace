@@ -31,6 +31,14 @@ test('viewer may use WebRTC signaling without gaining board navigation rights',(
   assert.ok(!templateCallWrite.includes("=== 'boardnav'"));
 });
 
+test('permanent room IDs are readable without weakening board-share token rules',()=>{
+  assert.match(template.rules.shares.$token.meta['.read'],/a-f0-9\]\{48\}\|\[a-z0-9\]\{14\}/);
+  assert.match(template.rules.shares.$token.meta['.validate'],/!newData\.child\('boardId'\)\.exists\(\)/);
+  assert.match(template.rules.shares.$token.room['.read'],/a-z0-9/);
+  assert.match(template.rules.shares.$token.room.call.$signal['.write'],/a-z0-9/);
+  assert.match(template.rules.rooms.$room.call['.read'],/__ASPACE_OWNER_UID__/);
+});
+
 test('viewer cleanup cannot remove the complete nested call channel',()=>{
   assert.match(viewerRoomWrite, /\\$message !== 'call'/);
   assert.match(templateRoomWrite, /\\$msg !== 'call'/);
