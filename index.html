@@ -1354,6 +1354,9 @@ async function roomUI(m,id,name,back){
 async function callView(m){
   const me={ics:'/calendar.ics'};
   const calls=(await load('meta/calls'))||{items:[]},ev=(await load('meta/events'))||{items:[]};
+  if(!Array.isArray(calls.items))calls.items=[];
+  // Migrate older permanent rooms to share-scoped guest signaling metadata.
+  if(currentUser?.uid===CFG.ownerUid){for(const room of calls.items){const path=DB()+'/shares/'+encodeURIComponent(room.id)+'/meta.json';const existing=await fetch(path,{cache:'no-store'});if(existing.status===404){const created=await fetch(path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'viewer',destination:room.destination||'aspace',destinationUrl:room.destinationUrl||null,updatedAt:Date.now()})});if(!created.ok)console.warn('Aspace room migration failed',room.id,created.status)}}}
   const externalCalls=(await load('meta/call-services'))||{};
   const externalServices=[
     {name:'Яндекс Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'],path:/^\/j\/[^/]+\/?$/},
