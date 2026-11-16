@@ -64,7 +64,7 @@
         "call": {
           ".read": "$room.matches(/^c-[A-Za-z0-9_-]{1,120}$/)",
           "$signal": {
-            ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($room.matches(/^c-[A-Za-z0-9_-]{1,120}$/) && (!newData.exists() || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000)))"
+            ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($room.matches(/^c-[A-Za-z0-9_-]{1,120}$/) && (($msg !== 'call' && !newData.exists()) || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000)))"
           }
         }
       }
