@@ -615,6 +615,10 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin .vbar>button,.vwin .vbar>details>summary{width:48px;min-width:48px;max-width:48px;height:48px;min-height:48px;font-size:42px}
 .vwin .vbar>button .ic{width:36px;height:36px}
 .vwin .call-settings-panel input[type=range]{width:100%;min-width:0;max-width:100%}
+
+.vwin{container-type:inline-size}
+.vwin .vbar>button.end-call,.vwin .vh button.end-call{width:80px;min-width:80px;max-width:80px;font-size:14px;white-space:nowrap;font-weight:600}
+@container (max-width:300px){.vwin .vbar,.vwin.home-call-window .vbar{gap:2px}.vwin .vbar>button,.vwin .vbar>details>summary{width:34px;min-width:34px;max-width:34px;font-size:34px}.vwin .vbar>button .ic{width:30px;height:30px}.vwin .vbar>button.end-call,.vwin .vh button.end-call{width:70px;min-width:70px;max-width:70px;font-size:13px}}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
@@ -1043,12 +1047,12 @@ let ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','
 const ICE_READY=(async()=>{const c=window.CFG||{};try{if(c.turn&&c.turn.length)ICE.push(...c.turn);if(c.metered&&c.metered.app&&c.metered.key){const j=await(await fetch(`https://${c.metered.app}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(c.metered.key)}`)).json();if(Array.isArray(j))ICE.push(...j)}}catch(e){console.warn('TURN credentials unavailable',e)}return ICE})();
 function compactCallControls(vbar,mic,cam,nz,cams,mics,speakers,fullscreen,leave){
   const settings=E('details',{className:'call-settings'},E('summary',{title:'Настройки звонка',ariaLabel:'Настройки звонка',textContent:'⚙'}),E('div',{className:'call-settings-panel'},nz,E('label',{},'Камера',cams),E('label',{},'Микрофон',mics),E('label',{},'Динамик',speakers)));
-  fullscreen.title='На весь экран';fullscreen.setAttribute('aria-label',fullscreen.title);leave.textContent='⏻';leave.title='Завершить звонок';leave.setAttribute('aria-label',leave.title);
+  fullscreen.title='На весь экран';fullscreen.setAttribute('aria-label',fullscreen.title);leave.textContent='End call';leave.classList.add('end-call');leave.title='End call';leave.setAttribute('aria-label',leave.title);
   for(const b of [mic,cam])b.setAttribute('aria-label',b.title);
-  fullscreen.textContent='⛶ На весь экран';
-  const panel=settings.querySelector('.call-settings-panel');panel.append(fullscreen);
+  fullscreen.textContent='⛶';
+  const panel=settings.querySelector('.call-settings-panel');
   for(const zoom of vbar.querySelectorAll(':scope > input[type=range]'))panel.append(E('label',{},'Приближение камеры',zoom));
-  vbar.append(mic,cam,settings,leave);
+  vbar.append(mic,cam,settings,fullscreen,leave);
 }
 function Call(r,box){
   const me=uid(),pcs={},tiles={},offs=[];let st=null;const reconnectTimers=new Map();
@@ -1166,7 +1170,7 @@ async function roomUI(m,id,name,back){
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
     vw=E('div',{className:'vwin home-call-window'},hd,grid,vbar);
     const fs=()=>document.fullscreenElement?document.exitFullscreen():vw.requestFullscreen();
-    hd.append(E('span',{className:'row'},E('button',{textContent:'−',title:'Свернуть / развернуть видео',ariaLabel:'Свернуть / развернуть видео',onclick:()=>vw.classList.toggle('min')}),B('✕',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'})));
+    hd.append(E('span',{className:'row'},E('button',{textContent:'−',title:'Свернуть / развернуть видео',ariaLabel:'Свернуть / развернуть видео',onclick:()=>vw.classList.toggle('min')}),B('End call',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'},'end-call')));
     const enterCall=B('Включить камеру и войти',async()=>{
       enterCall.disabled=true;enterCall.textContent='Подключаю канал звонка…';
       try{
@@ -2235,7 +2239,7 @@ async function openBoard(m,id,guest,shareToken=null){
     vw=E('div',{className:'vwin'},hd,grid,vbar);
     const close=()=>{call&&call.stop();call=null;callRoom?.close();callRoom=null;if(document.fullscreenElement)document.exitFullscreen();vw.remove();vw=null};
     const fs=()=>document.fullscreenElement?document.exitFullscreen():vw.requestFullscreen();
-    hd.append(E('span',{className:'row'},E('button',{textContent:'−',title:'Свернуть / развернуть видео',ariaLabel:'Свернуть / развернуть видео',onclick:()=>vw.classList.toggle('min')}),B('✕',close)));
+    hd.append(E('span',{className:'row'},E('button',{textContent:'−',title:'Свернуть / развернуть видео',ariaLabel:'Свернуть / развернуть видео',onclick:()=>vw.classList.toggle('min')}),B('End call',close,'end-call')));
     const thisWindow=vw;
     const go=B('Включить камеру и войти',async()=>{if(isOwner&&d.entryCall!=='aspace'){d.entryCall='aspace';refreshMeetings();persist()}go.disabled=true;go.textContent='Подключаю канал звонка…';
       try{const callPath=activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room/call'):('/rooms/'+encodeURIComponent('b-'+id)+'/call');const channel=await room0.join('call-'+id,callPath);if(disposed||vw!==thisWindow){channel.close();return}callRoom=channel;const session=Call(channel,grid);call=session;await session.start();if(disposed||vw!==thisWindow){session.stop();channel.close();return}}catch(e){if(disposed||vw!==thisWindow)return;alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;go.disabled=false;go.textContent='Включить камеру и войти';return}
