@@ -1654,9 +1654,9 @@ function externalMedia(raw){
   return null;
 }
 async function openBoard(m,id,guest,shareToken=null){
-  let shareMeta=null,d0=null,boardVideoTarget='',isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
+  let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
   activeShareToken=shareToken;
-  if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor';if(['telemost','salute'].includes(shareMeta.destination)&&shareMeta.destinationUrl){const target=new URL(shareMeta.destinationUrl);const hosts=shareMeta.destination==='telemost'?['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']:['salutejazz.ru','jazz.sberbank.ru'];const pathOk=shareMeta.destination==='telemost'?/^\/j\/[^/]+\/?$/.test(target.pathname):/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname);if(target.protocol==='https:'&&hosts.includes(target.hostname)&&pathOk&&!target.username&&!target.password&&!target.port)boardVideoTarget=target.href}}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
+  if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   if(isOwner)guest=false;
   // Keep the current board in the address bar without firing hashchange/reloading.
@@ -1673,7 +1673,12 @@ async function openBoard(m,id,guest,shareToken=null){
     d0=cloneBoard(localGuestDraft.value);
   }
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
-  const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
+  const d=d0||{name:'Доска',strokes:[],items:[]};
+  // The share's route controls the existing top-right student video button.
+  if(shareMeta?.destination==='telemost'&&shareMeta.destinationUrl){d.telemostUrl=shareMeta.destinationUrl;d.entryCall='telemostUrl'}
+  else if(shareMeta?.destination==='salute'&&shareMeta.destinationUrl){d.jazzUrl=shareMeta.destinationUrl;d.entryCall='jazzUrl'}
+  else if(shareMeta?.destination==='aspace')d.entryCall='aspace';
+  const W=3000,H=2400;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
@@ -2528,7 +2533,6 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
   mp.append(themeControl());
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
-  if(boardVideoTarget){const openExternalBoardCall=()=>{const w=window.open(boardVideoTarget,'aspace-board-call','popup=yes,width=460,height=600,resizable=yes');if(!w){const tab=window.open(boardVideoTarget,'_blank','noopener');if(!tab)alert('Браузер заблокировал окно и новую вкладку. Разреши всплывающие окна для Aspace и повтори попытку.')}};const routeButton=B('Открыть видеозвонок',openExternalBoardCall,'board-call-route');root.append(routeButton);}
   renderAnnouncement();m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
