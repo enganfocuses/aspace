@@ -1212,7 +1212,7 @@ function stopPersistentCall(){
 // A true anonymous guest probe bypasses the global owner-token fetch wrapper.
 // One short temporary signal is created and deleted only when access succeeds.
 async function testGuestCallAccess(id){
-  const base=DB()+'/rooms/'+encodeURIComponent('c-'+id)+'/call';
+  const base=DB()+'/shares/'+encodeURIComponent(id)+'/call';
   const read=await rawFetch(base+'.json?shallow=true',{cache:'no-store'});
   if(!read.ok)return{ok:false,step:'Чтение звонка',status:read.status};
   const write=await rawFetch(base+'.json',{
@@ -1226,7 +1226,8 @@ async function testGuestCallAccess(id){
   return{ok:cleanup.ok,step:cleanup.ok?'Готово':'Удаление тестового сигнала',status:cleanup.status};
 }
 async function roomUI(m,id,name,back){
-  // A permanent link may route a guest directly to its configured provider.
+  let externalTarget='';
+  // Room settings are stored with the room's public metadata.
   if(!(currentUser&&currentUser.uid===CFG.ownerUid)){
     try{
       const routeResponse=await fetch(DB()+'/shares/'+encodeURIComponent(id)+'/meta.json',{cache:'no-store'});
@@ -1238,13 +1239,14 @@ async function roomUI(m,id,name,back){
           : route.destination==='salute'
             ? ['salutejazz.ru','jazz.sberbank.ru'].includes(target.hostname)&&/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname)
             : false;
-        if(target.protocol==='https:'&&allowed&&!target.username&&!target.password&&!target.port){location.replace(target.href);return}
+        if(target.protocol==='https:'&&allowed&&!target.username&&!target.password&&!target.port)externalTarget=target.href;
       }
     }catch(error){console.warn('Не удалось прочитать маршрут постоянной ссылки:',error)}
   }
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
   const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
   const openVideo=()=>{
+    if(externalTarget){const width=Math.min(480,Math.max(320,window.innerWidth-24)),height=Math.min(620,Math.max(420,window.innerHeight-80));const left=Math.max(0,Math.round(window.screenX+(window.outerWidth-width)/2)),top=Math.max(0,Math.round(window.screenY+(window.outerHeight-height)/2));const popup=window.open(externalTarget,'aspace-room-call','popup=yes,width='+width+',height='+height+',left='+left+',top='+top+',resizable=yes');if(!popup)alert('Браузер заблокировал отдельное окно. Разреши всплывающие окна для Aspace и нажми «Открыть видеозвонок» ещё раз.');return}
     if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
@@ -1254,7 +1256,7 @@ async function roomUI(m,id,name,back){
     const enterCall=B('Включить камеру и войти',async()=>{
       enterCall.disabled=true;enterCall.textContent='Подключаю канал звонка…';
       try{
-        callRoom=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');
+        callRoom=await room0.join('call-'+id,'/shares/'+encodeURIComponent(id)+'/call');
         call=Call(callRoom,grid);await call.start();
         persistentCallSession={id,call,room:callRoom,window:vw};
         // Board navigation clears only the page content, never the call window.
@@ -2322,7 +2324,7 @@ async function openBoard(m,id,guest,shareToken=null){
     hd.append(E('span',{className:'row'},E('button',{textContent:'−',title:'Свернуть / развернуть видео',ariaLabel:'Свернуть / развернуть видео',onclick:()=>vw.classList.toggle('min')}),B('End call',close,'end-call')));
     const thisWindow=vw;
     const go=B('Включить камеру и войти',async()=>{if(isOwner&&d.entryCall!=='aspace'){d.entryCall='aspace';refreshMeetings();persist()}go.disabled=true;go.textContent='Подключаю канал звонка…';
-      try{const callPath=activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room/call'):('/rooms/'+encodeURIComponent('b-'+id)+'/call');const channel=await room0.join('call-'+id,callPath);if(disposed||vw!==thisWindow){channel.close();return}callRoom=channel;const session=Call(channel,grid);call=session;await session.start();if(disposed||vw!==thisWindow){session.stop();channel.close();return}}catch(e){if(disposed||vw!==thisWindow)return;alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;go.disabled=false;go.textContent='Включить камеру и войти';return}
+      try{const callPath=activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/call'):('/rooms/'+encodeURIComponent('b-'+id)+'/call');const channel=await room0.join('call-'+id,callPath);if(disposed||vw!==thisWindow){channel.close();return}callRoom=channel;const session=Call(channel,grid);call=session;await session.start();if(disposed||vw!==thisWindow){session.stop();channel.close();return}}catch(e){if(disposed||vw!==thisWindow)return;alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;go.disabled=false;go.textContent='Включить камеру и войти';return}
       go.remove();let ns=true;
       const mic=E('button',{title:'Микрофон',onclick:async()=>{try{mic.classList.toggle('off',!await call.mic())}catch(e){alert(e.message)}}},ic('mic')),cam=E('button',{title:'Камера',onclick:async()=>{try{cam.classList.toggle('off',!await call.cam())}catch(e){alert(e.message)}}},ic('video')),
         nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});nz.classList.add('on');
