@@ -1482,6 +1482,12 @@ async function boardsView(m){
             '. Запись учеником проверяется отдельно в реальном уроке.');
         }catch(error){alert('Гостевой доступ не подтверждён: '+error.message)}
       }));
+      actions.append(B('🎥 Куда подключаться',async()=>{
+        const choice=prompt('Куда направлять ученика по этой ссылке на доску?\\n1 — видеозвонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');if(choice===null)return;if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return}
+        const destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];let destinationUrl=null;
+        if(destination!=='aspace'){const hosts=destination==='telemost'?['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']:['salutejazz.ru','jazz.sberbank.ru'];const raw=prompt('Вставь прямую ссылку-приглашение '+(destination==='telemost'?'Яндекс Телемост':'Салют Джаз'));if(raw===null)return;try{const target=new URL(raw.trim());const pathOk=destination==='telemost'?/^\\/j\\/[^/]+\\/?$/.test(target.pathname):/^\\/(?:calls\\/)?(?:sber-)?[a-z0-9]{6,}\\/?$/i.test(target.pathname);if(target.protocol==='https:'&&hosts.includes(target.hostname)&&pathOk&&!target.username&&!target.password&&!target.port)destinationUrl=target.href}catch{}if(!destinationUrl){alert('Ссылка не прошла проверку.');return}}
+        try{const meta=await shareRead(b.shareToken,'meta');await shareWrite(b.shareToken,'meta',{...meta,destination,destinationUrl,updatedAt:Date.now()});say2('Направление видеозвонка сохранено для этой ссылки')}catch(error){alert('Не удалось сохранить направление: '+error.message)}
+      }));
       actions.append(B('⚙️ Доступ',async()=>{
         const choice=prompt('Настройки публичной ссылки:\n1 — изменить права\n2 — отозвать ссылку','1');
         if(choice==='1'){
@@ -1645,9 +1651,9 @@ function externalMedia(raw){
   return null;
 }
 async function openBoard(m,id,guest,shareToken=null){
-  let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
+  let shareMeta=null,d0=null,boardVideoTarget='',isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
   activeShareToken=shareToken;
-  if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
+  if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor';if(['telemost','salute'].includes(shareMeta.destination)&&shareMeta.destinationUrl){const target=new URL(shareMeta.destinationUrl);const hosts=shareMeta.destination==='telemost'?['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']:['salutejazz.ru','jazz.sberbank.ru'];const pathOk=shareMeta.destination==='telemost'?/^\/j\/[^/]+\/?$/.test(target.pathname):/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname);if(target.protocol==='https:'&&hosts.includes(target.hostname)&&pathOk&&!target.username&&!target.password&&!target.port)boardVideoTarget=target.href}}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
   else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   if(isOwner)guest=false;
   // Keep the current board in the address bar without firing hashchange/reloading.
@@ -2519,6 +2525,7 @@ async function openBoard(m,id,guest,shareToken=null){
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
   mp.append(themeControl());
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
+  if(boardVideoTarget){const openExternalBoardCall=()=>{const w=window.open(boardVideoTarget,'aspace-board-call','popup=yes,width=460,height=600,resizable=yes');if(!w)alert('Браузер заблокировал отдельное окно. Разреши всплывающие окна для Aspace и нажми кнопку ещё раз.')};const routeButton=B('Открыть видеозвонок',openExternalBoardCall,'board-call-route');root.append(routeButton);const popup=window.open(boardVideoTarget,'aspace-board-call','popup=yes,width=460,height=600,resizable=yes');if(!popup)routeButton.textContent='Открыть видеозвонок (разреши всплывающие окна)'}
   renderAnnouncement();m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
