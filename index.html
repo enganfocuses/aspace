@@ -1212,7 +1212,7 @@ function stopPersistentCall(){
 // A true anonymous guest probe bypasses the global owner-token fetch wrapper.
 // One short temporary signal is created and deleted only when access succeeds.
 async function testGuestCallAccess(id){
-  const base=DB()+'/rooms/'+encodeURIComponent('c-'+id)+'/call';
+  const base=DB()+'/shares/'+encodeURIComponent(id)+'/room/call';
   const read=await rawFetch(base+'.json?shallow=true',{cache:'no-store'});
   if(!read.ok)return{ok:false,step:'Чтение звонка',status:read.status};
   const write=await rawFetch(base+'.json',{
@@ -1226,8 +1226,9 @@ async function testGuestCallAccess(id){
   return{ok:cleanup.ok,step:cleanup.ok?'Готово':'Удаление тестового сигнала',status:cleanup.status};
 }
 async function roomUI(m,id,name,back){
-  // A permanent link may route a guest directly to its configured provider.
-  if(!(currentUser&&currentUser.uid===CFG.ownerUid)){
+  let externalTarget='';
+  // Room settings are public metadata so owner and guest use the same destination.
+  {
     try{
       const routeResponse=await fetch(DB()+'/shares/'+encodeURIComponent(id)+'/meta.json',{cache:'no-store'});
       const route=routeResponse.ok?await routeResponse.json():null;
@@ -1238,13 +1239,14 @@ async function roomUI(m,id,name,back){
           : route.destination==='salute'
             ? ['salutejazz.ru','jazz.sberbank.ru'].includes(target.hostname)&&/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname)
             : false;
-        if(target.protocol==='https:'&&allowed&&!target.username&&!target.password&&!target.port){location.replace(target.href);return}
+        if(target.protocol==='https:'&&allowed&&!target.username&&!target.password&&!target.port)externalTarget=target.href;
       }
     }catch(error){console.warn('Не удалось прочитать маршрут постоянной ссылки:',error)}
   }
   const bar=E('div',{className:'tb'}),url=link('c',id);let call=null,callRoom=null,vw=null;
   const close=()=>{if(call){call.stop();call=null}if(callRoom){callRoom.close();callRoom=null}if(document.fullscreenElement&&vw)document.exitFullscreen().catch(()=>{});vw?.remove();vw=null;if(persistentCallSession?.id===id)persistentCallSession=null};
   const openVideo=()=>{
+    if(externalTarget){const width=Math.min(480,Math.max(320,window.innerWidth-24)),height=Math.min(620,Math.max(420,window.innerHeight-80));const left=Math.max(0,Math.round(window.screenX+(window.outerWidth-width)/2)),top=Math.max(0,Math.round(window.screenY+(window.outerHeight-height)/2));const popup=window.open(externalTarget,'aspace-room-call','popup=yes,width='+width+',height='+height+',left='+left+',top='+top+',resizable=yes');if(!popup){const tab=window.open(externalTarget,'_blank','noopener');if(!tab)alert('Браузер заблокировал окно и новую вкладку. Разреши всплывающие окна для Aspace и повтори попытку.')}return}
     if(persistentCallSession){persistentCallSession.window.classList.remove('min');persistentCallSession.window.style.display='';return}
     if(vw){vw.classList.remove('min');return}
     const grid=E('div',{className:'vgrid'}),vbar=E('div',{className:'vbar'}),hd=E('div',{className:'vh'},E('span',{textContent:name||'Видеозвонок'}));
@@ -1254,7 +1256,7 @@ async function roomUI(m,id,name,back){
     const enterCall=B('Включить камеру и войти',async()=>{
       enterCall.disabled=true;enterCall.textContent='Подключаю канал звонка…';
       try{
-        callRoom=await room0.join('call-'+id,'/rooms/'+encodeURIComponent('c-'+id)+'/call');
+        callRoom=await room0.join('call-'+id,'/shares/'+encodeURIComponent(id)+'/room/call');
         call=Call(callRoom,grid);await call.start();
         persistentCallSession={id,call,room:callRoom,window:vw};
         // Board navigation clears only the page content, never the call window.
@@ -1352,6 +1354,9 @@ async function roomUI(m,id,name,back){
 async function callView(m){
   const me={ics:'/calendar.ics'};
   const calls=(await load('meta/calls'))||{items:[]},ev=(await load('meta/events'))||{items:[]};
+  if(!Array.isArray(calls.items))calls.items=[];
+  // Migrate older permanent rooms to share-scoped guest signaling metadata.
+  if(currentUser?.uid===CFG.ownerUid){for(const room of calls.items){const path=DB()+'/shares/'+encodeURIComponent(room.id)+'/meta.json';const existing=await fetch(path,{cache:'no-store'});const existingMeta=existing.ok?await existing.json().catch(()=>null):null;if(!existingMeta){const created=await fetch(path,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'viewer',destination:room.destination||'aspace',destinationUrl:room.destinationUrl||null,updatedAt:Date.now()})});if(!created.ok)console.warn('Aspace room migration failed',room.id,created.status)}}}
   const externalCalls=(await load('meta/call-services'))||{};
   const externalServices=[
     {name:'Яндекс Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com'],path:/^\/j\/[^/]+\/?$/},
@@ -1388,64 +1393,32 @@ async function callView(m){
     }));
     externalCard.append(row);
   }
-  const directLinks=(await load('meta/call-links'))||{items:[]};
-  if(!Array.isArray(directLinks.items))directLinks.items=[];
-  if(!Array.isArray(calls.items))calls.items=[];
-  const directGrid=E('div',{className:'grid'});
-  const configureDirectRoute=async item=>{
-    const choice=prompt('Куда направлять ученика по этой постоянной ссылке?\\n1 — звонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');
+  const roomsGrid=E('div',{className:'grid'});
+  const saveRoomRoute=async(item)=>{
+    const choice=prompt('Куда подключать участников этой постоянной комнаты?\\n1 — видеозвонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');
     if(choice===null)return false;
     if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return false}
-    item.destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];
-    delete item.destinationUrl;
-    if(item.destination!=='aspace'){
-      const service=externalServices.find(x=>x.field===(item.destination==='telemost'?'telemostUrl':'saluteUrl'));
-      const raw=prompt('Вставь прямую ссылку-приглашение '+service.name+'. Она будет открываться у ученика.',externalCalls[service.field]||'');
-      if(raw===null)return false;
-      const target=validExternalUrl(raw.trim(),service);
-      if(!target){alert('Ссылка не прошла проверку. Нужна действующая HTTPS-ссылка-приглашение '+service.name+'.');return false}
-      item.destinationUrl=target;
+    const destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];let destinationUrl=null;
+    if(destination!=='aspace'){
+      const service=externalServices.find(x=>x.field===(destination==='telemost'?'telemostUrl':'saluteUrl'));
+      const raw=prompt('Вставь прямую ссылку-приглашение '+service.name+'.',externalCalls[service.field]||'');
+      if(raw===null)return false;destinationUrl=validExternalUrl(raw.trim(),service);
+      if(!destinationUrl){alert('Ссылка не прошла проверку.');return false}
     }
-    await save('meta/call-links',directLinks);
-    const publicRoute=await fetch(DB()+'/shares/'+encodeURIComponent(item.id)+'/meta.json',{
-      method:'PUT',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({role:'viewer',destination:item.destination,destinationUrl:item.destinationUrl||null,updatedAt:Date.now()})
-    });
-    if(!publicRoute.ok)throw new Error('Не удалось сохранить публичный маршрут для ученика (HTTP '+publicRoute.status+'). Проверь Firebase Rules.');
-    go(callView);return true;
+    const response=await fetch(DB()+'/shares/'+encodeURIComponent(item.id)+'/meta.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'viewer',destination,destinationUrl,updatedAt:Date.now()})});
+    if(!response.ok)throw new Error('Не удалось сохранить настройки комнаты (HTTP '+response.status+').');
+    item.destination=destination;item.destinationUrl=destinationUrl;return true;
   };
-  directGrid.append(E('div',{className:'card new',onclick:async()=>{
-    const n=prompt('Название постоянной ссылки','Моя ссылка');
-    if(n===null)return;
-    const item={id:uid()+uid(),name:n.trim()||'Постоянная ссылка',createdAt:Date.now(),destination:'aspace'};
-    directLinks.items.push(item);
-    const configured=await configureDirectRoute(item);
-    if(!configured){directLinks.items=directLinks.items.filter(x=>x.id!==item.id);await save('meta/call-links',directLinks);return}
-    copyLink(link('c',item.id));
-    alert('Постоянная ссылка создана и скопирована. Ученик будет направлен в выбранный сервис.');
-    go(callView);
-  }},'＋ Создать постоянную ссылку'));
-  directLinks.items.forEach(item=>directGrid.append(E('div',{className:'card'},
-    E('b',{textContent:item.name||'Постоянная ссылка'}),
-    E('div',{className:'mut',textContent:'Направление: '+(item.destination==='telemost'?'Яндекс Телемост':item.destination==='salute'?'Салют Джаз':'Aspace')}),
-    E('div',{className:'mut',textContent:link('c',item.id)}),
-    E('div',{className:'row'},
-      B('Куда подключаться',()=>configureDirectRoute(item)),
-      B('Открыть',()=>go(mm=>roomUI(mm,item.id,item.name||'Видеозвонок',true))),
-      B('🔗 Скопировать',()=>{copyLink(link('c',item.id));say2('Постоянная ссылка скопирована')}),
-      B('Убрать из списка',async()=>{
-        if(!confirm('Убрать ссылку из вашего списка? Уже отправленная ссылка продолжит работать у тех, у кого она есть.'))return;
-        directLinks.items=directLinks.items.filter(x=>x.id!==item.id);
-        await save('meta/call-links',directLinks);go(callView);
-      })
-    )
-  )));
-  const roomsGrid=E('div',{className:'grid'});
-  roomsGrid.append(E('div',{className:'card new',onclick:async()=>{const n=prompt('Название постоянной комнаты','Комната');if(n==null)return;calls.items.push({id:uid()+uid(),name:n.trim()||'Комната'});await save('meta/calls',calls);go(callView)}},'＋ Постоянная комната'));
-  calls.items.forEach(c=>roomsGrid.append(E('div',{className:'card'},E('b',{textContent:c.name}),E('div',{className:'mut',textContent:link('c',c.id)}),E('div',{className:'row'},
+  roomsGrid.append(E('div',{className:'card new',onclick:async()=>{
+    const n=prompt('Название постоянной комнаты','Комната');if(n===null)return;
+    const item={id:uid()+uid(),name:n.trim()||'Комната',destination:'aspace'};
+    try{const response=await fetch(DB()+'/shares/'+encodeURIComponent(item.id)+'/meta.json',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'viewer',destination:'aspace',updatedAt:Date.now()})});if(!response.ok)throw new Error('Firebase HTTP '+response.status);calls.items.push(item);await save('meta/calls',calls);go(callView)}catch(error){alert('Не удалось создать комнату: '+error.message)}
+  }},'＋ Постоянная комната'));
+  calls.items.forEach(c=>roomsGrid.append(E('div',{className:'card'},E('b',{textContent:c.name}),E('div',{className:'mut',textContent:link('c',c.id)}),E('div',{className:'mut',textContent:'Подключение: '+(c.destination==='telemost'?'Яндекс Телемост':c.destination==='salute'?'Салют Джаз':'Aspace')}),E('div',{className:'row'},
+    B('Настроить подключение',async()=>{try{if(await saveRoomRoute(c))go(callView)}catch(error){alert(error.message)}}),
     B('Открыть',()=>go(mm=>roomUI(mm,c.id,c.name,true))),
     B('🔗 Скопировать',()=>{copyLink(link('c',c.id));alert('Ссылка на комнату скопирована')}),
-    B('🗑',async()=>{if(!confirm('Удалить комнату? Ссылка перестанет быть в списке.'))return;calls.items=calls.items.filter(x=>x.id!==c.id);await save('meta/calls',calls);go(callView)})))));
+    B('🗑',async()=>{if(!confirm('Удалить комнату? Ссылка перестанет работать после удаления её доступа.'))return;await fetch(DB()+'/shares/'+encodeURIComponent(c.id)+'/meta.json',{method:'DELETE'});calls.items=calls.items.filter(x=>x.id!==c.id);await save('meta/calls',calls);go(callView)})))));
   const title=E('input',{placeholder:'Название встречи'}),dt=E('input',{type:'datetime-local'}),
     dur=E('select',{},...[30,45,60,90].map(x=>E('option',{value:x,textContent:x+' мин'}))),
     sel=E('select',{},...calls.items.map(c=>E('option',{value:c.id,textContent:c.name}))),
@@ -1458,8 +1431,7 @@ async function callView(m){
     E('span',{className:'row'},
       B('📅 В Яндекс Календарь',()=>{icsDl([e],'call.ics')}),
       B('🗑',async()=>{ev.items=ev.items.filter(x=>x.id!==e.id);await save('meta/events',ev);go(callView)})))));
-  m.append(E('h2',{textContent:'Видеозвонки'}),E('div',{className:'row',style:'margin-bottom:12px'},B('⚡ Быстрый звонок Aspace',()=>go(mm=>roomUI(mm,uid(),'Быстрый звонок',true)))),
-    E('h3',{textContent:'Постоянные ссылки Aspace'}),E('p',{className:'mut',textContent:'Создайте отдельную ссылку на звонок, не создавая комнату. Ссылка сохраняется в этом списке, её можно копировать и отправлять ученикам.'}),directGrid,
+  m.append(E('h2',{textContent:'Видеозвонки'}),
     E('h3',{textContent:'Постоянные комнаты'}),E('p',{className:'mut',textContent:'Именованные комнаты для повторных встреч. У каждой комнаты своя постоянная ссылка.'}),roomsGrid,
     E('h2',{textContent:'Расписание и Яндекс Календарь'}),E('div',{className:'card'},E('div',{className:'row'},title,dt,dur,sel,add)),list,
     E('div',{className:'card',style:'margin-top:12px'},E('b',{textContent:'Яндекс Календарь'}),
@@ -1512,6 +1484,12 @@ async function boardsView(m){
             (meta?.role==='editor'?'Редактирование':'Просмотр')+
             '. Запись учеником проверяется отдельно в реальном уроке.');
         }catch(error){alert('Гостевой доступ не подтверждён: '+error.message)}
+      }));
+      actions.append(B('🎥 Куда подключаться',async()=>{
+        const choice=prompt('Куда направлять ученика по этой ссылке на доску?\\n1 — видеозвонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');if(choice===null)return;if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return}
+        const destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];let destinationUrl=null;
+        if(destination!=='aspace'){const hosts=destination==='telemost'?['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']:['salutejazz.ru','jazz.sberbank.ru'];const raw=prompt('Вставь прямую ссылку-приглашение '+(destination==='telemost'?'Яндекс Телемост':'Салют Джаз'));if(raw===null)return;try{const target=new URL(raw.trim());const pathOk=destination==='telemost'?/^\/j\/[^/]+\/?$/.test(target.pathname):/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname);if(target.protocol==='https:'&&hosts.includes(target.hostname)&&pathOk&&!target.username&&!target.password&&!target.port)destinationUrl=target.href}catch{}if(!destinationUrl){alert('Ссылка не прошла проверку.');return}}
+        try{const meta=await shareRead(b.shareToken,'meta');await shareWrite(b.shareToken,'meta',{...meta,destination,destinationUrl,updatedAt:Date.now()});say2('Направление видеозвонка сохранено для этой ссылки')}catch(error){alert('Не удалось сохранить направление: '+error.message)}
       }));
       actions.append(B('⚙️ Доступ',async()=>{
         const choice=prompt('Настройки публичной ссылки:\n1 — изменить права\n2 — отозвать ссылку','1');
@@ -1695,7 +1673,12 @@ async function openBoard(m,id,guest,shareToken=null){
     d0=cloneBoard(localGuestDraft.value);
   }
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
-  const d=d0||{name:'Доска',strokes:[],items:[]},W=3000,H=2400;
+  const d=d0||{name:'Доска',strokes:[],items:[]};
+  // The share's route controls the existing top-right student video button.
+  if(shareMeta?.destination==='telemost'&&shareMeta.destinationUrl){d.telemostUrl=shareMeta.destinationUrl;d.entryCall='telemostUrl'}
+  else if(shareMeta?.destination==='salute'&&shareMeta.destinationUrl){d.jazzUrl=shareMeta.destinationUrl;d.entryCall='jazzUrl'}
+  else if(shareMeta?.destination==='aspace')d.entryCall='aspace';
+  const W=3000,H=2400;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
