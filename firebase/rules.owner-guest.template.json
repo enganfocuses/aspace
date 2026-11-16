@@ -44,7 +44,7 @@
           },
           "call": {
             "$signal": {
-              ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($token.matches(/^[a-f0-9]{48}$/) && root.child('shares/'+$token+'/meta').exists() && (!newData.exists() || root.child('shares/'+$token+'/meta').child('role').val() === 'editor' || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000 && (newData.child('t').val() === 'ready' || newData.child('t').val() === 'accesscheck' || newData.child('t').val() === 'sig' || newData.child('t').val() === 'hello' || newData.child('t').val() === 'bye'))))"
+              ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__' || ($token.matches(/^(?:[a-f0-9]{48}|[a-z0-9]{14})$/) && root.child('shares/'+$token+'/meta').exists() && (!newData.exists() || root.child('shares/'+$token+'/meta').child('role').val() === 'editor' || (newData.hasChildren(['t','s','d']) && newData.child('t').isString() && newData.child('s').isString() && newData.child('d').isString() && newData.child('t').val().length <= 40 && newData.child('s').val().length <= 100 && newData.child('d').val().length <= 150000 && (newData.child('t').val() === 'ready' || newData.child('t').val() === 'accesscheck' || newData.child('t').val() === 'sig' || newData.child('t').val() === 'hello' || newData.child('t').val() === 'bye'))))"
             }
           },
           ".write": "auth != null && auth.uid === '__ASPACE_OWNER_UID__'"
