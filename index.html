@@ -1115,19 +1115,11 @@ function Call(r,box){
     async start(){
       await ICE_READY;
       if(!ICE.some(x=>(Array.isArray(x.urls)?x.urls:[x.urls]).some(u=>String(u||'').startsWith('turn:')||String(u||'').startsWith('turns:'))))console.warn('TURN is not configured; VPN/restricted networks may block direct WebRTC');
-      // Device access is optional. Join the call even if the browser blocks
-      // the microphone or camera; transceivers are negotiated before devices
-      // are granted so tracks can be attached later without restarting.
+      // Do not request device permissions while joining. A pending or denied
+      // browser permission prompt must never block the signaling connection.
+      // Audio/video transceivers are created for each peer; the user can grant
+      // device access later with the microphone or camera controls.
       st=new MediaStream();
-      if(window.isSecureContext&&navigator.mediaDevices?.getUserMedia){
-        const A={noiseSuppression:true,echoCancellation:true,autoGainControl:true};
-        let mediaError=null;
-        for(const constraints of [{video:true,audio:A},{video:true,audio:false},{video:false,audio:A}]){
-          try{const media=await navigator.mediaDevices.getUserMedia(constraints);media.getTracks().forEach(t=>st.addTrack(t));break}
-          catch(error){mediaError=error;console.warn('Доступ к устройствам пока не предоставлен',error)}
-        }
-        if(mediaError&&!st.getTracks().length)console.warn('Звонок продолжится без камеры и микрофона:',mediaError);
-      }else console.warn('Для доступа к камере и микрофону нужен HTTPS или localhost.');
       tile('me',st,'Вы');r.emit('hello',{from:me})},
     async mic(){
       let t=st?.getAudioTracks()[0];
