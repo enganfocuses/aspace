@@ -40,8 +40,8 @@ test('permanent room IDs are readable without weakening board-share token rules'
 });
 
 test('viewer cleanup cannot remove the complete nested call channel',()=>{
-  assert.match(viewerRoomWrite, /\\$message !== 'call'/);
-  assert.match(templateRoomWrite, /\\$msg !== 'call'/);
+  assert.match(viewerRoomWrite, /\$message !== 'call'/);
+  assert.match(templateRoomWrite, /\$msg !== 'call'/);
 });
 
 test('edit rights remain separate from the ephemeral signaling channel',()=>{
