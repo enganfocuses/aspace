@@ -361,6 +361,7 @@
     diction: "Дикция (скороговорки)",
     vocab: "Словарный запас",
     simple: "Простые слова",
+    retelling: "Библиотека пересказов",
     excerpt: "Отрывки для пересказа",
     painting: "Картины",
     thought: "Сторителлинг: «Продолжи мысль» (мысль)",
@@ -375,9 +376,10 @@
     vocab: { name: "Словарный запас", get: function (D) { return D.VOCAB; }, key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && x.every(ne) ? "" : "нужно 4 строки (слово RU, значение RU, слово EN, значение EN)"; } },
     simple: { name: "Простые слова", get: function (D) { return D.SIMPLE_WORDS; }, key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && x.every(ne) ? "" : "нужно 4 строки (слово RU, слово EN, описание RU, описание EN)"; } },
     thought: { name: "Продолжи мысль", get: function (D) { return D.CONTINUE_THOUGHTS; }, key: function (x) { return x[0]; }, check: function (x) { return pair(x) ? "" : "нужна пара «по-русски, in English»"; } },
+    retelling: { name: "Библиотека пересказов", get: function (D) { return D.RETELLING_LIBRARY && D.RETELLING_LIBRARY.entries; }, key: function (x) { return x.id; }, check: function (x) { return x && ne(x.id) && x.text && ne(x.text.ru) && ne(x.text.en) && x.display && x.display.ru && x.display.en && ne(x.display.ru.book) && ne(x.display.en.book) && ne(x.display.ru.author) && ne(x.display.en.author) && (!x.sourceUrl || /^https:\/\//.test(x.sourceUrl)) && (!x.licenseUrl || /^https:\/\//.test(x.licenseUrl)) ? "" : "нужны ID, текст, название и автор на двух языках; ссылки должны начинаться с https://"; } },
     excerpt_ru: { name: "Отрывки для пересказа (русские)", get: function (D) { return D.EXCERPTS_RU; }, key: function (x) { return x.text.slice(0, 80); }, check: function (x) { return x && ne(x.text) && ne(x.author) && ne(x.source) ? "" : "нужны текст, автор и источник"; } },
     excerpt_en: { name: "Отрывки для пересказа (английские)", get: function (D) { return D.EXCERPTS_EN; }, key: function (x) { return x.text.slice(0, 80); }, check: function (x) { return x && ne(x.text) && ne(x.author) && ne(x.source) ? "" : "нужны текст, автор и источник"; } },
-    painting: { name: "Картины", get: function (D) { return D.PAINTINGS; }, key: function (x) { return x.img; }, check: function (x) { return x && /^\d{3}$/.test(String(x.img)) && ne(x.file) && pair(x.artist) && pair(x.title) && pair(x.context) && ne(x.year) && (!x.bio || pair(x.bio)) ? "" : "нужны номер, файл, художник, название, год и описание на двух языках"; } },
+    painting: { name: "Картины", get: function (D) { return D.PAINTINGS; }, key: function (x) { return x.img; }, check: function (x) { return x && /^\d{3}$/.test(String(x.img)) && ne(x.file) && pair(x.artist) && pair(x.title) && pair(x.context) && ne(x.year) && (!x.bio || pair(x.bio)) && (!x.historicalContext || pair(x.historicalContext)) && (!x.contemporaries || pair(x.contemporaries)) && (!x.sources || (Array.isArray(x.sources) && x.sources.every(function(z){return z && ne(z.title) && /^https:\/\//.test(z.url);}))) ? "" : "нужны номер, файл, художник, название, год и описание на двух языках"; } },
     speechquote: { name: "Красивая речь: цитаты", get: function (D) { return D.SPEECH_QUOTES; }, key: function (x) { return x[0]; }, check: function (x, D) { return Array.isArray(x) && x.length === 5 && x.slice(0, 4).every(ne) && Array.isArray(x[4]) && x[4].length && x[4].every(function (c) { return D.topics[c]; }) ? "" : "нужны цитата RU, цитата EN, автор RU, автор EN и категории из списка"; } },
     speechplan: { name: "Красивая речь: планы речи", get: function (D) { return D.SPEECH_PLANS; }, key: function (x) { return x.id; }, noRemove: true, check: function (x) { return planProblem(x); } },
     conflictlit: { name: "Конфликт: «Литературно»", get: function (D) { return D.CONFLICT_LIT; }, key: function (x) { return x[0]; }, check: function (x) { return Array.isArray(x) && x.length === 4 && x.every(ne) ? "" : "нужно 4 строки (цитата RU, цитата EN, автор RU, автор EN)"; } },
@@ -555,6 +557,11 @@
       var ex = setOf(D.SIMPLE_WORDS, function (x) { return x[0]; });
       op.items.forEach(function (a) { if (!Array.isArray(a) || a.length !== 4 || !a.every(ne)) { rep.errors.push("Простые слова: нужно 4 строки (слово RU, слово EN, описание RU, описание EN)"); return; } put(D.SIMPLE_WORDS, ex, key(a[0]), clean(a), rep, "simple"); });
     },
+    retelling: function (D, op, rep) {
+      var arr = LISTS.retelling.get(D); if (!arr) { rep.errors.push("Загрузите свежую функцию с библиотекой пересказов"); return; }
+      var ex = setOf(arr, function (x) { return x.id; });
+      op.items.forEach(function (x) { var why = LISTS.retelling.check(x); if (why) rep.errors.push(why); else put(arr, ex, key(x.id), x, rep, "retelling"); });
+    },
     excerpt: function (D, op, rep) {
       var arr = op.lang === "en" ? D.EXCERPTS_EN : D.EXCERPTS_RU;
       var ex = setOf(arr, function (x) { return x.text.slice(0, 80); });
@@ -563,10 +570,11 @@
     painting: function (D, op, rep) {
       var ex = setOf(D.PAINTINGS, function (x) { return x.img; });
       op.items.forEach(function (p) {
-        var ok = p && /^\d{3}$/.test(String(p.img)) && ne(p.file) && pair(p.artist) && pair(p.title) && pair(p.context) && ne(p.year) && (!p.bio || pair(p.bio));
+        var ok = !LISTS.painting.check(p);
         if (!ok) { rep.errors.push("Картины: нужны номер файла (3 цифры), художник, название, год и описание на двух языках"); return; }
         var o = { img: String(p.img), file: p.file.trim(), artist: clean(p.artist), title: clean(p.title), year: String(p.year).trim(), context: clean(p.context) };
-        if (p.bio) o.bio = clean(p.bio);
+        ["bio", "historicalContext", "contemporaries"].forEach(function (field) { if (p[field]) o[field] = clean(p[field]); });
+        if (p.sources) o.sources = p.sources;
         put(D.PAINTINGS, ex, key(p.img), o, rep, "painting");
       });
     },
@@ -585,6 +593,7 @@
       var it = op.item; if (Array.isArray(it)) it = clean(it);
       var why = L.check(it, D); if (why) { rep.errors.push(L.name + ": " + why); return; }
       if (op.list === "painting" && String(it.img) !== String(arr[idx].img)) { rep.errors.push("Картины: номер файла менять нельзя"); return; }
+      if (op.list === "retelling" && it.id !== arr[idx].id) { rep.errors.push("ID пересказа менять нельзя"); return; }
       if (op.list === "speechplan" && it.id !== arr[idx].id) { rep.errors.push("Планы речи: id менять нельзя"); return; }
       var nk = key(L.key(it));
       if (nk !== k && arr.some(function (x, i) { return i !== idx && key(L.key(x)) === nk; })) { rep.errors.push(L.name + ": такая запись уже есть «" + String(L.key(it)).slice(0, 50) + "»"); return; }
@@ -853,7 +862,7 @@
       build: function (v) { var out = []; var bad = lines(v.lines).some(function (l) { var p = l.split("|").map(function (x) { return x.trim(); }); if (p.length !== 4 || !p.every(Boolean)) return true; out.push(p); return false; }); return bad || !out.length ? { error: "Каждая строка: слово | word | описание | description (4 части)." } : { op: "simple", items: out }; } },
     excerpt: { help: "Отрывок для пересказа (проза). Язык отрывка выбирается ниже.", fields: [{ id: "lang", type: "select", label: "Язык отрывка", options: [{ v: "ru", t: "Русский" }, { v: "en", t: "English" }] }, T("text", "Текст отрывка", 6), I("author", "Автор"), I("source", "Источник (например «Анна Каренина», начало романа)")],
       build: function (v) { if (!v.text.trim() || !v.author.trim() || !v.source.trim()) return { error: "Заполните текст, автора и источник." }; return { op: "excerpt", lang: v.lang, items: [{ text: v.text, author: v.author, source: v.source }] }; } },
-    painting: { help: "Новая картина. Файл изображения уменьшится до 1200 пикселей и сохранится как <code>paintings/NNN.jpg</code> в сборке сайта (номер подберётся сам).", async: true, fields: [{ id: "img", type: "file", label: "Файл картины (jpg, png, webp)" }, I("ar", "Художник (по-русски)"), I("ae", "Artist (English)"), I("tr", "Название (по-русски)"), I("te", "Title (English)"), I("year", "Год (например «ок. 1503–1506»)"), T("cr", "Описание картины (по-русски)", 3), T("ce", "Description (English)", 3), T("br", "О художнике (по-русски, можно пусто)", 3), T("be", "About the artist (English, можно пусто)", 3), I("file", "Имя файла на Викискладе (необязательно: для запасной ссылки)")],
+    painting: { help: "Новая картина. Файл изображения уменьшится до 1200 пикселей и сохранится как <code>paintings/NNN.jpg</code> в сборке сайта (номер подберётся сам).", async: true, fields: [{ id: "img", type: "file", label: "Файл картины (jpg, png, webp)" }, I("ar", "Художник (по-русски)"), I("ae", "Artist (English)"), I("tr", "Название (по-русски)"), I("te", "Title (English)"), I("year", "Год (например «ок. 1503–1506»)"), T("cr", "Описание картины (по-русски)", 3), T("ce", "Description (English)", 3), T("br", "О художнике (по-русски, можно пусто)", 3), T("be", "About the artist (English, можно пусто)", 3), T("hr", "Исторический контекст (RU)", 5), T("he", "Historical context (EN)", 5), T("pr", "Современники (RU)", 3), T("pe", "Contemporaries (EN)", 3), T("sources", "Источники: название | https://ссылка (по строке)", 4), I("file", "Имя файла на Викискладе (необязательно: для запасной ссылки)")],
       build: async function (v, files) {
         var f = files.img; if (!f) return { error: "Выберите файл картины." };
         var need = [v.ar, v.ae, v.tr, v.te, v.year, v.cr, v.ce]; if (!need.every(function (x) { return x.trim(); })) return { error: "Заполните художника, название, год и описание на двух языках." };
@@ -862,11 +871,16 @@
         var n = nextImgNum();
         var bytes = await resizeImage(f);
         var item = { img: n, file: (v.file || "").trim() || ("custom-" + n + ".jpg"), artist: [v.ar, v.ae], title: [v.tr, v.te], year: v.year, context: [v.cr, v.ce] };
+        if (!!v.hr.trim() !== !!v.he.trim() || !!v.pr.trim() !== !!v.pe.trim()) return {error:"Контекст и современники нужны на обоих языках."};
+        if(v.hr.trim()) item.historicalContext=[v.hr.trim(),v.he.trim()];
+        if(v.pr.trim()) item.contemporaries=[v.pr.trim(),v.pe.trim()];
+        try { item.sources=parseSources(v.sources); } catch(e) { return {error:e.message}; }
         if (v.br.trim()) item.bio = [v.br, v.be];
         return { op: "painting", items: [item], image: { name: "paintings/" + n + ".jpg", bytes: bytes } };
       } },
   };
-  var ORDER = ["topics", "debate", "interview", "nego", "conflict", "trick", "articulation", "diction", "vocab", "simple", "excerpt", "painting", "thought", "speechquote", "speechplan", "conflictlit"];
+  KINDS.retelling = {help: "Новый пересказ: оба языка, год, источник и лицензия. Абзацы разделяйте пустой строкой.", fields: [{"id": "r0", "type": "text", "label": "ID (не менять при исправлении)", "rows": 2}, {"id": "r1", "type": "text", "label": "Название (RU)", "rows": 2}, {"id": "r2", "type": "text", "label": "Title (EN)", "rows": 2}, {"id": "r3", "type": "text", "label": "Автор (RU)", "rows": 2}, {"id": "r4", "type": "text", "label": "Author (EN)", "rows": 2}, {"id": "r5", "type": "text", "label": "Год издания (пусто, если неизвестен)", "rows": 2}, {"id": "r6", "type": "area", "label": "Текст (RU): абзацы через пустую строку", "rows": 12}, {"id": "r7", "type": "area", "label": "Text (EN): blank line between paragraphs", "rows": 12}, {"id": "r8", "type": "text", "label": "Источник: https://", "rows": 2}, {"id": "r9", "type": "text", "label": "Лицензия", "rows": 2}, {"id": "r10", "type": "text", "label": "Ссылка на лицензию: https://", "rows": 2}, {"id": "r11", "type": "text", "label": "Пометка: adapted или excerpt", "rows": 2}], build: function(v) { var item=ED.retelling.fromF(ED.retelling.labels.map(function(_,i){return v["r"+i]||"";}));var why=Core.LISTS.retelling.check(item);return why?{error:why}:{op:"retelling",items:[item]}; }};
+  var ORDER = ["retelling","topics", "debate", "interview", "nego", "conflict", "trick", "articulation", "diction", "vocab", "simple", "excerpt", "painting", "thought", "speechquote", "speechplan", "conflictlit"];
   $("kind").innerHTML = ORDER.map(function (k) { return "<option value='" + k + "'>" + esc(Core.KINDS[k]) + "</option>"; }).join("");
   var pack = []; // { op, items, image? } либо { op:"edit"|"remove", list, match, item? }
   function opClean(o) { var c = {}; Object.keys(o).forEach(function (k) { if (k !== "image" && o[k] !== undefined) c[k] = o[k]; }); return c; }
@@ -931,7 +945,13 @@
   var Tm = function (x) { return String(x == null ? "" : x).trim(); };
   var linesOf = function (t) { return String(t || "").split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean); };
   // Описание формы для каждого типа записей: подписи полей, высота полей, как превратить запись в поля и обратно
+  function parseSources(text) { return lines(text).map(function(line){var p=line.split('|');if(p.length!==2 || !p[0].trim() || !/^https:\/\//.test(p[1].trim()))throw new Error("Источник: название | https://ссылка");return {title:p[0].trim(),url:p[1].trim()};}); }
   var ED = {
+    retelling: { labels: ["ID (не менять при исправлении)", "Название (RU)", "Title (EN)", "Автор (RU)", "Author (EN)", "Год издания (пусто, если неизвестен)", "Текст (RU): абзацы через пустую строку", "Text (EN): blank line between paragraphs", "Источник: https://", "Лицензия", "Ссылка на лицензию: https://", "Пометка: adapted или excerpt"], rows: [1,1,1,1,1,1,16,16,1,1,1,1],
+      toF: function(x) { var d=x.display||{}; return [x.id,(d.ru||{}).book||x.book,(d.en||{}).book||x.book,(d.ru||{}).author||x.author,(d.en||{}).author||x.author,x.originalPublication||x.year||"",x.text.ru,x.text.en,x.sourceUrl||"",x.license||"",x.licenseUrl||"",x.adaptation?"adapted":"excerpt"]; },
+      fromF: function(f,old) { var o=Object.assign({},old||{});o.id=Tm(f[0]);o.text={ru:Tm(f[6]),en:Tm(f[7])};o.display=JSON.parse(JSON.stringify(o.display||{}));['ru','en'].forEach(function(l,i){o.display[l]=Object.assign({},o.display[l]||{},{book:Tm(f[1+i]),author:Tm(f[3+i])});});o.book=Tm(f[1]);o.author=Tm(f[3]);o.year=Tm(f[5])||null;delete o.originalPublication;o.sourceUrl=Tm(f[8]);o.license=Tm(f[9]);o.licenseUrl=Tm(f[10]);o.adaptation=Tm(f[11])==='adapted';return o; },
+      prev: function(x){return x.id+' · '+((x.display||{}).ru||{}).book;} },
+
     topics: { labels: ["Тема (RU)", "Topic (EN)"], rows: [2, 2], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
     debate: { labels: ["Тезис (RU)", "Thesis (EN)"], rows: [2, 2], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
     interview: { labels: ["Вопрос (RU)", "Question (EN)", "Пример ответа (RU)", "Sample answer (EN)"], rows: [2, 2, 7, 7], toF: function (x) { return [x.q[0], x.q[1], x.a[0], x.a[1]]; }, fromF: function (f) { return { q: [Tm(f[0]), Tm(f[1])], a: [Tm(f[2]), Tm(f[3])] }; }, prev: function (x) { return x.q[0]; } },
@@ -952,9 +972,9 @@
     thought: { labels: ["Мысль (RU)", "Thought (EN)"], rows: [3, 3], toF: function (x) { return x.slice(); }, fromF: function (f) { return f.map(Tm); }, prev: function (x) { return x[0]; } },
     excerpt_ru: { labels: ["Текст отрывка", "Автор", "Источник"], rows: [9, 1, 1], toF: function (x) { return [x.text, x.author, x.source]; }, fromF: function (f) { return { text: Tm(f[0]), author: Tm(f[1]), source: Tm(f[2]) }; }, prev: function (x) { return x.author + ": " + x.text; } },
     excerpt_en: { labels: ["Text of the excerpt", "Author", "Source"], rows: [9, 1, 1], toF: function (x) { return [x.text, x.author, x.source]; }, fromF: function (f) { return { text: Tm(f[0]), author: Tm(f[1]), source: Tm(f[2]) }; }, prev: function (x) { return x.author + ": " + x.text; } },
-    painting: { labels: ["Файл (имя на Викискладе или custom-NNN.jpg)", "Год", "Художник (RU)", "Artist (EN)", "Название (RU)", "Title (EN)", "Описание картины (RU)", "Description (EN)", "О художнике (RU, можно пусто)", "About the artist (EN, можно пусто)"], rows: [1, 1, 1, 1, 1, 1, 5, 5, 3, 3],
-      toF: function (x) { return [x.file, x.year, x.artist[0], x.artist[1], x.title[0], x.title[1], x.context[0], x.context[1], x.bio ? x.bio[0] : "", x.bio ? x.bio[1] : ""]; },
-      fromF: function (f, old) { var t = f.map(Tm); var o = { img: old.img, file: t[0], artist: [t[2], t[3]], title: [t[4], t[5]], year: t[1], context: [t[6], t[7]] }; if (t[8] || t[9]) o.bio = [t[8], t[9]]; return o; },
+    painting: { labels: ["Файл (имя на Викискладе или custom-NNN.jpg)", "Год", "Художник (RU)", "Artist (EN)", "Название (RU)", "Title (EN)", "Описание картины (RU)", "Description (EN)", "О художнике (RU, можно пусто)", "About the artist (EN, можно пусто)", "Исторический контекст (RU)", "Historical setting (EN)", "Современники (RU)", "Contemporaries (EN)", "Источники: название | https://ссылка (по строке)"], rows: [1, 1, 1, 1, 1, 1, 5, 5, 3, 3, 4, 4, 2, 2, 4],
+      toF: function (x) { return [x.file, x.year, x.artist[0], x.artist[1], x.title[0], x.title[1], x.context[0], x.context[1], x.bio ? x.bio[0] : "", x.bio ? x.bio[1] : "", x.historicalContext ? x.historicalContext[0] : "", x.historicalContext ? x.historicalContext[1] : "", x.contemporaries ? x.contemporaries[0] : "", x.contemporaries ? x.contemporaries[1] : "", (x.sources||[]).map(function(z){return z.title+" | "+z.url;}).join("\n")]; },
+      fromF: function (f, old) { var t = f.map(Tm); var o = Object.assign({}, old, { img: old.img, file: t[0], artist: [t[2], t[3]], title: [t[4], t[5]], year: t[1], context: [t[6], t[7]] }); if (t[8] || t[9]) o.bio = [t[8], t[9]]; else delete o.bio; if (t[10] || t[11]) o.historicalContext = [t[10], t[11]]; else delete o.historicalContext; if (t[12] || t[13]) o.contemporaries = [t[12], t[13]]; else delete o.contemporaries; o.sources=parseSources(t[14]);return o; },
       prev: function (x) { return "№" + x.img + " · " + x.artist[0] + " — " + x.title[0]; } },
     speechquote: { labels: ["Цитата (RU)", "Quote (EN)", "Автор (RU)", "Author (EN)", "Категории через запятую (ключи из списка тем)"], rows: [3, 3, 1, 1, 1], toF: function (x) { return x.slice(0, 4).concat([x[4].join(",")]); }, fromF: function (f) { return f.slice(0, 4).map(Tm).concat([f[4].split(",").map(Tm).filter(Boolean)]); }, prev: function (x) { return x[2] + ": " + x[0]; } },
     speechplan: { labels: ["План целиком (формат JSON; меняйте только тексты внутри кавычек, остальное не трогайте)"], rows: [24], toF: function (x) { return [JSON.stringify(x, null, 1)]; }, fromF: function (f) { return JSON.parse(f[0]); }, prev: function (x) { return x.id + " · уровень " + x.level + " · " + x.n[0]; } },
@@ -970,6 +990,7 @@
     { id: "trick", name: "Речевые приёмы", add: "trick" },
     { id: "articulation", name: "Артикуляция", add: "articulation" },
     { id: "diction", name: "Дикция · скороговорки", add: "diction" },
+    { id: "retelling", name: "Сторителлинг · Пересказы (новая библиотека)", add: "retelling" },
     { id: "painting", name: "Сторителлинг · Картины", add: "painting" },
     { id: "excerpt_ru", name: "Сторителлинг · Пересказ: русские отрывки", add: "excerpt", lang: "ru" },
     { id: "excerpt_en", name: "Сторителлинг · Пересказ: английские отрывки", add: "excerpt", lang: "en" },
@@ -1117,7 +1138,14 @@
   var lastBuild = null;
   function injectOps(txt, newOps) {
     var m = /\/\*OPS\*\/([\s\S]*?)\/\*ENDOPS\*\//.exec(txt);
-    if (m) { var old = JSON.parse(m[1]); return txt.replace(m[0], function () { return "/*OPS*/" + JSON.stringify(old.concat(newOps)) + "/*ENDOPS*/"; }); }
+    var old = m ? JSON.parse(m[1]) : [];
+    // Old archives declare the library after additions. Move it before replaying edits.
+    var declaration = /^const RETELLING_LIBRARY = .*;$/m.exec(txt);
+    if (declaration) txt = txt.replace(declaration[0], "");
+    if (newOps.some(function(o){return o.op==='retelling'||o.list==='retelling';}) && !declaration) throw new Error("Загрузите свежую функцию с библиотекой пересказов");
+    txt = txt.replace(/\/\*ADDITIONS-BEGIN\*\/[\s\S]*?\/\*ADDITIONS-END\*\//, "");
+    if (declaration) txt = declaration[0] + "\n" + txt;
+    newOps = old.concat(newOps);
     var ex = /\nmodule\.exports = \{([^}]*)\};/.exec(txt);
     if (!ex) throw new Error("В data.js не найден список экспортов: это не архив функции");
     var names = ex[1].split(",").map(function (x) { return x.trim(); }).filter(Boolean);
