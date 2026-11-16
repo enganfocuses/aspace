@@ -1112,27 +1112,29 @@ function Call(r,box){
       if(!ICE.some(x=>(Array.isArray(x.urls)?x.urls:[x.urls]).some(u=>String(u||'').startsWith('turn:')||String(u||'').startsWith('turns:'))))console.warn('TURN is not configured; VPN/restricted networks may block direct WebRTC');
       if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('Камера и микрофон работают только по HTTPS (или на localhost). Сейчас сайт открыт по небезопасному адресу: '+location.origin+'. Подключите HTTPS (хостинг с сертификатом или Cloudflare) и откройте сайт по https://…');
       const A={noiseSuppression:true,echoCancellation:true,autoGainControl:true};
-      // Ask for microphone permission separately. A combined camera+microphone
-      // request can silently fall back to video-only when the browser denies audio.
-      let audioStream;
-      try{
-        audioStream=await navigator.mediaDevices.getUserMedia({audio:A,video:false});
-      }catch(e){
-        const n=e&&e.name;
+      // Do not block joining the call when the browser denies microphone access.
+      // Try camera+mic, then audio-only, then camera-only as a safe fallback.
+      let mediaError=null;
+      for(const constraints of [
+        {video:true,audio:A},
+        {video:false,audio:A},
+        {video:true,audio:false}
+      ]){
+        try{st=await navigator.mediaDevices.getUserMedia(constraints);break}
+        catch(error){mediaError=error;console.warn('Не удалось получить медиа по запросу',constraints,error)}
+      }
+      if(!st){
+        const n=mediaError?.name;
         const message=n==='NotAllowedError'
-          ?'Браузер заблокировал микрофон. Нажмите на значок замка/настроек слева от адреса сайта, разрешите микрофон для Aspace и обновите страницу.'
+          ?'Браузер запретил доступ к камере и микрофону. Разрешите доступ в настройках сайта рядом с адресной строкой.'
           :n==='NotFoundError'
-            ?'Браузер не обнаружил микрофон. Подключите устройство или выберите другой микрофон.'
+            ?'Камера и микрофон не найдены. Подключите устройство и повторите попытку.'
             :n==='NotReadableError'
-              ?'Микрофон занят другой программой или заблокирован системой. Закройте Zoom/Teams и проверьте настройки микрофона операционной системы.'
-              :'Не удалось получить доступ к микрофону: '+(n||e.message||'неизвестная ошибка');
+              ?'Камера или микрофон заняты другой программой. Закройте Zoom/Teams и попробуйте снова.'
+              :'Не удалось подключить камеру или микрофон: '+(n||mediaError?.message||'неизвестная ошибка');
         throw new Error(message);
       }
-      let videoStream=null;
-      try{videoStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
-      catch(e){console.warn('Камера недоступна; звонок продолжится с микрофоном:',e)}
-      st=new MediaStream([...audioStream.getAudioTracks(),...(videoStream?.getVideoTracks()||[])]);
-      if(!st.getAudioTracks().length)throw new Error('Браузер не передал аудиодорожку микрофона. Проверьте разрешение сайта и выбранное устройство.');
+      if(!st.getAudioTracks().length)console.warn('Звонок запущен без микрофона; его можно включить кнопкой микрофона после подключения.');
       tile('me',st,'Вы');r.emit('hello',{from:me})},
     async mic(){
       let t=st?.getAudioTracks()[0];
