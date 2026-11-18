@@ -1015,7 +1015,7 @@ async function usageView(m){
  const importReading=location.hash.startsWith('#usage?reading=')?location.hash.slice('#usage?reading='.length):null;
  history.replaceState(null,'',location.pathname+location.search+'#usage');
  try{
-  const {renderUsage}=await import('./usage-view.js?v=7');
+  const {renderUsage}=await import('./usage-view.js?v=8');
   const host=E('div');m.append(host);
   const stop=await renderUsage(host,{getOwner:()=>currentUser?.uid===CFG.ownerUid?currentUser:null,
    tracker:usageTracker,loadIndex:()=>load('meta/boards'),cfg:CFG,E,B,importReading});
@@ -1027,7 +1027,7 @@ async function architectureView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
  history.replaceState(null,'',location.pathname+location.search+'#architecture');
  const url='./architecture/index.html';
- m.append(E('h2',{textContent:'Архитектура пространства'}),E('a',{href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Открыть карту на весь экран ↗'}));
+ m.append(E('a',{href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Открыть карту на весь экран ↗'}));
  const frame=E('iframe',{src:url,title:'Архитектура Aspace',referrerPolicy:'no-referrer',style:'width:100%;height:84vh;min-height:640px;border:1px solid #d9c8e5;border-radius:18px;margin-top:16px'});
  frame.setAttribute('sandbox','allow-popups allow-popups-to-escape-sandbox');m.append(frame);
 }
@@ -1035,7 +1035,6 @@ async function architectureView(m){
 async function trainerView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
  history.replaceState(null,'',location.pathname+location.search+'#trainer');
- m.append(E('h2',{textContent:'Тренажер · Speechcoach'}),E('p',{className:'mut',textContent:'Панель меняет материалы и тексты сайта, выдача кодов управляет доступом. Для служебных операций нужен ключ владельца Speechcoach; для изменений в GitHub — ваш токен.'}));
  const tools=[['Панель сайта','./trainer/panel.html'],['Выдача кодов','./trainer/issue-code.html']];
  const buttons=E('div',{className:'row',style:'margin:12px 0'}),host=E('div'),frames=new Map();
  function select(url){
@@ -1055,10 +1054,7 @@ async function trainerView(m){
 async function psychologyView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
  history.replaceState(null,'',location.pathname+location.search+'#psychology');
- const url='./psychology/index.html?v=4&theme='+currentTheme();
- m.append(E('h2',{textContent:'Психология · самоучитель навыков КПТ'}),
-  E('p',{className:'mut',textContent:'24 модуля, 16 рабочих форм, тренажёр ситуаций и библиотека. Личные ответы хранятся в дневнике этого браузера; они не отправляются в базы Aspace.'}),
-  E('div',{className:'row',style:'margin:12px 0'},B('↗ Открыть на весь экран',()=>window.open(url,'_blank','noopener,noreferrer'))));
+ const url='./psychology/index.html?v=5&embed=1&theme='+currentTheme();
  const frame=E('iframe',{src:url,title:'Психология — курс и тренажёр КПТ',referrerPolicy:'no-referrer',style:'width:100%;height:82vh;min-height:640px;border:1px solid #d9c8e5;border-radius:18px;background:#f7f3ee'});
  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads allow-top-navigation-by-user-activation');
  m.append(frame);
@@ -1431,8 +1427,7 @@ async function callView(m){
     E('span',{className:'row'},
       B('📅 В Яндекс Календарь',()=>{icsDl([e],'call.ics')}),
       B('🗑',async()=>{ev.items=ev.items.filter(x=>x.id!==e.id);await save('meta/events',ev);go(callView)})))));
-  m.append(E('h2',{textContent:'Видеозвонки'}),
-    E('h3',{textContent:'Постоянные комнаты'}),E('p',{className:'mut',textContent:'Именованные комнаты для повторных встреч. У каждой комнаты своя постоянная ссылка.'}),roomsGrid,
+  m.append(E('h2',{textContent:'Постоянные комнаты'}),roomsGrid,
     E('h2',{textContent:'Расписание и Яндекс Календарь'}),E('div',{className:'card'},E('div',{className:'row'},title,dt,dur,sel,add)),list,
     E('div',{className:'card',style:'margin-top:12px'},E('b',{textContent:'Яндекс Календарь'}),
       E('div',{className:'mut',textContent:'Скачайте файл .ics и импортируйте его в Яндекс Календаре (Добавить → Импорт). Подписка по ссылке и CalDAV на статическом хостинге недоступны.'}),
@@ -2625,19 +2620,16 @@ function build(text,topic,N=18){
 async function eduView(m){
   // Course builders are standalone local HTML tools; no Firebase or Worker writes.
   const tools=[
-    {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html',desc:'Student’s Book + Workbook Without Key · 2025 · 12 Files / 36 lessons'},
-    {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html',desc:'Существующий сборщик Speakout B1+'}
+    {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html'},
+    {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html'}
   ];
-  m.append(E('h2',{textContent:'Образование · HTML-сборщики'}));
   tools.forEach(tool=>{
     const card=E('section',{className:'card',style:'margin:14px 0;padding:16px'});
-    const heading=E('h3',{textContent:tool.title});
-    const desc=E('p',{className:'mut',textContent:tool.desc});
     const open=B('↗ Открыть на весь экран',()=>window.open(tool.url+'?theme='+currentTheme(),'_blank','noopener,noreferrer'));
     const download=E('a',{href:tool.url,download:tool.file,textContent:'⬇ Скачать HTML',style:'display:inline-block;padding:10px;color:#795779'});
     const frame=E('iframe',{src:tool.url+'?theme='+currentTheme(),title:tool.title,loading:'lazy',referrerPolicy:'no-referrer',style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
     frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads');
-    card.append(heading,desc,E('div',{className:'row',style:'margin:10px 0'},open,download),frame);m.append(card);
+    card.append(E('div',{className:'row',style:'margin:10px 0'},open,download),frame);m.append(card);
   });
 }
 

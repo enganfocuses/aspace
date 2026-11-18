@@ -11,8 +11,7 @@ export async function renderUsage(m,{getOwner,tracker,loadIndex,cfg,E,B,importRe
  let disposed=false,busy=false,timer=null,index={items:[]};
  const panel=E('section',{className:'usage-page'}),body=E('div'),stamp=E('p',{className:'mut',ariaLive:'polite'});
  const refreshButton=B('Обновить',()=>refresh(true));
- const head=E('div',{className:'usage-heading'},E('div',{},E('h2',{textContent:'Лимиты пространства'}),
-  E('p',{className:'mut',textContent:'Файлы, доски, локальные копии и бесплатные лимиты сервисов'})),refreshButton);
+ const head=E('div',{className:'usage-heading'},refreshButton);
  panel.append(head,stamp);m.append(panel);
  // Keep this form outside the refreshed body: draft fields must survive refresh.
  const saved=tracker.snapshot().manual;

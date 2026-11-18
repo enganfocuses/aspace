@@ -21,6 +21,14 @@ addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue=''}});
 const nav=[['home','Маршрут'],['practice','Практикум'],['library','Библиотека'],['journal','Мой дневник']];
 for(const [view,text] of nav)$('nav').append(B(text,()=>show(view)));
+const standaloneUrl=new URL(location.href);
+if(standaloneUrl.searchParams.has('embed')){
+ standaloneUrl.searchParams.delete('embed');
+ $('nav').append(B('Открыть в отдельном окне',()=>{
+  standaloneUrl.searchParams.set('theme',document.documentElement.dataset.theme);
+  window.open(standaloneUrl.href,'_blank','popup,noopener,noreferrer');
+ }));
+}
 function focusTitle(){main.querySelector('h1')?.setAttribute('tabindex','-1');main.querySelector('h1')?.focus({preventScroll:true})}
 async function show(view,arg=null,training=false){
  try{await flush()}catch(e){toast(e.message);return}
