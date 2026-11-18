@@ -168,7 +168,7 @@ function contentView(m){
     tabs.children[0].setAttribute('aria-pressed',String(!isResources));tabs.children[1].setAttribute('aria-pressed',String(isResources));
     if(isResources&&!resources.childElementCount)resourceEditor(resources);
   }
-  tabs.append(B('Контент-план',()=>selectTab(false)),B('Мои ресурсы',()=>selectTab(true),'carved-resource'));selectTab(false);
+  tabs.append(B('Контент-план',()=>selectTab(false)),B('Мои ресурсы',()=>selectTab(true)));selectTab(false);
   m.append(E('h2',{textContent:'Контент'}),tabs,planner,resources);
   changePlan();
 }
@@ -176,7 +176,7 @@ function contentView(m){
 function resourceEditor(host){
   const sites=['anesterovna.ru','harizma.deploya.ru'];
   const tabs=E('div',{className:'builder-tabs',ariaLabel:'Сайты'});
-  const live=E('a',{target:'_blank',rel:'noopener noreferrer'});
+  const live=E('a',{className:'resource-link',target:'_blank',rel:'noopener noreferrer'});
   const code=E('textarea',{spellcheck:false,wrap:'off',ariaLabel:'Исходный HTML'});
   const frame=E('iframe',{className:'workspace-preview',title:'Предпросмотр HTML',hidden:true,referrerPolicy:'no-referrer'});
   frame.setAttribute('sandbox','allow-scripts');

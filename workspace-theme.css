@@ -158,9 +158,6 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .planner-actions,.planner-schedule{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .planner-actions{margin:8px 0 14px}.planner-index{min-width:0}.planner-index input,.planner-actions select{max-width:100%;box-sizing:border-box}
 .planner-index>input{display:block;width:100%;margin-top:10px}.planner-index h4{margin:12px 0 0}.planner-schedule>label{flex:1 1 120px;min-width:0;display:grid;gap:4px}.content-editor[hidden]{display:none}.content-entry{width:100%;overflow-wrap:anywhere;padding:10px 12px;border-radius:12px}
-:root #main .personal-resources :is(button,.resource-socials a),:root #main button.carved-resource{border:3px double #a67a8e;border-radius:18px 7px;padding:8px 15px;background:linear-gradient(130deg,#fbf5f7,#ebdbe7);box-shadow:inset 0 0 0 2px #fff7f3;color:#542d42;text-decoration:none}
-:root #main .personal-resources [aria-pressed=true],:root #main .carved-resource[aria-pressed=true]{background:#66354e;border-color:#cfadbd;color:#fff7f5;box-shadow:inset 0 0 0 2px #66354e}
-.personal-resources .resource-socials a::before,.carved-resource::before{content:'❧';margin-right:6px}
 
 :root :is(#main.workspace-view,.heritage-page,#app>header,.bfull) :is(button.primary,button.active,button.current,button.is-current,button.on,button[aria-selected="true"],.builder-tabs button[aria-pressed="true"],.content-entry[aria-pressed="true"]):not(.sw):not(.vbar button){
   background-color:#69405a!important;color:#fff8f4!important
@@ -169,3 +166,21 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
   color:#fff8f4!important
 }
 .planner-week{display:flex;align-items:center;justify-content:space-between;gap:8px}.planner-week[hidden]{display:none}.content-plan h4{display:flex;align-items:center;justify-content:space-between;gap:8px}.content-plan h4 button{padding:3px 10px;border-radius:9px}
+
+.personal-resources .resource-socials a,.personal-resources .resource-link{display:inline-flex;align-items:center;justify-self:start;padding:8px 16px;border:1px solid var(--line);border-radius:12px;background:var(--btn,#c8b8e8);color:#49354f;text-decoration:none;font-weight:600}
+.personal-resources :is(.resource-link,.resource-socials a):hover{background:#bba8df}
+.bfull .board-top-dock{right:calc(24px + env(safe-area-inset-right,0px))}
+@media(min-width:761px){.bfull.with-site .board-top-dock{right:calc(50% + 24px)}}
+.bfull .board-top-dock .board-actions{box-sizing:border-box;justify-content:flex-end}
+.board-top-dock .board-actions :is(.chat-panel,.video-options,.board-participants>.card){max-width:100%}
+.it.retro-timer .timer-value{container-type:size}
+.it.retro-timer .timer-readout{position:static;top:auto;background:none;padding:0;font-size:min(16cqw,55cqh)!important}
+.it.retro-timer .timer-controls{position:static;transform:none;gap:min(1cqw,2cqh)!important}
+.it.retro-timer .timer-controls button{width:min(11cqw,28cqh)!important;height:min(11cqw,28cqh)!important}
+.it.retro-timer .timer-controls button::before{font-size:min(7cqw,18cqh)!important}
+.bfull .it.note{min-height:0}
+.bfull .fbar .format-main{gap:3px}
+.bfull .layer-picker{position:relative;display:grid;place-items:center;width:32px;height:34px;flex:none;border-radius:9px;background:var(--btn,#c8b8e8);color:#49354f;cursor:pointer}
+.bfull .layer-picker select{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.layer-picker:focus-within{outline:2px solid #8b6195;outline-offset:1px}
+.bfull .format-main .object-color-control>span{display:none}

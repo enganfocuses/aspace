@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Oswald:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Lobster&family=Pacifico&family=Caveat:wght@400;700&family=Marck+Script&family=Comfortaa:wght@400;700&family=Neucha&subset=cyrillic&display=swap">
 <script src="config.js"></script>
-<script src="./workspace-tools.js?v=3"></script>
+<script src="./workspace-tools.js?v=4"></script>
 <script src="usage-tracker.js"></script>
 <link rel="stylesheet" href="usage.css">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -658,7 +658,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .workspace-preview{display:block;width:100%;height:min(66vh,720px);border:0;border-radius:14px;margin-top:10px}.content-studio{display:grid;grid-template-columns:minmax(170px,1fr) minmax(0,2fr);gap:16px;margin-bottom:16px}.content-plan,.content-editor,.content-editor>label,.content-entry{display:grid;gap:8px}.content-plan{margin-top:10px}.content-entry{text-align:left}.content-editor img{max-width:100%;max-height:340px}.content-editor textarea{resize:vertical}.content-editor input,.content-editor textarea{box-sizing:border-box;max-width:100%;font:inherit}.content-editor fieldset label{display:flex;align-items:center;gap:4px}.content-editor fieldset{border:1px solid var(--line);border-radius:12px}.card input[type=url]{flex:1;min-width:140px;max-width:100%}@media(max-width:650px){.content-studio{grid-template-columns:1fr}}
 .resource-socials{display:flex;flex-wrap:wrap;gap:8px}.resource-socials a{padding:8px 14px;border:1px solid var(--line);border-radius:18px;text-decoration:none;color:inherit}.resource-socials a:hover,.resource-socials a:focus-visible{background:#eadff2;color:#51263e}.resource-editor{display:grid;gap:12px}.resource-editor textarea{box-sizing:border-box;width:100%;min-height:36vh;resize:vertical;tab-size:2;padding:12px;border-radius:12px;font:14px/1.5 ui-monospace,monospace}.resource-editor .row{flex-wrap:wrap}.resource-editor label{display:grid;gap:6px}.resource-editor iframe[hidden]{display:none}
 </style>
-<link rel="stylesheet" href="workspace-theme.css?v=5"></head><body>
+<link rel="stylesheet" href="workspace-theme.css?v=6"></head><body>
 <div id="root"></div>
 <script>
 const $=s=>document.querySelector(s);
@@ -1737,6 +1737,7 @@ const upload=async d=>{
 const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);return imgCache[u]||(imgCache[u]=(async()=>{try{const local=await localGet('assets',u);if(local?.value)return local.value}catch{}const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';const r=await fetch(path);if(!r.ok)throw new Error('Файл недоступен');const value=await r.json();try{await localPut('assets',{key:u,value,updatedAt:Date.now()})}catch{}return value})())};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
+ layers:'<path d="m3 8 9-5 9 5-9 5zM3 12l9 5 9-5M3 16l9 5 9-5"/>',
  select:'<path d="M5 3l13 7-5.5 1.8L10 18z"/>',
  hand:'<path d="M8 12V6.5a1.5 1.5 0 013 0V11m0-.5V4.5a1.5 1.5 0 013 0V11m0-4.5a1.5 1.5 0 013 0v7a6.5 6.5 0 01-6.5 6.5h-1A6 6 0 017 17l-2.7-4.3a1.4 1.4 0 012.3-1.5L8 13"/>',
  pen:'<path d="M4 20l1-4L16 5a2.1 2.1 0 013 3L8 19z"/><path d="M14 7l3 3"/>',
@@ -1915,7 +1916,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const stopUsage=isOwner?usageTracker.trackBoard('boards/'+id,boardShareToken):()=>{};
   if(localGuestDraft?.value&&!guest)d0=cloneBoard(localGuestDraft.value);
   const d=d0;
-  const W=3000,H=2400;
+  const W=4096,H=3072;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),ink=E('canvas',{width:W,height:H,className:'ink'}),cv=E('div',{className:'board-input'}),ctx=ink.getContext('2d'),ctxM=cvM.getContext('2d');
@@ -2099,10 +2100,19 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       };
       const finish=()=>{h.onpointermove=h.onpointerup=h.onpointercancel=null;clearGuides();fit();if(moved){r.emit('i',{n});for(const {q} of group)r.emit('i',{n:q});persistNow()}};
       h.onpointerup=finish;h.onpointercancel=finish;},{capture:true})};
-  function growNote(el,n){
-    if(n.k!=='note'||n.poll||n.timerDurationMs||!el._t)return;
-    const needed=el._t.scrollHeight+22;
-    if(needed>n.h){n.h=needed;geom(el,n)}
+  function fitNoteText(el,n){
+    if(n.k!=='note'||n.poll||Number.isFinite(n.timerDurationMs)||n.deadline||!el._t)return;
+    const text=el._t,box=text.parentElement,style=getComputedStyle(box);
+    const height=box.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom);
+    if(height<=0||!text.clientWidth)return;
+    let low=0,high=Math.max(1,(n.fs||16)*Math.min(n.w/180,n.h/140));
+    const fits=size=>{
+      text.style.fontSize=size+'px';
+      return text.scrollHeight<=height&&text.scrollWidth<=text.clientWidth;
+    };
+    if(fits(high))return;
+    while(high-low>.25){const size=(low+high)/2;if(fits(size))low=size;else high=size}
+    text.style.fontSize=Math.max(.25,low)+'px';
   }
   const upsert=n=>{
     let el=els[n.id];
@@ -2121,7 +2131,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       }
       else if(n.k==='aud'||n.k==='vid'){const media=E(n.k==='aud'?'audio':'video',{controls:true,preload:'metadata',style:'width:100%;height:100%;object-fit:contain'});if(n.k==='vid')media.playsInline=true;bgl.append(media);el._media=media;imgSrc(n.u).then(src=>{if(src)media.src=src}).catch(()=>{media.title='Файл временно недоступен'});hd=E('i');el.append(hd)}
       else if(n.k==='emo')bgl.textContent=n.t;
-      else{hd=E('i');const t=E('div',{className:'t',contentEditable:true,oninput:()=>{if(!guest&&!n.locked){n.t=t.innerText;growNote(el,n);push(n)}}});el._t=t;
+      else{hd=E('i');const t=E('div',{className:'t',contentEditable:true,oninput:()=>{if(!guest&&!n.locked){n.t=t.innerText;fitNoteText(el,n);push(n)}}});el._t=t;
         el.ondblclick=e=>{if(!guest&&!n.locked&&!e.target.closest('button,.g')&&!n.poll&&!n.timerDurationMs)t.focus()};el.append(hd,n.k==='frame'?E('div',{className:'fl'},t):E('div',{className:'tw'},t))}
       if(n.k==='embed'&&externalMedia(n.u)?.kind==='embed')el.append(E('a',{className:'media-open',href:n.u,target:'_blank',rel:'noopener noreferrer',textContent:'Открыть ↗'}));
       if(el._media||bgl.querySelector('iframe')){
@@ -2131,7 +2141,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       const g=E('div',{className:'g'}),sb=E('div',{className:'sb'},E('button',{textContent:'⧉',title:'Дублировать',onclick:()=>dup(n)}),E('button',{textContent:'✕',title:'Удалить',onclick:()=>delItem(n)}));
       g.onpointerdown=e=>{if(guest||n.locked)return;e.stopPropagation();e.preventDefault();g.setPointerCapture(e.pointerId);const sx=e.clientX,sy=e.clientY,w0=n.w,h0=n.h,fs0=n.fs||40;
         const legacySymbol=n.k==='txt'&&Object.values(SYMS).some(group=>group.split(' ').includes(n.t));
-        g.onpointermove=ev=>{if(guest||n.locked)return;n.w=Math.max(40,w0+(ev.clientX-sx)/z);n.h=(n.k==='img'||n.k==='emo')?n.w*h0/w0:Math.max(30,h0+(ev.clientY-sy)/z);if(legacySymbol)n.fs=Math.max(8,Math.round(fs0*Math.max(n.w/w0,n.h/h0)));upsert(n);push(n)};g.onpointerup=()=>{g.onpointermove=g.onpointerup=null;fit()}};
+        g.onpointermove=ev=>{if(guest||n.locked)return;const timer=Number.isFinite(n.timerDurationMs)||!!n.deadline;n.w=Math.max(timer?100:40,w0+(ev.clientX-sx)/z);n.h=(n.k==='img'||n.k==='emo')?n.w*h0/w0:Math.max(timer?60:30,h0+(ev.clientY-sy)/z);if(legacySymbol)n.fs=Math.max(8,Math.round(fs0*Math.max(n.w/w0,n.h/h0)));upsert(n);push(n)};g.onpointerup=()=>{g.onpointermove=g.onpointerup=null;fit()}};
       for(const side of ['left','right']){
         const grip=E('div',{className:'g side-grip '+side,title:'Растянуть'});
         grip.onpointerdown=e=>{
@@ -2140,7 +2150,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
           const x=n.x,w=n.w,start=e.clientX;
           grip.onpointermove=ev=>{
             const delta=(ev.clientX-start)/z;
-            n.w=Math.max(n.timerDurationMs?140:40,side==='left'?Math.min(w+x,w-delta):w+delta);
+            n.w=Math.max(Number.isFinite(n.timerDurationMs)||n.deadline?100:40,side==='left'?Math.min(w+x,w-delta):w+delta);
             if(side==='left')n.x=x+w-n.w;
             upsert(n);push(n);
           };
@@ -2157,10 +2167,9 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(n.k==='emo'){el._bg.textContent=n.t;el._bg.style.fontSize=Math.min(n.w,n.h)*.8+'px';el._bg.style.color=n.c||'#1f1f2b'}
     el.classList.toggle('locked',!!n.locked);
     if(el._t){el._t.contentEditable=String(!guest&&!n.locked);styleT(el._t,n);if(document.activeElement!==el._t)el._t.textContent=n.t||''}
-    growNote(el,n);if(FILLK.includes(n.k))el._bg.style.background=n.c;
+    fitNoteText(el,n);if(FILLK.includes(n.k))el._bg.style.background=n.c;
     el.classList.toggle('retro-timer',Number.isFinite(n.timerDurationMs)||!!n.deadline);
     if(n.deadline||Number.isFinite(n.timerDurationMs)){
-      n.w=Math.max(140,n.w);n.h=n.w;geom(el,n);
       if(!el._clock){
         el._clock=E('div',{className:'timer-value',contentEditable:false,role:'timer',ariaLabel:'Таймер'});
         const dial=E('div',{className:'timer-dial',ariaHidden:'true'});
@@ -2279,7 +2288,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
-  const makeSvg=async()=>{const maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
+  const makeSvg=async()=>{let maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));for(const stroke of strokes){for(let i=0;i<stroke.p.length;i+=2){maxX=Math.max(maxX,stroke.p[i]+(Number(stroke.w)||4)+32);maxY=Math.max(maxY,stroke.p[i+1]+(Number(stroke.w)||4)+32)}}let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
     const exportedInk=[];for(const st of strokes){let p='';for(let i=0;i<st.p.length;i+=2)p+=(i?'L':'M')+st.p[i]+' '+st.p[i+1]+' ';exportedInk.push(`<path d=\"${p}\" fill=\"none\" stroke=\"${st.e?'#fff':xml(st.c)}\" stroke-width=\"${st.w}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>`)}
     for(const n of [...items].sort((a,b)=>(a.layer??(a.k==='frame'?2:3))-(b.layer??(b.k==='frame'?2:3)))){if(n.k==='embed'){out.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="#f6f1fa" stroke="#a98cac"/><text x="${n.x+12}" y="${n.y+30}" font-size="16" fill="#715385">${xml(n.t||'Внешний плеер')}</text>`);continue}if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}    drawWires();out.push(wires.innerHTML,...exportedInk,'</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
   const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
@@ -2509,7 +2518,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       (action==='front'?[...others,...moved]:[...moved,...others]).forEach((n,i)=>{if(n.layer!==i+2){n.layer=i+2;geom(els[n.id],n);push(n)}});
     }else for(const n of selectedItems){n.group=group;push(n)}
   };
-  fbar.append(E('div',{className:'format-main'},arrange,lockButton,formatTabs.text,formatTabs.fill,objectColorLabel,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
+  fbar.append(E('div',{className:'format-main'},E('label',{className:'layer-picker',title:'Слои и группы'},ic('layers'),arrange),lockButton,formatTabs.text,formatTabs.fill,objectColorLabel,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
   function updateFormatSections(){
     const editable=selectedItems.length===1&&!sel?.locked;
     const allowed={text:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='txt'),fill:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='emo'),links:editable};
