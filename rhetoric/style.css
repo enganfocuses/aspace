@@ -31,3 +31,7 @@
 .page-controls button:disabled{opacity:.45;cursor:default}
 #page-number{min-width:9ch;text-align:center;font:inherit;font-variant-numeric:tabular-nums}
 @media(max-width:640px){.page-controls{flex-basis:100%}.reader-tools{padding-top:4px}#contents{min-width:0}}
+
+.reader-expanded body{margin:0}
+.reader-expanded .library{max-width:none}
+.reader-expanded #reader{max-width:1240px}

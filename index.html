@@ -392,6 +392,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 #main{overflow-x:hidden}
 #main.rhetoric-view{display:flex;overflow:hidden;padding:clamp(4px,1vw,14px)}
 .rhetoric-frame{width:100%;min-width:0;min-height:0;flex:1;border:0;border-radius:14px}
+.rhetoric-frame.rhetoric-frame-expanded{position:fixed;inset:0;z-index:20000;height:100%;border-radius:0;background:var(--shell-bg)}
 
 #main :where(p,h1,h2,h3,h4,small,strong,b,label,a,span,div,button){overflow-wrap:anywhere}
 #main :where(input,select,textarea){width:100%;min-width:0;max-width:100%}
@@ -1062,8 +1063,14 @@ function rhetoricView(m){
  if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
  history.replaceState(null,'',location.pathname+location.search+'#rhetoric');
  m.classList.add('rhetoric-view');
- const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=3&theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer',allowFullscreen:true});
+ const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=4&theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer'});
  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads');
+ const resizeReader=event=>{
+  if(event.origin!==location.origin||event.source!==frame.contentWindow||event.data?.type!=='aspace-rhetoric-expand')return;
+  frame.classList.toggle('rhetoric-frame-expanded',event.data.expanded===true);
+ };
+ window.addEventListener('message',resizeReader);
+ cleanup=()=>window.removeEventListener('message',resizeReader);
  m.append(frame);
 }
 

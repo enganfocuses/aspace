@@ -80,13 +80,17 @@ contents.addEventListener('change', () => {
   contents.value = '';
 });
 
-fullscreen.hidden = !document.fullscreenEnabled;
-fullscreen.onclick = () => {
-  const change = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
-  change.catch(() => {});
-};
-document.addEventListener('fullscreenchange', () => {
-  fullscreen.textContent = document.fullscreenElement ? 'Свернуть' : 'На весь экран';
+function setExpanded(expanded) {
+  document.documentElement.classList.toggle('reader-expanded', expanded);
+  fullscreen.textContent = expanded ? 'Свернуть' : 'На весь экран';
+  if (window.parent !== window) {
+    window.parent.postMessage({type:'aspace-rhetoric-expand', expanded}, location.origin);
+  }
+}
+
+fullscreen.onclick = () => setExpanded(!document.documentElement.classList.contains('reader-expanded'));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && document.documentElement.classList.contains('reader-expanded')) setExpanded(false);
 });
 
 async function readBook(book, button) {
@@ -137,7 +141,7 @@ async function readBook(book, button) {
 
 document.querySelector('#close-reader').onclick = () => {
   request?.abort();
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  if (document.documentElement.classList.contains('reader-expanded')) setExpanded(false);
   if (fileUrl) URL.revokeObjectURL(fileUrl);
   fileUrl = null;
   download.removeAttribute('href');
