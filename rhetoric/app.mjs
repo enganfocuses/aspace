@@ -1,9 +1,11 @@
 import {catalog, openingPages} from './catalog.mjs?v=3';
 import {isHeading, paginate} from './pagination.mjs?v=1';
-import {addPdf, listPdfs, readPdfFile, removePdf} from './pdf-library.mjs?v=2';
+import {addPdf, listPdfs, readPdfFile, removePdf} from './pdf-library.mjs?v=3';
 
 const localShelf = {id:'personal-pdfs', title:'Мои PDF', books:[]};
 const shelvesData = [...catalog, localShelf];
+const hiddenShelf = {id:'hidden-books', title:'Скрытые'};
+const navigationShelves = [...shelvesData, hiddenShelf];
 
 function element(tag, text, props = {}) {
   const node = document.createElement(tag);
@@ -58,7 +60,7 @@ let complete = false;
 let currentShelf = catalog[0].id;
 let request, activeButton, fileUrl;
 let catalogScroll = 0;
-const tabs = shelvesData.map(({id, title}) => {
+const tabs = navigationShelves.map(({id, title}) => {
   const button = element('button', title, {type:'button', onclick:() => {
     currentShelf = id;
     search.value = '';
@@ -85,17 +87,31 @@ function saveLocal(key, value) {
   }
 }
 
-function titleKey(book) {
-  return 'title:' + (book.pdfId ?? book.text?.file ?? JSON.stringify([book.author, book.title]));
+function bookKey(book) {
+  return book.pdfId ?? book.text?.file ?? JSON.stringify([book.author, book.title]);
 }
 
 function displayTitle(book) {
-  return readLocal(titleKey(book)) || book.title;
+  return readLocal('title:' + bookKey(book)) || book.title;
+}
+
+function bookShelf(book) {
+  return readLocal('section:' + bookKey(book)) ?? book.shelfId;
+}
+
+function isHiddenBook(book) {
+  return readLocal('hidden:' + bookKey(book)) === '1';
+}
+
+function fillSections(select) {
+  select.replaceChildren(...shelvesData.map(shelf => element('option', shelf.title, {value:shelf.id})));
 }
 
 const renameDialog = document.querySelector('#rename-book');
 const renameInput = document.querySelector('#book-title-input');
 const renameStatus = document.querySelector('#rename-status');
+const renameSection = document.querySelector('#book-section-input');
+fillSections(renameSection);
 let renamingBook;
 
 function renameBook(book) {
@@ -103,6 +119,7 @@ function renameBook(book) {
   renameStatus.textContent = '';
   renameInput.setCustomValidity('');
   renameInput.value = displayTitle(book);
+  renameSection.value = bookShelf(book);
   renameDialog.showModal();
   renameInput.focus();
   renameInput.select();
@@ -112,15 +129,20 @@ function saveBookTitle() {
   const name = renameInput.value.trim();
   renameInput.setCustomValidity(name ? '' : 'Введи название книги.');
   if (!renameInput.reportValidity()) return;
-  const key = titleKey(renamingBook);
-  const saved = saveLocal(key, name);
+  const key = bookKey(renamingBook);
+  const section = renameSection.value;
+  const moved = section !== bookShelf(renamingBook);
+  const titleSaved = saveLocal('title:' + key, name);
+  const sectionSaved = !moved || saveLocal('section:' + key, section);
+  const saved = titleSaved && sectionSaved;
+  if (moved && currentShelf !== hiddenShelf.id) currentShelf = section;
   if (saved) renameDialog.close();
   if (!reader.hidden) title.textContent = displayTitle(activeBook);
   render();
   const card = findBookCard(key);
   if (!reader.hidden) activeButton = card?.querySelector('.read-button');
   else if (saved) card?.querySelector('.rename-card-book')?.focus({preventScroll:true});
-  if (!saved) renameStatus.textContent = 'Название обновлено до закрытия вкладки.';
+  if (!saved) renameStatus.textContent = 'Изменения действуют до закрытия вкладки.';
 }
 
 function findBookCard(key) {
@@ -248,7 +270,7 @@ async function showPdfPages() {
   pdfZoom.hidden = true;
   status.textContent = 'Открываю PDF…';
   try {
-    const {renderPdfPage} = await import('./pdf-reader.mjs?v=1');
+    const {renderPdfPage} = await import('./pdf-reader.mjs?v=2');
     controller.signal.throwIfAborted();
     const results = await Promise.allSettled(visible.map(async ({content, index}) => {
       const asText = await renderPdfPage(document, index + 1, content, mode, controller.signal);
@@ -420,7 +442,7 @@ async function readPdf(book, button) {
   status.textContent = 'Открываю PDF…';
   pdfMode.disabled = true;
   try {
-    const [file, {openPdf}] = await Promise.all([readPdfFile(book.pdfId), import('./pdf-reader.mjs?v=1')]);
+    const [file, {openPdf}] = await Promise.all([readPdfFile(book.pdfId), import('./pdf-reader.mjs?v=2')]);
     signal.throwIfAborted();
     if (!file) throw new Error('Нет файла');
     const opened = await openPdf(file, signal);
@@ -486,19 +508,35 @@ document.querySelector('#close-reader').onclick = () => {
 
 function bookCard(book) {
   const card = element('article', '', {className:'book-card'});
-  card.dataset.titleKey = titleKey(book);
+  card.dataset.titleKey = bookKey(book);
   const links = element('div', '', {className:'links'});
   const actions = element('div', '', {className:'book-actions'});
   links.append(actions);
+  card.append(element('h3', displayTitle(book)), element('p', book.author, {className:'byline'}),
+    element('p', book.subject), links);
+  if (isHiddenBook(book)) {
+    actions.append(element('button', 'Вернуть в библиотеку', {type:'button', onclick:() => {
+      saveLocal('hidden:' + bookKey(book), '0');
+      currentShelf = bookShelf(book);
+      render();
+    }}));
+    return card;
+  }
   if (book.text) actions.append(element('button', 'Читать', {className:'read-button primary', type:'button', onclick:event => void readBook(book, event.currentTarget)}));
-  if (book.pdfId) {
-    actions.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
+  if (book.pdfId) actions.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
+  {
     const removal = element('details', '', {className:'remove-pdf'});
-    const confirm = element('button', 'Удалить файл', {type:'button', onclick:async () => {
+    const confirm = element('button', book.pdfId ? 'Удалить файл' : 'Убрать книгу', {type:'button', onclick:async () => {
       confirm.disabled = true;
       try {
+        if (!book.pdfId) {
+          const saved = saveLocal('hidden:' + bookKey(book), '1');
+          importStatus.textContent = saved ? 'Книга перемещена в «Скрытые».' : 'Книга скрыта до закрытия вкладки.';
+          render();
+          return;
+        }
         await removePdf(book.pdfId);
-        for (const field of ['page','notes','title']) {
+        for (const field of ['page','notes','title','section']) {
           const key = field + ':' + book.pdfId;
           volatileSettings.delete(key);
           try { localStorage.removeItem('aspace-reader:' + key); } catch {}
@@ -510,16 +548,17 @@ function bookCard(book) {
         confirm.disabled = false;
       }
     }});
-    removal.append(element('summary','Удалить PDF'), element('p','Файл и заметки к нему будут удалены из этого браузера.'), confirm);
+    removal.append(element('summary',book.pdfId ? 'Удалить PDF' : 'Убрать из библиотеки'),
+      element('p',book.pdfId ? 'Файл и заметки к нему будут удалены из этого браузера.' : 'Книгу можно вернуть из раздела «Скрытые».'),
+      confirm);
     links.append(removal);
   }
   if (!book.text && !book.pdfId) links.append(element('span', 'Сведения об издании', {className:'byline'}));
   for (const {label, href} of book.sources) {
     links.append(element('a', label + ' ↗', {href, target:'_blank', rel:'noopener noreferrer'}));
   }
-  actions.append(element('button', 'Переименовать', {className:'quiet-button rename-card-book', type:'button',
+  actions.append(element('button', 'Изменить', {className:'quiet-button rename-card-book', type:'button',
     onclick:() => renameBook(book)}));
-  card.append(element('h3', displayTitle(book)), element('p', book.author, {className:'byline'}), element('p', book.subject), links);
   return card;
 }
 const normalize = value => value.toLocaleLowerCase('ru').replaceAll('ё', 'е');
@@ -527,9 +566,11 @@ function render() {
   const query = normalize(search.value.trim());
   for (const [id, button] of tabs) button.setAttribute('aria-pressed', String(!query && id === currentShelf));
   library.replaceChildren();
-  for (const shelf of shelvesData) {
-    if (!query && shelf.id !== currentShelf) continue;
-    const books = shelf.books.filter(book => normalize([displayTitle(book), book.title, book.author, book.subject, ...book.sources.map(link => link.label)].join(' ')).includes(query));
+  const entries = shelvesData.flatMap(shelf => shelf.books.map(book => ({shelfId:shelf.id, ...book})));
+  for (const shelf of navigationShelves) {
+    if ((!query && shelf.id !== currentShelf) || (query && shelf === hiddenShelf && currentShelf !== hiddenShelf.id)) continue;
+    const books = entries.filter(book => (isHiddenBook(book) ? hiddenShelf.id : bookShelf(book)) === shelf.id)
+      .filter(book => normalize([displayTitle(book), book.title, book.author, book.subject, ...book.sources.map(link => link.label)].join(' ')).includes(query));
     if (!books.length) continue;
     const group = element('section');
     const grid = element('div', '', {className:'books'});
@@ -538,7 +579,7 @@ function render() {
     library.append(group);
   }
   if (!library.children.length) library.append(element('p',
-    !query && currentShelf === localShelf.id ? 'Здесь будут PDF, которые ты добавишь.' : 'По этому запросу книг нет.'));
+    query ? 'По этому запросу книг нет.' : 'В этом разделе пока нет книг.'));
 
 }
 search.addEventListener('input', render);
@@ -546,6 +587,9 @@ render();
 
 const pdfFiles = document.querySelector('#pdf-files');
 const importButton = document.querySelector('#import-pdf');
+const importSection = document.querySelector('#import-section');
+fillSections(importSection);
+importSection.value = localShelf.id;
 const importStatus = document.querySelector('#import-status');
 importButton.onclick = () => pdfFiles.click();
 
@@ -553,7 +597,7 @@ async function refreshPdfs() {
   try {
     const books = await listPdfs();
     localShelf.books = books.sort((a,b) => b.added - a.added).map(book => ({
-      pdfId:book.id, title:book.title, author:'Личный PDF',
+      pdfId:book.id, title:book.title, author:'Личный PDF', shelfId:book.section ?? localShelf.id,
       subject:'Хранится в этом браузере', sources:[]
     }));
     render();
@@ -567,19 +611,20 @@ pdfFiles.onchange = async () => {
   pdfFiles.value = '';
   if (!files.length) return;
   importButton.disabled = true;
+  const section = importSection.value;
   importStatus.textContent = 'Сохраняю PDF…';
   let added = 0;
   const skipped = [];
   for (const file of files) {
     try {
-      if (await addPdf(file)) added++;
+      if (await addPdf(file, section)) added++;
       else skipped.push(file.name);
     } catch {
       skipped.push(file.name);
     }
   }
   if (added) {
-    currentShelf = localShelf.id;
+    currentShelf = section;
     search.value = '';
   }
   await refreshPdfs();

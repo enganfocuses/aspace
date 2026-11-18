@@ -27,9 +27,9 @@ async function useLibrary(stores, mode, operation) {
 export const listPdfs = () => useLibrary(['books'], 'readonly', tx => tx.objectStore('books').getAll());
 export const readPdfFile = id => useLibrary(['files'], 'readonly', tx => tx.objectStore('files').get(id));
 
-export async function addPdf(file) {
+export async function addPdf(file, section) {
   if (!(await file.slice(0, 1024).text()).includes('%PDF-')) return null;
-  const book = {id: 'pdf-' + crypto.randomUUID(), title:file.name.replace(/\.pdf$/i, ''), added:Date.now()};
+  const book = {id: 'pdf-' + crypto.randomUUID(), title:file.name.replace(/\.pdf$/i, ''), added:Date.now(), section};
   await useLibrary(['books', 'files'], 'readwrite', tx => {
     tx.objectStore('files').put(file, book.id);
     return tx.objectStore('books').add(book);

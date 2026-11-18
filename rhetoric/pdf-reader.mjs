@@ -36,13 +36,28 @@ export async function renderPdfPage(document, pageNumber, container, mode, signa
   if (mode === 'text') {
     const content = await page.getTextContent();
     signal.throwIfAborted();
-    const text = content.items
-      .map(item => (item.str ?? '') + (item.hasEOL ? '\n' : ' '))
-      .join('').trim();
-    if (text) {
-      const paragraph = container.ownerDocument.createElement('p');
-      paragraph.textContent = text;
-      container.replaceChildren(paragraph);
+    const paragraphs = [];
+    let paragraph = '';
+    let previousLine;
+    for (const item of content.items) {
+      if (!item.str) continue;
+      const y = item.transform?.[5];
+      const height = item.height || Math.abs(item.transform?.[3]) || 12;
+      if (previousLine && Math.abs(y - previousLine.y) > 1.55 * Math.max(height, previousLine.height)) {
+        if (paragraph.trim()) paragraphs.push(paragraph.trim());
+        paragraph = '';
+      }
+      paragraph += item.str + ' ';
+      if (Number.isFinite(y)) previousLine = {y, height};
+    }
+    if (paragraph.trim()) paragraphs.push(paragraph.trim());
+    if (paragraphs.length) {
+      const blocks = paragraphs.map(text => {
+        const block = container.ownerDocument.createElement('p');
+        block.textContent = text;
+        return block;
+      });
+      container.replaceChildren(...blocks);
       return true;
     }
   }

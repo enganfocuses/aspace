@@ -628,6 +628,21 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .board-access-dialog{width:min(470px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--line);border-radius:18px;padding:22px;background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 .board-access-dialog::backdrop{background:#24121c88}.board-access-dialog h2{margin:0 0 12px}.board-access-dialog form:not([hidden]),.board-access-link:not([hidden]),.board-access-dialog label:not([hidden]){display:grid;gap:9px}.board-access-dialog input,.board-access-dialog select{width:100%;min-width:0}.board-access-dialog [role=status]:empty{display:none}
 .password-reset-dialog{width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #b7a28c;border-radius:22px;padding:25px;background:#f6efdf;color:#3b2934;box-shadow:0 18px 60px #17081366}.password-reset-dialog::backdrop{background:#24121c88}.password-reset-dialog form{display:grid;gap:12px}:root .password-reset-dialog h2,:root .password-reset-dialog p{margin:0;color:#3b2934}.password-reset-dialog h2{font-family:Georgia,serif;font-size:26px}.password-reset-dialog p{font-size:14px;line-height:1.55}:root .password-reset-dialog input{width:100%;background:#fffaf3;color:#3b2934;border:1px solid #b7a28c}:root .password-reset-dialog button{color:#49354f;background:#c8b8e8}:root .password-reset-dialog .reset-send{background:#71384f;color:#fff}.reset-status:empty{display:none}
+
+#main.home-menu .home-sections .section-card{min-height:225px;padding:12px 8px}
+#main.home-menu .home-sections .section-copy strong{font-size:clamp(14px,1.32vw,18px)!important}
+#main.home-menu .home-sections .section-copy>span{font-size:clamp(9.5px,.85vw,11px)!important}
+#main.home-menu .section-rhetoric{background:#171c29;color:#fff4dd}
+#main.home-menu .section-rhetoric::before{content:none}
+#main.home-menu .section-rhetoric .section-art{inset:10px 10px auto;height:58%;border-radius:12px;filter:none;background:#171c29 url('assets/home/library-cover.webp') 55% 48%/cover no-repeat}
+#main.home-menu .section-rhetoric .section-copy{color:#fff4dd}
+:root #app>header .section-nav .nav-item{padding:7px 9px;font-size:.79rem;font-weight:700;min-height:36px}
+:root #app>header .section-nav .nav-item>span:last-child{font-size:inherit;font-weight:inherit}
+.english-tools{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 14px}
+.english-tools select{font:inherit;max-width:100%;padding:8px 12px}
+.english-builder-host iframe{width:100%;height:min(78vh,960px);min-height:580px}
+.english-builder-host iframe[hidden]{display:none}
+@media(max-width:480px){#main.home-menu .home-sections .section-card{min-height:196px}}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
 <div id="root"></div>
@@ -942,7 +957,7 @@ const say2=t=>{const e=E('div',{className:'toast',textContent:t});e.style.displa
 addEventListener('hashchange',()=>location.reload());
 let cleanup=()=>{};
 const main=()=>$('#main');
-const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Образование',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
+const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={boardsView:'Доски',callView:'Видеозвонки',eduView:'Английский',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
 function passwordResetDialog(prefill=currentUser?.email||''){
@@ -1008,7 +1023,7 @@ function backToBoards(){
 function shell(guest){
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
-  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Образование',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),navButton('Риторика',rhetoricView,'VIII'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
+  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -1018,7 +1033,8 @@ function shell(guest){
   else if(h==='#architecture'&&currentUser?.uid===CFG.ownerUid)go(architectureView);
   else if(h==='#trainer'&&currentUser?.uid===CFG.ownerUid)go(trainerView);
   else if(h==='#psychology'&&currentUser?.uid===CFG.ownerUid)go(psychologyView);
-  else if(h==='#rhetoric'&&currentUser?.uid===CFG.ownerUid)go(rhetoricView);
+  else if((h==='#library'||h==='#rhetoric')&&currentUser?.uid===CFG.ownerUid)go(rhetoricView);
+  else if(h==='#english'&&currentUser?.uid===CFG.ownerUid)go(eduView);
   else if(h.startsWith('#usage?reading=')&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h.startsWith('#c-'))go(m=>roomUI(m,h.slice(3),'Видеозвонок',false));
   else go(guest?boardsView:homeView);
@@ -1067,9 +1083,9 @@ async function trainerView(m){
 
 function rhetoricView(m){
  if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
- history.replaceState(null,'',location.pathname+location.search+'#rhetoric');
+ history.replaceState(null,'',location.pathname+location.search+'#library');
  m.classList.add('rhetoric-view');
- const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=9&theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer'});
+ const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=11&theme='+currentTheme(),title:'Библиотека Aspace',referrerPolicy:'no-referrer'});
  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads');
  const resizeReader=event=>{
   if(event.origin!==location.origin||event.source!==frame.contentWindow||event.data?.type!=='aspace-rhetoric-expand')return;
@@ -1470,9 +1486,9 @@ function homeView(m){
   const sections=[
     ['Доски','Все ваши рабочие пространства',()=>go(boardsView),'boards'],
     ['Видеозвонки','Встречи и совместные занятия',()=>go(callView),'calls'],
-    ['Образование','Курсы и материалы для уроков',()=>go(eduView),'education'],
+    ['Английский','Сборщики упражнений',()=>go(eduView),'education'],
     ['Психология','КПТ · курс, дневник и практики',()=>go(psychologyView),'psychology'],
-    ['Риторика','Аристотель, стоики и искусство речи',()=>go(rhetoricView),'rhetoric'],
+    ['Библиотека','Книги и заметки',()=>go(rhetoricView),'rhetoric'],
     ['Тренажер','Speechcoach · панель сайта и коды доступа',()=>go(trainerView),'trainer'],
     ['Лимиты','Использование пространства',()=>go(usageView),'usage'],
     ['Резерв Cloudflare','Проверка и подготовка копий',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'),'reserve']
@@ -2861,23 +2877,37 @@ function build(text,topic,N=18){
   return{title,lesson,hw};
 }
 /*EDU-END*/
-async function eduView(m){
-  // Course builders are standalone local HTML tools; no Firebase or Worker writes.
+function eduView(m){
+  history.replaceState(null,'',location.pathname+location.search+'#english');
   const tools=[
     {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html',version:2,localProgress:true},
     {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html'}
   ];
-  tools.forEach(tool=>{
-    const card=E('section',{className:'card',style:'margin:14px 0;padding:16px'});
+  const select=E('select',{id:'english-builder'});
+  tools.forEach((tool,index)=>select.append(E('option',{value:String(index),textContent:tool.title})));
+  const download=E('a',{textContent:'Скачать HTML'});
+  const open=E('a',{target:'_blank',rel:'noopener noreferrer',textContent:'Открыть отдельно ↗'});
+  const host=E('div',{className:'english-builder-host'});
+  const frames=new Map();
+  function showBuilder(){
+    const tool=tools[Number(select.value)];
     const source=new URL(tool.url,location.href);
     if(tool.version)source.searchParams.set('v',tool.version);
-    const download=E('a',{href:source.href,download:tool.file,textContent:'⬇ Скачать HTML',style:'display:inline-block;padding:10px;color:#795779'});
+    download.href=source.href;
+    download.download=tool.file;
     source.searchParams.set('theme',currentTheme());
-    const open=B('↗ Открыть на весь экран',()=>window.open(source.href,'_blank','noopener,noreferrer'));
-    const frame=E('iframe',{src:source.href,title:tool.title,loading:'lazy',referrerPolicy:'no-referrer',style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
-    frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads'+(tool.localProgress?' allow-same-origin':''));
-    card.append(E('div',{className:'row',style:'margin:10px 0'},open,download),frame);m.append(card);
-  });
+    open.href=source.href;
+    if(!frames.has(tool)){
+      const frame=E('iframe',{src:source.href,title:tool.title,referrerPolicy:'no-referrer'});
+      frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads'+(tool.localProgress?' allow-same-origin':''));
+      frames.set(tool,frame);
+      host.append(frame);
+    }
+    for(const [item,frame] of frames)frame.hidden=item!==tool;
+  }
+  select.onchange=showBuilder;
+  m.append(E('h2',{textContent:'Английский'}),E('div',{className:'english-tools'},E('label',{htmlFor:'english-builder',textContent:'Сборщик упражнений'}),select,open,download),host);
+  showBuilder();
 }
 
 start();

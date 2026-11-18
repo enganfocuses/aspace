@@ -5,17 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
-  <title>Риторика · Aspace</title>
+  <title>Библиотека · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
   <main class="library">
     <div id="catalog">
       <div class="catalog-head">
-        <h1>Риторика</h1>
-        <button id="import-pdf" class="primary" type="button">Добавить PDF</button>
+        <h1>Библиотека</h1>
+        <div class="import-tools">
+          <label for="import-section">Раздел для PDF</label>
+          <select id="import-section"></select>
+          <button id="import-pdf" class="primary" type="button">Добавить PDF</button>
+        </div>
         <input id="pdf-files" type="file" accept="application/pdf,.pdf" multiple hidden>
       </div>
       <p id="import-status" role="status"></p>
@@ -120,15 +124,17 @@
     </section>
   </main>
   <dialog id="rename-book" aria-labelledby="rename-heading">
-    <h2 id="rename-heading">Название книги</h2>
+    <h2 id="rename-heading">Название и раздел</h2>
     <label for="book-title-input">Новое название</label>
     <input id="book-title-input" maxlength="160" required>
+    <label for="book-section-input">Раздел</label>
+    <select id="book-section-input"></select>
     <p id="rename-status" role="status"></p>
     <div class="rename-actions">
       <button id="cancel-rename" type="button" class="quiet-button">Отмена</button>
       <button id="save-rename" type="button" class="primary">Сохранить</button>
     </div>
   </dialog>
-  <script type="module" src="app.mjs?v=10"></script>
+  <script type="module" src="app.mjs?v=11"></script>
 </body>
 </html>
