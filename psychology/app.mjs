@@ -1,3 +1,4 @@
+import {savedBooks, savedBook, identifyOriginal, saveOriginal, displayPdf} from './book-library.mjs';
 import {LESSONS,SOURCES,VYGOTSKY,DEFENSES} from './course-data.mjs?v=2';
 import {BOOK_EXCERPTS} from './book-excerpts.mjs';
 import {WORKSHEETS,CASES} from './worksheets.mjs';
@@ -112,10 +113,68 @@ function entry(id){if(!vault?.open){authPanel({view:'entry',arg:id});return}cons
  main.append(E('article',{className:'journal'},E('h1',{textContent:e.title}),P(date(e.createdAt)+' МСК'+(e.deleted?' · в корзине':''),'meta'),E('div',{className:'toolbar no-print'},B('← Дневник',()=>show('journal')),B('Редактировать',()=>show('worksheet',{id:e.type,lessonId:e.lessonId,entryId:e.id})),B('Печать этой записи / PDF',()=>window.print())),dl));
 }
 function library(){
- main.append(E('h1',{textContent:'Библиотека и источники'}),P('Теория в модулях приведена дословно из загруженных PDF с указанием источника и страниц. Авторские примеры, задания и пояснения ответов подписаны отдельно. Для сканированной второй книги показаны изображения оригинальных страниц; её OCR может содержать ошибки. Полные PDF здесь не размещены.'),...SOURCES.map(s=>E('article',{className:'book'},E('span',{className:'tag',textContent:s.kind}),E('h2',{textContent:s.title}),P(s.detail),P(s.chapters))));
- const file=E('input',{type:'file',accept:'application/pdf,.pdf',hidden:true}),holder=E('div');
- file.onchange=async()=>{const selected=file.files[0];if(!selected)return;try{if(selected.size>60*1024*1024)throw Error('Для локального чтения выбери PDF до 60 МиБ');if(!(await selected.slice(0,5).text()).startsWith('%PDF-'))throw Error('Файл не похож на PDF');if(pdfURL)URL.revokeObjectURL(pdfURL);pdfURL=URL.createObjectURL(new Blob([selected],{type:'application/pdf'}));holder.replaceChildren(P('Локальный файл: '+selected.name,'mut'),links('Открыть PDF отдельной вкладкой',pdfURL),E('iframe',{className:'pdf',src:pdfURL,title:'Локальный PDF: '+selected.name}));toast('PDF открыт только на этом устройстве; файл не загружался на сервер.')}catch(e){toast(e.message)}finally{file.value=''}};
- main.append(E('section',{className:'book'},E('h2',{textContent:'Читать свой PDF внутри пространства'}),P('Выбери извлечённый из архива PDF на устройстве. Он откроется локально на время этой вкладки. Если встроенный просмотр недоступен, используй отдельную вкладку.','mut'),B('Выбрать PDF с устройства',()=>file.click()),file,holder));
+ const holder=E('section',{className:'book',hidden:true});
+ const originals=E('div');
+ const importStatus=P('', 'mut');
+ importStatus.setAttribute('role','status');
+ const files=E('input',{type:'file',accept:'application/pdf,.pdf',multiple:true,hidden:true});
+ const importButton=B('Добавить оригиналы из архива',()=>files.click());
+ let selection=0;
+ async function openPdf(file,title,request){
+  if(request!==selection||!holder.isConnected)return;
+  if(pdfURL)URL.revokeObjectURL(pdfURL);
+  const url=URL.createObjectURL(file.slice(0,file.size,'application/pdf'));
+  pdfURL=url;
+  const close=B('Закрыть PDF',()=>{
+   ++selection;URL.revokeObjectURL(url);pdfURL=null;holder.replaceChildren();holder.hidden=true;
+  });
+  holder.hidden=false;
+  holder.replaceChildren(E('h2',{textContent:title}),E('div',{className:'row'},links('Открыть оригинал отдельно',url),close));
+  holder.scrollIntoView({block:'start'});
+  await displayPdf(file,holder,()=>holder.isConnected&&pdfURL===url,E,B,P);
+ }
+ async function refresh(){
+  let ids=[];
+  try{ids=await savedBooks()}catch{importStatus.textContent='Хранилище браузера недоступно. Открыть PDF можно через «Читать другой PDF».'}
+  originals.replaceChildren(...SOURCES.map(source=>{
+   const content=[E('span',{className:'tag',textContent:source.kind}),E('h2',{textContent:source.title}),P(source.detail),P(source.chapters)];
+   if(ids.includes(source.id))content.push(B('Открыть PDF',async()=>{
+    const request=++selection;
+    try{const file=await savedBook(source.id);if(file)await openPdf(file,source.title,request);else await refresh()}
+    catch{toast('Не удалось открыть сохранённый PDF.')}
+   },'primary'));
+   else content.push(P('Оригинал ещё не добавлен на этом устройстве.','mut'));
+   return E('article',{className:'book'},...content);
+  }));
+ }
+ files.onchange=async()=>{
+  if(!files.files.length)return;
+  importButton.disabled=true;
+  importStatus.textContent='Добавляю оригиналы…';
+  const added=new Set(),skipped=[];
+  try{
+   for(const file of files.files){
+    const id=await identifyOriginal(file);
+    if(id){await saveOriginal(id,file);added.add(id)}
+    else skipped.push(file.name);
+   }
+   importStatus.textContent=[added.size?`Добавлено книг: ${added.size}.`:'',skipped.length?`Файлы вне архива: ${skipped.join(', ')}.`:''].filter(Boolean).join(' ');
+  }catch{importStatus.textContent='Не удалось сохранить все выбранные файлы. Проверь свободное место в браузере.'}
+  finally{files.value='';importButton.disabled=false;await refresh()}
+ };
+ const other=E('input',{type:'file',accept:'application/pdf,.pdf',hidden:true});
+ other.onchange=async()=>{
+  const file=other.files[0];
+  const request=++selection;
+  other.value='';
+  if(!file)return;
+  if(!(await file.slice(0,5).text()).startsWith('%PDF-')){toast('Выбери файл в формате PDF.');return}
+  await openPdf(file,file.name,request);
+ };
+ main.append(E('h1',{textContent:'Библиотека и источники'}),
+  E('section',{className:'book'},P('Распакуй исходный архив и выбери его PDF одним действием. Aspace распределит оригиналы по карточкам и сохранит их в этом браузере.'),E('div',{className:'row'},importButton,B('Читать другой PDF',()=>other.click())),files,other,importStatus),
+  holder,originals);
+ void refresh();
  main.append(E('article',{className:'book'},E('div',{className:'eyebrow',textContent:'Дополнительное чтение · '+VYGOTSKY.year}),E('h2',{textContent:VYGOTSKY.title}),P(VYGOTSKY.intro),E('div',{className:'row'},links('Читать книгу в библиотеке МГППУ',VYGOTSKY.reader),links('Проверить издание в РГБ',VYGOTSKY.catalog)),E('h3',{textContent:'Вопросы к чтению по семи главам'}),E('ol',{className:'book-list'},...VYGOTSKY.chapters.map(([title,question])=>E('li',{},E('strong',{textContent:title}),P(question,'mut')))),B('Открыть заметки по чтению',()=>show('worksheet',{id:'reading'}))));
  main.append(E('article',{className:'book'},E('h2',{textContent:DEFENSES.title}),...DEFENSES.sections.map(([title,text])=>E('section',{},E('h3',{textContent:title}),P(text))),B('Записать наблюдение через карту эпизода',()=>show('worksheet',{id:'model'}))));
  main.append(E('section',{className:'notice'},E('h3',{textContent:'Дополнительная проверка подхода'}),P('Курс не обещает лечебного эффекта и не заменяет помощь. Рекомендации NICE описывают структурированную самопомощь с поддержкой подготовленного специалиста; здесь такой поддержки автоматически нет.','mut'),E('div',{className:'row'},links('NICE · рекомендации по депрессии', 'https://www.nice.org.uk/guidance/ng222/chapter/recommendations'),links('Beck Institute · учебные ресурсы','https://beckinstitute.org/cbt-resources/resources-for-professionals-and-students/cbtresources/'))));
