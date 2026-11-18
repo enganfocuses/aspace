@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
@@ -57,6 +57,12 @@
           <option value="original">Оригинал PDF</option>
           <option value="text">Текст PDF</option>
         </select>
+        <select id="pdf-zoom" aria-label="Масштаб PDF" hidden>
+          <option value="100">100 %</option>
+          <option value="125">125 %</option>
+          <option value="150">150 %</option>
+          <option value="200">200 %</option>
+        </select>
         <button id="toggle-notes" type="button" aria-controls="notes-panel" aria-expanded="false">Заметки</button>
       </div>
       <h2 id="reader-title" tabindex="-1"></h2>
@@ -96,6 +102,6 @@
       </nav>
     </section>
   </main>
-  <script type="module" src="app.mjs?v=6"></script>
+  <script type="module" src="app.mjs?v=7"></script>
 </body>
 </html>

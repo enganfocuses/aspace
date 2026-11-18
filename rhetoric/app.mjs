@@ -1,6 +1,6 @@
 import {catalog, openingPages} from './catalog.mjs?v=3';
 import {isHeading, paginate} from './pagination.mjs?v=1';
-import {addPdf, listPdfs, readPdfFile} from './pdf-library.mjs?v=1';
+import {addPdf, listPdfs, readPdfFile, removePdf} from './pdf-library.mjs?v=2';
 
 const localShelf = {id:'personal-pdfs', title:'Мои PDF', books:[]};
 const shelvesData = [...catalog, localShelf];
@@ -43,6 +43,7 @@ const fontSize = document.querySelector('#font-size');
 const textSize = document.querySelector('#text-size');
 const lineHeight = document.querySelector('#line-height');
 const pdfMode = document.querySelector('#pdf-mode');
+const pdfZoom = document.querySelector('#pdf-zoom');
 const narrowReader = matchMedia('(max-width: 880px)');
 let activeBook, pdfDocument, painting;
 let bookPages = [];
@@ -154,17 +155,21 @@ async function showPdfPage() {
   painting = controller;
   const mode = pdfMode.value;
   pages.replaceChildren();
+  pdfZoom.hidden = true;
   status.textContent = 'Открываю страницу PDF…';
   try {
     const {renderPdfPage} = await import('./pdf-reader.mjs?v=1');
     controller.signal.throwIfAborted();
     const asText = await renderPdfPage(pdfDocument, pageIndex + 1, pages, mode, controller.signal);
     pages.classList.toggle('pdf-original', !asText);
+    pdfZoom.hidden = asText;
     status.textContent = mode === 'text' && !asText ? 'У этой страницы нет текстового слоя. Показан оригинал.' : '';
   } catch {
     if (!controller.signal.aborted) status.textContent = 'Не удалось показать страницу PDF.';
   }
 }
+
+pdfZoom.onchange = () => pages.style.setProperty('--pdf-zoom', pdfZoom.value + '%');
 
 pdfMode.onchange = () => {
   typography.hidden = pdfMode.value === 'original';
@@ -267,6 +272,9 @@ function startReader(book, button) {
   typography.hidden = Boolean(book.pdfId);
   pdfMode.hidden = !book.pdfId;
   pdfMode.value = 'original';
+  pdfZoom.hidden = true;
+  pdfZoom.value = '100';
+  pdfZoom.onchange();
   pages.classList.remove('pdf-original');
   pages.replaceChildren();
   pdfDocument = null;
@@ -361,7 +369,28 @@ function bookCard(book) {
   const card = element('article', '', {className:'book-card'});
   const links = element('div', '', {className:'links'});
   if (book.text) links.append(element('button', 'Читать в Aspace', {className:'read-button primary', type:'button', onclick:event => void readBook(book, event.currentTarget)}));
-  if (book.pdfId) links.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
+  if (book.pdfId) {
+    links.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
+    const removal = element('details', '', {className:'remove-pdf'});
+    const confirm = element('button', 'Удалить файл', {type:'button', onclick:async () => {
+      confirm.disabled = true;
+      try {
+        await removePdf(book.pdfId);
+        for (const field of ['page','notes']) {
+          const key = field + ':' + book.pdfId;
+          volatileSettings.delete(key);
+          try { localStorage.removeItem('aspace-reader:' + key); } catch {}
+        }
+        importStatus.textContent = 'PDF удалён из этого браузера.';
+        await refreshPdfs();
+      } catch {
+        importStatus.textContent = 'Не удалось удалить PDF.';
+        confirm.disabled = false;
+      }
+    }});
+    removal.append(element('summary','Удалить PDF'), element('p','Файл и заметки к нему будут удалены из этого браузера.'), confirm);
+    links.append(removal);
+  }
   if (!book.text && !book.pdfId) links.append(element('span', 'Сведения об издании', {className:'byline'}));
   for (const {label, href} of book.sources) {
     links.append(element('a', label + ' ↗', {href, target:'_blank', rel:'noopener noreferrer'}));

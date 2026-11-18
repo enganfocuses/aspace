@@ -16,7 +16,7 @@
 .book-card a,#reader a{color:#71384f;text-underline-offset:3px;font-weight:600;font-size:.9rem}
 #reader{max-width:1040px;margin:0 auto;padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
 .reader-tools{position:sticky;top:0;display:flex;align-items:center;flex-wrap:wrap;gap:8px;z-index:1;padding:8px 0 12px;background:var(--shell-bg,#fffbf4);border-bottom:1px solid #cbb5c6}
-#contents,#pdf-mode{font:inherit;max-width:100%;padding:8px 10px;border:1px solid #cbb5c6;border-radius:6px;background:var(--shell-bg,#fffbf4);color:inherit}
+#contents,#pdf-mode,#pdf-zoom{font:inherit;max-width:100%;padding:8px 10px;border:1px solid #cbb5c6;border-radius:6px;background:var(--shell-bg,#fffbf4);color:inherit}
 #reader-title{margin:20px 0 8px;font:600 clamp(1.6rem,5vw,2.35rem)/1.15 Georgia,serif}
 #reader-status:empty,#import-status:empty{display:none}
 #reader.with-notes{max-width:1240px}
@@ -32,8 +32,8 @@
 #pages p:last-child{margin-bottom:0}
 #pages h3:first-child{margin-top:0}
 #pages h3{margin-block:1.5em .65em;scroll-margin-top:8rem;font-size:1.19em;line-height:1.3}
-.heritage-page #pages.pdf-original{padding:clamp(5px,1.2vw,12px)}
-#pages canvas{display:block;width:100%;height:auto}
+.heritage-page #pages.pdf-original{overflow:auto;padding:clamp(5px,1.2vw,12px)}
+#pages canvas{display:block;width:var(--pdf-zoom,100%);height:auto}
 :root[data-theme=dark] .heritage-page #pages{background:linear-gradient(90deg,#150c123d,transparent 22px),#36272d;color:#f8e9d6;border-color:#725966;box-shadow:2px 3px 0 #56434d,4px 5px 0 #725966}
 #notes-panel{position:sticky;top:74px;padding:14px;border:1px solid var(--shell-line,#cbb5c6);border-radius:12px;background:var(--shell-bg,#fffbf4)}
 #notes-title{margin:0 0 9px;font-size:1.2rem}
@@ -75,3 +75,6 @@
 .reader-expanded #reader{max-width:1240px}
 
 #export-notes:disabled{opacity:.55}
+.remove-pdf{font-size:.875rem}
+.remove-pdf summary{cursor:pointer}
+.remove-pdf p{margin-block:6px}

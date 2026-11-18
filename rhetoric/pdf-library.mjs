@@ -36,3 +36,8 @@ export async function addPdf(file) {
   });
   return book;
 }
+
+export const removePdf = id => useLibrary(['books','files'], 'readwrite', tx => {
+  tx.objectStore('files').delete(id);
+  return tx.objectStore('books').delete(id);
+});
