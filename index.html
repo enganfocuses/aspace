@@ -1651,7 +1651,6 @@ async function boardsView(m){
   m.append(search,g);
   if(currentUser?.uid===CFG.ownerUid)m.append(
     E('div',{className:'row',style:'margin-top:16px;align-items:center'},
-      B('🧠 Психология · КПТ',()=>go(psychologyView)),
       B('📊 Лимиты и использование',()=>go(usageView)),
       B('☁ Резерв Cloudflare · подготовка',()=>{
         window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer');
