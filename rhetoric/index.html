@@ -7,13 +7,18 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
   <main class="library">
     <div id="catalog">
-      <h1>Риторика</h1>
+      <div class="catalog-head">
+        <h1>Риторика</h1>
+        <button id="import-pdf" class="primary" type="button">Добавить PDF</button>
+        <input id="pdf-files" type="file" accept="application/pdf,.pdf" multiple hidden>
+      </div>
+      <p id="import-status" role="status"></p>
       <nav class="shelves" aria-label="Темы библиотеки"></nav>
       <label class="search">Поиск книг
         <input type="search" placeholder="Название, автор или вуз">
@@ -25,6 +30,34 @@
         <button id="close-reader" type="button">← К списку книг</button>
         <button id="reader-fullscreen" type="button">На весь экран</button>
         <select id="contents" aria-label="Оглавление" hidden></select>
+        <details id="typography">
+          <summary>Настройки текста</summary>
+          <div class="text-controls">
+            <label>Шрифт
+              <select id="font-family">
+                <option value="georgia">Georgia</option>
+                <option value="times">Times New Roman</option>
+                <option value="sans">Arial</option>
+                <option value="system">Системный</option>
+              </select>
+            </label>
+            <label>Размер <output id="text-size"></output>
+              <input id="font-size" type="range" min="14" max="32" step="1" aria-label="Размер текста">
+            </label>
+            <label>Межстрочный интервал
+              <select id="line-height">
+                <option value="1.45">Компактный</option>
+                <option value="1.65">Обычный</option>
+                <option value="1.9">Свободный</option>
+              </select>
+            </label>
+          </div>
+        </details>
+        <select id="pdf-mode" aria-label="Вид PDF" hidden>
+          <option value="original">Оригинал PDF</option>
+          <option value="text">Текст PDF</option>
+        </select>
+        <button id="toggle-notes" type="button" aria-controls="notes-panel" aria-expanded="false">Заметки</button>
       </div>
       <h2 id="reader-title" tabindex="-1"></h2>
       <p id="edition" class="byline"></p>
@@ -32,7 +65,22 @@
         <a id="origin" target="_blank" rel="noopener noreferrer">Источник перевода ↗</a>
         <a id="download" download hidden>Скачать TXT</a>
       </div>
-      <article id="pages" tabindex="-1"></article>
+      <div class="book-layout">
+        <div class="book-page">
+          <button class="page-edge" id="left-edge" type="button" aria-label="Предыдущая страница" disabled>‹</button>
+          <article id="pages" tabindex="-1"></article>
+          <button class="page-edge" id="right-edge" type="button" aria-label="Следующая страница" disabled>›</button>
+        </div>
+        <aside id="notes-panel" aria-labelledby="notes-title" hidden>
+          <h3 id="notes-title">Заметки к книге</h3>
+          <textarea id="book-notes" aria-labelledby="notes-title" placeholder="Запиши мысли или цитаты…"></textarea>
+          <div class="notes-actions">
+            <button id="note-page" type="button">Вставить номер страницы</button>
+            <button id="export-notes" class="primary" type="button" disabled>Скачать TXT заметок</button>
+          </div>
+          <p id="notes-status" role="status"></p>
+        </aside>
+      </div>
       <p id="reader-status" role="status"></p>
       <nav class="page-controls" aria-label="Страницы книги">
         <div class="page-controls-inner">
@@ -48,6 +96,6 @@
       </nav>
     </section>
   </main>
-  <script type="module" src="app.mjs?v=5"></script>
+  <script type="module" src="app.mjs?v=6"></script>
 </body>
 </html>

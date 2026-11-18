@@ -1,5 +1,9 @@
 import {catalog, openingPages} from './catalog.mjs?v=3';
 import {isHeading, paginate} from './pagination.mjs?v=1';
+import {addPdf, listPdfs, readPdfFile} from './pdf-library.mjs?v=1';
+
+const localShelf = {id:'personal-pdfs', title:'Мои PDF', books:[]};
+const shelvesData = [...catalog, localShelf];
 
 function element(tag, text, props = {}) {
   const node = document.createElement(tag);
@@ -26,13 +30,28 @@ const pageTotal = document.querySelector('#page-total');
 const pageAnnouncement = document.querySelector('#page-announcement');
 const jumpButton = document.querySelector('#jump-page');
 const fullscreen = document.querySelector('#reader-fullscreen');
+const leftEdge = document.querySelector('#left-edge');
+const rightEdge = document.querySelector('#right-edge');
+const notes = document.querySelector('#book-notes');
+const notesPanel = document.querySelector('#notes-panel');
+const notesToggle = document.querySelector('#toggle-notes');
+const notesStatus = document.querySelector('#notes-status');
+const notesExport = document.querySelector('#export-notes');
+const typography = document.querySelector('#typography');
+const fontFamily = document.querySelector('#font-family');
+const fontSize = document.querySelector('#font-size');
+const textSize = document.querySelector('#text-size');
+const lineHeight = document.querySelector('#line-height');
+const pdfMode = document.querySelector('#pdf-mode');
+const narrowReader = matchMedia('(max-width: 880px)');
+let activeBook, pdfDocument, painting;
 let bookPages = [];
 let pageIndex = 0;
 let complete = false;
 let currentShelf = catalog[0].id;
 let request, activeButton, fileUrl;
 let catalogScroll = 0;
-const tabs = catalog.map(({id, title}) => {
+const tabs = shelvesData.map(({id, title}) => {
   const button = element('button', title, {type:'button', onclick:() => {
     currentShelf = id;
     search.value = '';
@@ -42,22 +61,133 @@ const tabs = catalog.map(({id, title}) => {
   return [id, button];
 });
 
+const volatileSettings = new Map();
+function readLocal(key) {
+  if (volatileSettings.has(key)) return volatileSettings.get(key);
+  try { return localStorage.getItem('aspace-reader:' + key); } catch { return null; }
+}
+
+function saveLocal(key, value) {
+  try {
+    localStorage.setItem('aspace-reader:' + key, value);
+    volatileSettings.delete(key);
+    return true;
+  } catch {
+    volatileSettings.set(key, value);
+    return false;
+  }
+}
+
+function readingKey(field) {
+  return field + ':' + (activeBook.pdfId ?? activeBook.text.file);
+}
+
+const fontStacks = {
+  georgia:'Georgia, serif',
+  times:'"Times New Roman", serif',
+  sans:'Arial, sans-serif',
+  system:'system-ui, sans-serif'
+};
+fontFamily.value = Object.hasOwn(fontStacks, readLocal('font')) ? readLocal('font') : 'georgia';
+fontSize.value = readLocal('size') ?? '19';
+lineHeight.value = ['1.45','1.65','1.9'].includes(readLocal('spacing')) ? readLocal('spacing') : '1.65';
+function applyTypography() {
+  pages.style.setProperty('--book-font', fontStacks[fontFamily.value]);
+  pages.style.setProperty('--book-size', fontSize.value + 'px');
+  pages.style.setProperty('--book-spacing', lineHeight.value);
+  textSize.textContent = fontSize.value + ' пкс';
+}
+
+for (const [control, key] of [[fontFamily,'font'], [fontSize,'size'], [lineHeight,'spacing']]) {
+  control.addEventListener('input', () => {
+    saveLocal(key, control.value);
+    applyTypography();
+  });
+}
+applyTypography();
+
+function setNotesOpen(open) {
+  notesPanel.hidden = !open;
+  reader.classList.toggle('with-notes', open);
+  notesToggle.setAttribute('aria-expanded', String(open));
+}
+
+notesToggle.onclick = () => {
+  const open = notesPanel.hidden;
+  setNotesOpen(open);
+  if (open) notes.focus({preventScroll:!narrowReader.matches});
+};
+narrowReader.addEventListener('change', () => setNotesOpen(!narrowReader.matches));
+
+function saveNotes() {
+  notesExport.disabled = !notes.value.trim();
+  const saved = saveLocal(readingKey('notes'), notes.value);
+  notesStatus.textContent = saved ? 'Сохранено в этом браузере' : 'Хранилище недоступно. Скачай заметки, чтобы их сохранить.';
+}
+notes.addEventListener('input', saveNotes);
+document.querySelector('#note-page').onclick = () => {
+  const start = notes.selectionStart;
+  const end = notes.selectionEnd;
+  const label = 'Страница ' + (pageIndex + 1) + ' — ';
+  const prefix = start && notes.value[start - 1] !== '\n' ? '\n' : '';
+  notes.setRangeText(prefix + label, start, end, 'end');
+  saveNotes();
+  notes.focus();
+};
+notesExport.onclick = () => {
+  const exportUrl = URL.createObjectURL(new Blob([activeBook.title, '\n\n', notes.value], {type:'text/plain;charset=utf-8'}));
+  const filename = activeBook.title.replace(/[\\/:*?"<>|]/g,'-').trim().slice(0,100);
+  const link = element('a', '', {href:exportUrl, download:filename + ' — заметки.txt'});
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(exportUrl), 1000);
+};
+
+function countPages() {
+  return pdfDocument?.numPages ?? bookPages.length;
+}
+
+async function showPdfPage() {
+  painting?.abort();
+  const controller = new AbortController();
+  painting = controller;
+  const mode = pdfMode.value;
+  pages.replaceChildren();
+  status.textContent = 'Открываю страницу PDF…';
+  try {
+    const {renderPdfPage} = await import('./pdf-reader.mjs?v=1');
+    controller.signal.throwIfAborted();
+    const asText = await renderPdfPage(pdfDocument, pageIndex + 1, pages, mode, controller.signal);
+    pages.classList.toggle('pdf-original', !asText);
+    status.textContent = mode === 'text' && !asText ? 'У этой страницы нет текстового слоя. Показан оригинал.' : '';
+  } catch {
+    if (!controller.signal.aborted) status.textContent = 'Не удалось показать страницу PDF.';
+  }
+}
+
+pdfMode.onchange = () => {
+  typography.hidden = pdfMode.value === 'original';
+  void showPdfPage();
+};
+
 function updatePageControls() {
-  previousPage.disabled = pageIndex === 0;
-  nextPage.disabled = pageIndex + 1 >= bookPages.length;
+  previousPage.disabled = leftEdge.disabled = pageIndex === 0;
+  nextPage.disabled = rightEdge.disabled = pageIndex + 1 >= countPages();
   pageNumber.value = pageIndex + 1;
-  pageNumber.max = bookPages.length;
-  pageNumber.disabled = jumpButton.disabled = !complete || bookPages.length < 2;
-  pageTotal.textContent = complete ? 'из ' + bookPages.length : '';
+  pageNumber.max = countPages();
+  pageNumber.disabled = jumpButton.disabled = !complete || countPages() < 2;
+  pageTotal.textContent = complete ? 'из ' + countPages() : '';
   pageAnnouncement.textContent = 'Страница ' + pageNumber.value + ' ' + pageTotal.textContent;
 }
 
 function showPage(index) {
   pageIndex = index;
-  const blocks = bookPages[index].map((block, i) => isHeading(block)
+  if (pdfDocument) void showPdfPage();
+  else pages.replaceChildren(...bookPages[index].map((block, i) => isHeading(block)
     ? element('h3', block.slice(2), {id:'page-heading-' + i})
-    : element('p', block));
-  pages.replaceChildren(...blocks);
+    : element('p', block)));
+  if (complete) saveLocal(readingKey('page'), String(pageIndex));
   updatePageControls();
 }
 
@@ -71,14 +201,14 @@ function updateContents() {
 }
 
 function goToPage(index) {
-  if (!Number.isInteger(index) || index < 0 || index >= bookPages.length || index === pageIndex) return false;
+  if (!Number.isInteger(index) || index < 0 || index >= countPages() || index === pageIndex) return false;
   showPage(index);
   window.scrollTo(0, 0);
   return true;
 }
 
-previousPage.onclick = () => goToPage(pageIndex - 1);
-nextPage.onclick = () => goToPage(pageIndex + 1);
+previousPage.onclick = leftEdge.onclick = () => goToPage(pageIndex - 1);
+nextPage.onclick = rightEdge.onclick = () => goToPage(pageIndex + 1);
 function jumpToPage() {
   if (!pageNumber.reportValidity()) return;
   goToPage(pageNumber.valueAsNumber - 1);
@@ -118,26 +248,72 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && document.documentElement.classList.contains('reader-expanded')) setExpanded(false);
 });
 
-async function readBook(book, button) {
+function startReader(book, button) {
   request?.abort();
-  const controller = new AbortController();
-  request = controller;
+  painting?.abort();
+  request = new AbortController();
+  activeBook = book;
   activeButton = button;
   catalogScroll = window.scrollY;
   catalogView.hidden = true;
   reader.hidden = false;
   title.textContent = book.title;
-  edition.textContent = book.author + ' · ' + book.text.translator;
-  origin.href = book.text.href;
-  complete = false;
-  bookPages = [openingPages[book.text.file]];
-  showPage(0);
+  origin.hidden = !book.text;
+  if (book.text) origin.href = book.text.href;
+  edition.textContent = book.text ? book.author + ' · ' + book.text.translator : 'Личный PDF';
   contents.hidden = true;
-  status.textContent = 'Загружаю остальные страницы…';
   download.hidden = true;
+  typography.open = false;
+  typography.hidden = Boolean(book.pdfId);
+  pdfMode.hidden = !book.pdfId;
+  pdfMode.value = 'original';
+  pages.classList.remove('pdf-original');
+  pages.replaceChildren();
+  pdfDocument = null;
+  bookPages = [];
+  pageIndex = 0;
+  complete = false;
+  notes.value = readLocal(readingKey('notes')) ?? '';
+  notesExport.disabled = !notes.value.trim();
+  notesStatus.textContent = 'Заметки сохраняются в этом браузере.';
+  setNotesOpen(!narrowReader.matches);
+  updatePageControls();
   window.scrollTo(0, 0);
   title.focus({preventScroll:true});
+  return request;
+}
 
+function savedPage() {
+  const index = Number(readLocal(readingKey('page')));
+  return Number.isInteger(index) ? Math.max(0, Math.min(index, countPages() - 1)) : 0;
+}
+
+async function readPdf(book, button) {
+  const {signal} = startReader(book, button);
+  status.textContent = 'Открываю PDF…';
+  pdfMode.disabled = true;
+  try {
+    const [file, {openPdf}] = await Promise.all([readPdfFile(book.pdfId), import('./pdf-reader.mjs?v=1')]);
+    signal.throwIfAborted();
+    if (!file) throw new Error('Нет файла');
+    const opened = await openPdf(file, signal);
+    signal.throwIfAborted();
+    pdfDocument = opened;
+    complete = true;
+    pdfMode.disabled = false;
+    showPage(savedPage());
+  } catch (error) {
+    if (!signal.aborted) status.textContent = error.name === 'PasswordException'
+      ? 'Этот PDF защищён паролем. Добавь копию без пароля.'
+      : 'Не удалось открыть PDF. Проверь, открывается ли исходный файл.';
+  }
+}
+
+async function readBook(book, button) {
+  const controller = startReader(book, button);
+  bookPages = [openingPages[book.text.file]];
+  showPage(0);
+  status.textContent = 'Загружаю остальные страницы…';
   try {
     const url = 'texts/' + book.text.file + '.ru.txt.gz?v=1';
     const response = await fetch(url, {signal:controller.signal, cache:'force-cache'});
@@ -150,8 +326,9 @@ async function readBook(book, button) {
     const previewMatches = fullPages[0].join('\n\n') === bookPages[0].join('\n\n');
     bookPages = fullPages;
     complete = true;
-    if (previewMatches) updatePageControls();
-    else showPage(0);
+    const start = savedPage();
+    if (previewMatches && start === 0) updatePageControls();
+    else showPage(start);
     updateContents();
     const copy = text.replace(/^# /gm, '');
     fileUrl = URL.createObjectURL(new Blob([book.title, '\n', edition.textContent, '\n', book.text.href, '\n\n', copy], {type:'text/plain;charset=utf-8'}));
@@ -166,6 +343,8 @@ async function readBook(book, button) {
 
 document.querySelector('#close-reader').onclick = () => {
   request?.abort();
+  painting?.abort();
+  pdfDocument = null;
   if (document.documentElement.classList.contains('reader-expanded')) setExpanded(false);
   if (fileUrl) URL.revokeObjectURL(fileUrl);
   fileUrl = null;
@@ -182,7 +361,8 @@ function bookCard(book) {
   const card = element('article', '', {className:'book-card'});
   const links = element('div', '', {className:'links'});
   if (book.text) links.append(element('button', 'Читать в Aspace', {className:'read-button primary', type:'button', onclick:event => void readBook(book, event.currentTarget)}));
-  if (!book.text) links.append(element('span', 'Сведения об издании', {className:'byline'}));
+  if (book.pdfId) links.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
+  if (!book.text && !book.pdfId) links.append(element('span', 'Сведения об издании', {className:'byline'}));
   for (const {label, href} of book.sources) {
     links.append(element('a', label + ' ↗', {href, target:'_blank', rel:'noopener noreferrer'}));
   }
@@ -194,7 +374,7 @@ function render() {
   const query = normalize(search.value.trim());
   for (const [id, button] of tabs) button.setAttribute('aria-pressed', String(!query && id === currentShelf));
   library.replaceChildren();
-  for (const shelf of catalog) {
+  for (const shelf of shelvesData) {
     if (!query && shelf.id !== currentShelf) continue;
     const books = shelf.books.filter(book => normalize([book.title, book.author, book.subject, ...book.sources.map(link => link.label)].join(' ')).includes(query));
     if (!books.length) continue;
@@ -204,7 +384,55 @@ function render() {
     group.append(element('h2', shelf.title, {className:'shelf-title'}), grid);
     library.append(group);
   }
-  if (!library.children.length) library.append(element('p', 'По этому запросу книг нет.'));
+  if (!library.children.length) library.append(element('p',
+    !query && currentShelf === localShelf.id ? 'Здесь будут PDF, которые ты добавишь.' : 'По этому запросу книг нет.'));
+
 }
 search.addEventListener('input', render);
 render();
+
+const pdfFiles = document.querySelector('#pdf-files');
+const importButton = document.querySelector('#import-pdf');
+const importStatus = document.querySelector('#import-status');
+importButton.onclick = () => pdfFiles.click();
+
+async function refreshPdfs() {
+  try {
+    const books = await listPdfs();
+    localShelf.books = books.sort((a,b) => b.added - a.added).map(book => ({
+      pdfId:book.id, title:book.title, author:'Личный PDF',
+      subject:'Хранится в этом браузере', sources:[]
+    }));
+    render();
+  } catch {
+    importStatus.textContent = 'Хранилище PDF в этом браузере недоступно.';
+  }
+}
+
+pdfFiles.onchange = async () => {
+  const files = Array.from(pdfFiles.files);
+  pdfFiles.value = '';
+  if (!files.length) return;
+  importButton.disabled = true;
+  importStatus.textContent = 'Сохраняю PDF…';
+  let added = 0;
+  const skipped = [];
+  for (const file of files) {
+    try {
+      if (await addPdf(file)) added++;
+      else skipped.push(file.name);
+    } catch {
+      skipped.push(file.name);
+    }
+  }
+  if (added) {
+    currentShelf = localShelf.id;
+    search.value = '';
+  }
+  await refreshPdfs();
+  importStatus.textContent = [added ? 'Добавлено PDF: ' + added + '.' : '',
+    skipped.length ? 'Не удалось добавить: ' + skipped.join(', ') + '. Проверь файлы и свободное место.' : '']
+    .filter(Boolean).join(' ');
+  importButton.disabled = false;
+};
+void refreshPdfs();
