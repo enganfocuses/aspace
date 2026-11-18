@@ -9,7 +9,7 @@ export function validateEnvelope(value){
  try{if(unb64(value.salt).length!==16||unb64(value.iv).length!==12||unb64(value.data).length<16)throw Error()}catch{throw Error('Повреждённая резервная копия')}
  return {v:1,iterations:ITERATIONS,salt:value.salt,iv:value.iv,data:value.data};
 }
-function checkData(data){
+export function validateJournal(data){
  if(!data||data.v!==1||!Array.isArray(data.entries)||data.entries.length>2000||!data.drafts||typeof data.drafts!=='object'||Array.isArray(data.drafts))throw Error('Неподдерживаемые данные дневника');
  const entries=data.entries,records=[...entries,...Object.values(data.drafts)];
  if(records.length>2500)throw Error('Слишком много записей');
@@ -26,8 +26,12 @@ async function derive(pass,salt){
  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITERATIONS,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
 async function decrypt(record,key){
- try{return checkData(JSON.parse(decode.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(record.iv)},key,unb64(record.data)))))}
+ try{return validateJournal(JSON.parse(decode.decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(record.iv)},key,unb64(record.data)))))}
  catch{throw Error('Не удалось открыть: проверь пароль и целостность копии')}
+}
+export async function readEncryptedJournal(value,pass){
+ const record=validateEnvelope(value);
+ return decrypt(record,await derive(pass,unb64(record.salt)));
 }
 export class JournalVault{
  constructor(storage=globalThis.localStorage){this.storage=storage;this.key=null;this.data=null;this.salt=null;this.queue=Promise.resolve()}
@@ -43,7 +47,7 @@ export class JournalVault{
   const data=await decrypt(record,key);this.key=key;this.salt=salt;this.data=data;
  }
  async seal(data,key=this.key,salt=this.salt){
-  if(!key)throw Error('Сначала открой дневник');checkData(data);
+  if(!key)throw Error('Сначала открой дневник');validateJournal(data);
   const iv=crypto.getRandomValues(new Uint8Array(12)),encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,encode.encode(JSON.stringify(data)));
   return {v:1,iterations:ITERATIONS,salt:b64(salt),iv:b64(iv),data:b64(new Uint8Array(encrypted))};
  }
@@ -53,7 +57,7 @@ export class JournalVault{
   try{this.storage.setItem(VAULT_KEY,JSON.stringify(envelope))}catch{throw Error('Не удалось сохранить на устройстве. Скачай резервную копию открытого дневника; проверь доступное место.');}
  }
  mutate(fn){
-  const task=this.queue.then(async()=>{if(!this.open)throw Error('Дневник закрыт');const next=structuredClone(this.data);fn(next);checkData(next);await this.persist(next);this.data=next});
+  const task=this.queue.then(async()=>{if(!this.open)throw Error('Дневник закрыт');const next=structuredClone(this.data);fn(next);validateJournal(next);await this.persist(next);this.data=next});
   this.queue=task.catch(()=>{});return task;
  }
  async lock(){await this.queue;this.key=null;this.salt=null;this.data=null}

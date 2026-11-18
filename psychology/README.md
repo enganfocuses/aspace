@@ -21,17 +21,13 @@ References checked 2026-11-09:
 
 ## Local records
 
-`vault.mjs` uses WebCrypto AES-GCM 256-bit encryption with random 16-byte salt, random 12-byte nonce per write and PBKDF2-SHA256 (250,000 iterations). The key is non-extractable and held in memory while unlocked; the passphrase is not stored. The serialized localStorage vault and JSON backup contain ciphertext. The app does not recover forgotten passphrases. Clearing browser data removes the local vault unless a backup exists.
+The journal opens without a separate password. Entries and drafts stay in browser storage on the current device without encryption. A downloadable JSON backup can be imported on another device. Older encrypted records and backups can be brought into the current journal by entering their original passphrase once. The old encrypted data remains available for recovery.
 
-An encrypted backup plus passphrase transfers the journal to another device. Import validates/decrypts before replacement; the UI asks before overwriting an existing vault. Entries move to a reversible trash. Saves are serialized. A failed local write leaves the previous ciphertext intact and shows an error; in-memory recovery export can include an unsaved draft even when localStorage is full. Draft saves are debounced, and explicit entry saving is provided. Save or wait for the saved indicator before closing or changing the surrounding Aspace view.
-
-Only non-personal course module IDs/progress are stored unencrypted. Open journal content is visible to a person controlling the open tab. Encryption at rest does not protect against a compromised browser, host page, malicious same-origin scripts, extensions, screenshots, or someone who knows the passphrase. Automatic lock runs after ten minutes without page interaction, subject to browser timer scheduling; manual lock is available. Ordinary lesson navigation flushes the current draft. Beforeunload guards unsaved changes where browser policy allows.
-
-No requests, analytics SDKs, LLM calls or provider keys are used by the psychology modules. The only automatic network access is loading/caching static assets on the same origin. External references open only when chosen. Archive originals can be imported by selecting the extracted PDFs together. Exact file hashes match them to the known book cards, and originals stay in IndexedDB on the current device. Other PDFs are session-only. PDF.js displays original pages from local bytes. The shared root service worker caches the static course and all excerpt text modules. Facsimiles are lazy-loaded and cached when viewed; they are available offline after that view. External book reading still requires internet. This does not add Firebase or Cloudflare data traffic for journal saves.
+Only static assets are loaded over the network. Archive originals can be imported by selecting the extracted PDFs together. Exact file hashes match them to the known book cards, and originals stay in IndexedDB on the current device. Other PDFs are session-only. PDF.js displays original pages from local bytes.
 
 ## Verification
 
-Run `node --test tests/*.test.mjs cloudflare/tests/*.test.mjs` from the repository root. Tests cover content completeness, owner route integration, ciphertext-only persistence, wrong-password and tamper handling, serialized saves, local quota failure/recovery backup, locked backup export and offline assets.
+Run `node --test tests/*.test.mjs cloudflare/tests/*.test.mjs` from the repository root. Tests cover content completeness, owner route integration, passwordless storage and legacy migration, wrong-password and tamper handling, serialized saves, local quota failure/recovery backup, locked backup export and offline assets.
 
 Browser QA uses a separate preview with synthetic in-memory records; no personal journal or production Firebase account is opened. Covers course navigation, answer explanations, a saved synthetic worksheet, closed-vault guard, library links and a 390px viewport.
 

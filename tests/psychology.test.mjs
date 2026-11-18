@@ -4,6 +4,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {LESSONS,SOURCES,VYGOTSKY} from '../psychology/course-data.mjs';
 import {WORKSHEETS,CASES} from '../psychology/worksheets.mjs';
 import {JournalVault,VAULT_KEY,validateEnvelope} from '../psychology/vault.mjs';
+import {LocalJournal} from '../psychology/local-journal.mjs';
 import {BOOK_EXCERPTS} from '../psychology/book-excerpts.mjs';
 import {createHash} from 'node:crypto';
 const memory=()=>{const values=new Map();return{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),values}};
@@ -13,7 +14,7 @@ const record=(id,secret)=>({id,type:'thought',title:'Учебная запись
 test('the full course has verbatim source pages, separately labelled editorial practice and explanations',()=>{
  assert.equal(LESSONS.length,24);assert.equal(new Set(LESSONS.map(l=>l.id)).size,24);
  for(const l of LESSONS){assert.equal(l.sections.length,0);assert.equal(l.theoryMode,'verbatim');assert.ok(BOOK_EXCERPTS[l.id].pages.length>=3,l.id);assert.ok(BOOK_EXCERPTS[l.id].verbatim);assert.equal(l.example.length,4);assert.equal(l.practice.length,3);assert.equal(l.questions.length,2);for(const q of l.questions){assert.equal(q.options.length,3);assert.ok(q.answer>=0&&q.answer<3);assert.ok(q.why.length>35)}}
- assert.equal(WORKSHEETS.length,16);assert.equal(CASES.length,12);assert.equal(SOURCES.length,3);assert.equal(VYGOTSKY.chapters.length,7);
+ assert.equal(WORKSHEETS.length,16);assert.equal(CASES.length,24);assert.equal(new Set(CASES.map(c=>c.title)).size,24);for(const c of CASES){assert.equal(c.options.length,3);assert.ok(c.options[c.answer]);assert.ok(c.why)}assert.equal(SOURCES.length,3);assert.equal(VYGOTSKY.chapters.length,7);
  assert.match(VYGOTSKY.reader,/^https:\/\/psychlib\.ru\//);
 });
 test('worksheet field identifiers are unique and personal ratings are bounded inputs rather than diagnosis scores',()=>{
@@ -66,4 +67,27 @@ test('offline shell includes every psychology module and local source PDFs are n
 test('every source page has a reproducible text hash and scanned sources provide original facsimiles',()=>{
  for(const l of LESSONS){const source=BOOK_EXCERPTS[l.id];assert.ok(source.book&&source.chapter);assert.match(source.sourcePdfSha256,/^[a-f0-9]{64}$/);for(const page of source.pages){assert.equal(createHash('sha256').update(page.text).digest('hex'),page.textSha256);assert.ok(Number.isSafeInteger(page.page)&&page.page>0);assert.ok(page.text.length>=150||page.images,'Image-only pages need a facsimile');if(page.images){assert.equal(page.images.length,8);for(const path of page.images)assert.ok(existsSync(new URL('../psychology/'+path,import.meta.url)))}}}
  const app=readFileSync(new URL('../psychology/app.mjs',import.meta.url),'utf8');assert.match(app,/Текст учебника · дословно/);assert.match(app,/Авторский разбор · не цитата из учебника/);assert.match(app,/Авторские задания тренажёра/);assert.match(app,/возможны ошибки OCR/);
+});
+
+test('a passwordless journal survives reload and can merge old encrypted entries and drafts',async()=>{
+ const store=memory(),legacy=new JournalVault(store);
+ await legacy.create(pass);
+ await legacy.mutate(data=>{
+  data.entries.push(record('old','old entry'));
+  data.drafts.thought={type:'thought',title:'Draft',fields:{situation:'old draft'}};
+ });
+ const diary=new LocalJournal(store);
+ await diary.mutate(data=>{
+  data.entries.push(record('new','new entry'));
+  data.drafts.thought={type:'thought',title:'Draft',fields:{situation:'new draft'}};
+ });
+ assert.equal(new LocalJournal(store).data.entries[0].id,'new');
+ const original=store.getItem(VAULT_KEY);
+ await assert.rejects(()=>diary.import(original,'wrong-password',true),/Не удалось открыть/);
+ await diary.import(original,pass,true);
+ await diary.import(original,pass,true);
+ const reopened=new LocalJournal(store);
+ assert.deepEqual(reopened.data.entries.map(x=>x.id).sort(),['new','old']);
+ assert.deepEqual(Object.values(reopened.data.drafts).map(x=>x.fields.situation).sort(),['new draft','old draft']);
+ assert.equal(store.getItem(VAULT_KEY),original);
 });
