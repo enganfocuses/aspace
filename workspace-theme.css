@@ -137,3 +137,35 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .timer-expired .bgl{border-color:#71384f!important}.timer-expired .timer-caption{font-weight:700}
 
 .it.retro-timer.sel{border-radius:50%}.retro-timer .timer-readout{position:absolute;top:57%}.retro-timer .timer-caption{position:absolute;top:73%;font-size:clamp(8px,4cqw,11px);line-height:1.2}
+
+/* Let each board toolbar reserve space for its neighbours. */
+.board-top-dock,.board-bottom-dock{position:fixed;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));pointer-events:none}
+.board-top-dock{top:calc(8px + env(safe-area-inset-top));display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:6px 12px;z-index:32}
+.board-bottom-dock{bottom:calc(8px + env(safe-area-inset-bottom));display:grid;justify-items:center;gap:6px;z-index:25}
+.bfull .board-top-dock .menu,.bfull .board-top-dock .board-actions{position:static;max-width:100%;min-width:0;pointer-events:auto}
+.bfull .board-top-dock .menu{align-items:center;flex:1 1 250px}
+.board-top-dock .menu>.mbtn{min-width:0;max-width:100%}.board-top-dock .menu>.mbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bfull .board-top-dock .board-actions{margin-left:auto;flex-wrap:wrap;gap:5px}
+.board-top-dock .board-actions summary{width:auto;height:auto;min-height:40px;max-width:none;line-height:1.2;padding:8px 10px;box-sizing:border-box}
+.bfull .board-top-dock .mp,.board-top-dock .board-actions :is(.video-options,.chat-panel,.board-participants>.card){top:calc(100% + 5px);max-height:calc(100dvh - 238px);overflow:auto}
+.bfull .video-options :is(button,label,select),.board-participants>.card>*{box-sizing:border-box;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere}
+.bfull .board-participants>.card{display:grid;gap:6px}
+.board-navigation{width:100%;display:flex;justify-content:space-between;gap:6px;align-items:end;flex-wrap:wrap}
+.bfull .board-bottom-dock :is(.tbar,.hist,.zoom){position:static;transform:none;max-width:100%;box-sizing:border-box;pointer-events:auto}
+.bfull .board-bottom-dock .tbar{min-width:0}.board-navigation .zoom{margin-left:auto}
+@media(min-width:761px){.bfull.with-site .board-top-dock{right:calc(50% + 8px)}}
+@media(max-width:760px){.bfull .board-top-dock .menu{flex-basis:100%}.board-top-dock .board-actions summary{min-height:36px}.board-navigation .hist,.board-navigation .zoom{padding:4px}.board-navigation .hist .tbtn{width:32px;height:32px}}
+.planner-actions,.planner-schedule{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.planner-actions{margin:8px 0 14px}.planner-index{min-width:0}.planner-index input,.planner-actions select{max-width:100%;box-sizing:border-box}
+.planner-index>input{display:block;width:100%;margin-top:10px}.planner-index h4{margin:12px 0 0}.planner-schedule>label{flex:1 1 120px;min-width:0;display:grid;gap:4px}.content-editor[hidden]{display:none}.content-entry{width:100%;overflow-wrap:anywhere;padding:10px 12px;border-radius:12px}
+:root #main .personal-resources :is(button,.resource-socials a),:root #main button.carved-resource{border:3px double #a67a8e;border-radius:18px 7px;padding:8px 15px;background:linear-gradient(130deg,#fbf5f7,#ebdbe7);box-shadow:inset 0 0 0 2px #fff7f3;color:#542d42;text-decoration:none}
+:root #main .personal-resources [aria-pressed=true],:root #main .carved-resource[aria-pressed=true]{background:#66354e;border-color:#cfadbd;color:#fff7f5;box-shadow:inset 0 0 0 2px #66354e}
+.personal-resources .resource-socials a::before,.carved-resource::before{content:'❧';margin-right:6px}
+
+:root :is(#main.workspace-view,.heritage-page,#app>header,.bfull) :is(button.primary,button.active,button.current,button.is-current,button.on,button[aria-selected="true"],.builder-tabs button[aria-pressed="true"],.content-entry[aria-pressed="true"]):not(.sw):not(.vbar button){
+  background-color:#69405a!important;color:#fff8f4!important
+}
+:root :is(#main.workspace-view,.heritage-page,#app>header,.bfull) :is(button.primary,button.active,button.current,button.is-current,button.on,button[aria-selected="true"],.builder-tabs button[aria-pressed="true"],.content-entry[aria-pressed="true"]) :is(span,strong,b,small,em,.meta,.mut){
+  color:#fff8f4!important
+}
+.planner-week{display:flex;align-items:center;justify-content:space-between;gap:8px}.planner-week[hidden]{display:none}.content-plan h4{display:flex;align-items:center;justify-content:space-between;gap:8px}.content-plan h4 button{padding:3px 10px;border-radius:9px}

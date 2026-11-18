@@ -61,23 +61,90 @@ function contentView(m){
   }
   function release(){if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl=''}
   cleanup=release;
+  const planKey='aspace:plans:'+currentUser.uid;
+  const plans=JSON.parse(localStorage.getItem(planKey)||'null')||[{id:'default',name:'Мой план'}];
+  const stages=['Идея','В работе','На проверке','Запланировано','Опубликовано'];
+  const planSelect=E('select',{ariaLabel:'Контент-план'}),search=E('input',{type:'search',placeholder:'Найти идею или текст',ariaLabel:'Поиск записей'});
+  const channel=E('select',{ariaLabel:'Площадка'},E('option',{value:'',textContent:'Все площадки'}),...platforms.map(textContent=>E('option',{textContent})));
+  const mode=E('select',{ariaLabel:'Вид плана'},...['По этапам','По датам','Неделя'].map(textContent=>E('option',{textContent})));
+  let currentPlan=plans.find(p=>p.id===localStorage.getItem(planKey+':selected'))?.id||plans[0]?.id;
+  const dateString=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const monday=new Date();monday.setHours(12,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
+  const weekRange=E('strong');
+  function shiftWeek(days){monday.setDate(monday.getDate()+days);listPlan()}
+  const weekNav=E('div',{className:'planner-week',hidden:true},B('←',()=>shiftWeek(-7)),weekRange,B('→',()=>shiftWeek(7)));
+  weekNav.firstChild.title='Предыдущая неделя';weekNav.lastChild.title='Следующая неделя';
+  const inPlan=()=>[...records.values()].filter(item=>(item.plan||'default')===currentPlan);
+  function refreshPlans(){
+    planSelect.replaceChildren(...plans.map(plan=>E('option',{value:plan.id,textContent:plan.name})));planSelect.value=currentPlan||'';
+  }
+  function changePlan(){
+    localStorage.setItem(planKey+':selected',currentPlan||'');entry=null;release();editor.replaceChildren();editor.hidden=true;listPlan();
+    const first=inPlan()[0];if(first)edit(first);
+  }
+  function newPlan(){
+    const name=prompt('Название контент-плана')?.trim();if(!name)return false;
+    const plan={id:uid(),name};plans.push(plan);localStorage.setItem(planKey,JSON.stringify(plans));currentPlan=plan.id;refreshPlans();changePlan();return true;
+  }
   function listPlan(){
     list.replaceChildren();
-    for(const item of [...records.values()].sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||b.created-a.created)){
-      const button=E('button',{className:'content-entry',onclick:()=>edit(item)},E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.kind,item.date,...item.platforms].filter(Boolean).join(' · ')}));
-      button.setAttribute('aria-pressed',String(entry===item));list.append(button);
+    const query=search.value.trim().toLocaleLowerCase();
+    const visible=inPlan().filter(item=>(!channel.value||item.platforms.includes(channel.value))&&[item.title,item.text].join(' ').toLocaleLowerCase().includes(query));
+    const byStage=mode.value==='По этапам';
+    visible.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||'')||b.created-a.created);
+    const groupName=item=>byStage?(item.stage||stages[0]):item.date||'Без даты';
+    const week=mode.value==='Неделя';weekNav.hidden=!week;
+    const days=Array.from({length:7},(_,i)=>{const day=new Date(monday);day.setDate(day.getDate()+i);return dateString(day)});
+    weekRange.textContent=days[0].slice(8)+'.'+days[0].slice(5,7)+' — '+days[6].slice(8)+'.'+days[6].slice(5,7);
+    const groups=week?days:byStage?stages:[...new Set(visible.map(groupName))];
+    for(const name of groups){
+      const members=visible.filter(item=>groupName(item)===name);if(!week&&!members.length)continue;
+      const label=!byStage&&name!=='Без даты'?new Date(name+'T12:00:00').toLocaleDateString('ru',{weekday:'short',day:'numeric',month:'long'}):name;
+      const heading=E('h4',{textContent:label+' · '+members.length});
+      if(week){const add=B('＋',()=>create(name));add.title='Добавить публикацию на '+name;add.setAttribute('aria-label',add.title);heading.append(add)}list.append(heading);
+      for(const item of members){
+        const button=E('button',{className:'content-entry',onclick:()=>edit(item)},E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.kind,item.date,item.time,...item.platforms].filter(Boolean).join(' · ')}));
+        button.setAttribute('aria-pressed',String(entry===item));list.append(button);
+      }
+    }
+    if(!week&&!visible.length)list.append(E('p',{textContent:query||channel.value?'По этим условиям записей нет.':'В этом плане пока нет записей.'}));
+  }
+  async function exportRecords(items,name){
+    try{
+      const output=[];
+      for(const item of items){
+        const asset=await localGet('assets',prefix+item.id+':photo');
+        output.push({...item,screenshot:asset?.value?await blobDataUrl(asset.value):null});
+      }
+      const data=new Blob([JSON.stringify({plan:name,entries:output},null,2)],{type:'application/json;charset=utf-8'});
+      const url=URL.createObjectURL(data);E('a',{href:url,download:(name||'Контент-план')+'.json'}).click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+    }catch(error){alert('Не удалось скачать: '+error.message)}
+  }
+  async function removeItems(items){
+    for(const item of items){
+      await localDelete('assets',prefix+item.id+':photo');localStorage.removeItem(prefix+item.id);records.delete(item.id);
     }
   }
+  async function removePlan(){
+    const plan=plans.find(p=>p.id===currentPlan);if(!plan)return;
+    const items=inPlan();
+    if(!confirm('Удалить план «'+plan.name+'» и все его записи ('+items.length+') с устройства?'))return;
+    await removeItems(items);plans.splice(plans.indexOf(plan),1);localStorage.setItem(planKey,JSON.stringify(plans));
+    currentPlan=plans[0]?.id;refreshPlans();changePlan();
+  }
+  planSelect.onchange=()=>{currentPlan=planSelect.value;changePlan()};search.oninput=channel.onchange=mode.onchange=listPlan;refreshPlans();
   function store(){
     try{localStorage.setItem(prefix+entry.id,JSON.stringify(entry));records.set(entry.id,entry);status.textContent='Сохранено на устройстве';listPlan()}
     catch(error){status.textContent='Ошибка записи на устройстве: '+error.message}
   }
   function edit(item){
-    release();entry=item;listPlan();editor.replaceChildren();
+    release();entry=item;editor.hidden=false;listPlan();editor.replaceChildren();
     function field(label,key,node){
-      node.value=item[key]||'';node.oninput=()=>{item[key]=node.value;store()};return E('label',{},label,node);
+      node.value=item[key]||(key==='stage'?stages[0]:'');node.oninput=()=>{item[key]=node.value;store()};return E('label',{},label,node);
     }
     const kind=E('select',{},...['Идея','Пост','Видео'].map(textContent=>E('option',{textContent})));
+    const destination=E('select',{ariaLabel:'Перенести в план'},...plans.map(p=>E('option',{value:p.id,textContent:p.name})));
+    destination.value=currentPlan;destination.onchange=()=>{item.plan=destination.value;store();currentPlan=destination.value;refreshPlans();changePlan();edit(item)};
     const targets=E('fieldset',{},E('legend',{textContent:'Куда опубликовать'}));
     for(const name of platforms){
       const box=E('input',{type:'checkbox',checked:item.platforms.includes(name),onchange:()=>{
@@ -88,21 +155,22 @@ function contentView(m){
     const assetKey=prefix+item.id+':photo';
     function show(blob){if(entry!==item||!photo.isConnected)return;release();photoUrl=URL.createObjectURL(blob);photo.src=photoUrl;photo.hidden=false}
     file.onchange=async()=>{const blob=file.files[0];if(!blob)return;try{await localPut('assets',{key:assetKey,value:blob});show(blob);status.textContent='Скрин сохранён на устройстве'}catch(error){status.textContent=error.message}};
-    editor.append(field('Название','title',E('input')),field('Формат','kind',kind),field('Дата публикации','date',E('input',{type:'date'})),field('Идея или текст','text',E('textarea',{rows:9})),targets,E('label',{},'Скрин видео',file),photo,status);
+    editor.append(field('Название','title',E('input')),field('Формат','kind',kind),E('div',{className:'planner-schedule'},field('Этап','stage',E('select',{},...stages.map(textContent=>E('option',{textContent})))),field('Дата публикации','date',E('input',{type:'date'})),field('Время','time',E('input',{type:'time'}))),field('Идея или текст','text',E('textarea',{rows:9})),targets,E('label',{},'Скрин видео',file),photo,...(plans.length>1?[E('label',{},'План публикации',destination)]:[]),status,E('div',{className:'planner-actions'},B('Скачать запись',()=>exportRecords([item],item.title||item.kind)),B('Удалить запись',async()=>{if(confirm('Удалить запись «'+(item.title||item.kind)+'» с устройства?')){await removeItems([item]);changePlan()}})));
     localGet('assets',assetKey).then(saved=>{if(saved?.value)show(saved.value)}).catch(error=>status.textContent=error.message);
   }
-  function create(){const item={id:uid(),created:Date.now(),title:'',kind:'Идея',text:'',date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
-  section.append(E('aside',{},E('h3',{textContent:'Контент-план'}),B('＋ Новая запись',create),list),editor);
-  const planner=E('div',{},section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true});
+  function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
+  const planTools=E('div',{className:'planner-actions'},planSelect,B('＋ План',newPlan),B('Скачать план',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)}),B('Удалить план',removePlan));
+  section.append(E('aside',{className:'planner-index'},B('＋ Новая запись',create),search,E('div',{className:'planner-actions'},mode,channel),weekNav,list),editor);
+  const planner=E('div',{},planTools,section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
   const tabs=E('nav',{className:'builder-tabs',ariaLabel:'Разделы контента'});
   function selectTab(isResources){
     planner.hidden=isResources;resources.hidden=!isResources;
     tabs.children[0].setAttribute('aria-pressed',String(!isResources));tabs.children[1].setAttribute('aria-pressed',String(isResources));
     if(isResources&&!resources.childElementCount)resourceEditor(resources);
   }
-  tabs.append(B('Контент-план',()=>selectTab(false)),B('Мои ресурсы',()=>selectTab(true)));selectTab(false);
+  tabs.append(B('Контент-план',()=>selectTab(false)),B('Мои ресурсы',()=>selectTab(true),'carved-resource'));selectTab(false);
   m.append(E('h2',{textContent:'Контент'}),tabs,planner,resources);
-  if(records.size)edit(records.values().next().value);else create();
+  changePlan();
 }
 
 function resourceEditor(host){

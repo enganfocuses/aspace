@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Oswald:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Lobster&family=Pacifico&family=Caveat:wght@400;700&family=Marck+Script&family=Comfortaa:wght@400;700&family=Neucha&subset=cyrillic&display=swap">
 <script src="config.js"></script>
-<script src="./workspace-tools.js?v=2"></script>
+<script src="./workspace-tools.js?v=3"></script>
 <script src="usage-tracker.js"></script>
 <link rel="stylesheet" href="usage.css">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -658,7 +658,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .workspace-preview{display:block;width:100%;height:min(66vh,720px);border:0;border-radius:14px;margin-top:10px}.content-studio{display:grid;grid-template-columns:minmax(170px,1fr) minmax(0,2fr);gap:16px;margin-bottom:16px}.content-plan,.content-editor,.content-editor>label,.content-entry{display:grid;gap:8px}.content-plan{margin-top:10px}.content-entry{text-align:left}.content-editor img{max-width:100%;max-height:340px}.content-editor textarea{resize:vertical}.content-editor input,.content-editor textarea{box-sizing:border-box;max-width:100%;font:inherit}.content-editor fieldset label{display:flex;align-items:center;gap:4px}.content-editor fieldset{border:1px solid var(--line);border-radius:12px}.card input[type=url]{flex:1;min-width:140px;max-width:100%}@media(max-width:650px){.content-studio{grid-template-columns:1fr}}
 .resource-socials{display:flex;flex-wrap:wrap;gap:8px}.resource-socials a{padding:8px 14px;border:1px solid var(--line);border-radius:18px;text-decoration:none;color:inherit}.resource-socials a:hover,.resource-socials a:focus-visible{background:#eadff2;color:#51263e}.resource-editor{display:grid;gap:12px}.resource-editor textarea{box-sizing:border-box;width:100%;min-height:36vh;resize:vertical;tab-size:2;padding:12px;border-radius:12px;font:14px/1.5 ui-monospace,monospace}.resource-editor .row{flex-wrap:wrap}.resource-editor label{display:grid;gap:6px}.resource-editor iframe[hidden]{display:none}
 </style>
-<link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
+<link rel="stylesheet" href="workspace-theme.css?v=5"></head><body>
 <div id="root"></div>
 <script>
 const $=s=>document.querySelector(s);
@@ -1037,7 +1037,7 @@ function backToBoards(){
 function shell(guest){
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
-  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),navButton('Контент',contentView,'IX'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
+  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),navButton('Контент',contentView,'IX'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -1503,14 +1503,13 @@ function homeView(m){
     ['Психология','КПТ · курс, дневник и практики',()=>go(psychologyView),'psychology'],
     ['Библиотека','Книги и заметки',()=>go(rhetoricView),'rhetoric'],
     ['Тренажер','Speechcoach · панель сайта и коды доступа',()=>go(trainerView),'trainer'],
-    ['Лимиты','Использование пространства',()=>go(usageView),'usage'],
-    ['Контент','Идеи, публикации и контент-план',()=>go(contentView),'content']
+    ['Контент','Идеи, публикации и контент-план',()=>go(contentView),'usage']
   ];
   const grid=E('nav',{className:'home-sections',ariaLabel:'Разделы Aspace'});
   for(const [title,description,action,key] of sections){
     const card=E('button',{className:'section-card section-'+key,onclick:action},E('span',{className:'section-art',ariaHidden:'true'}),E('span',{className:'section-copy'},E('strong',{textContent:title}),E('span',{textContent:description})),E('span',{className:'section-enter',textContent:'↗',ariaHidden:'true'}));grid.append(card);
   }
-  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password'),B('Резерв Cloudflare',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'))));
+  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password'),B('Лимиты',()=>go(usageView)),B('Резерв Cloudflare',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'))));
 }
 
 const boardCallDestinations=[
@@ -2523,7 +2522,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   function positionFormatBar(){
     formatFrame=0;if(disposed||!sel||guest||!fbar.isConnected)return;
     const bounds=els[sel.id]?.getBoundingClientRect();if(!bounds)return;
-    const topEdge=window.innerWidth<600?118:76,bottomEdge=window.innerHeight-145;
+    const topEdge=topDock.getBoundingClientRect().bottom+8,bottomEdge=bottomDock.getBoundingClientRect().top-8;
     const offscreen=bounds.right<0||bounds.left>window.innerWidth||bounds.bottom<topEdge||bounds.top>window.innerHeight-70;
     fbar.style.visibility=offscreen?'hidden':'visible';if(offscreen)return;
     const width=fbar.offsetWidth,height=fbar.offsetHeight,gap=12;
@@ -2833,7 +2832,11 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
   mp.append(themeControl());
-  root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
+  const topDock=E('div',{className:'board-top-dock'},menu,boardActions);
+  const bottomDock=E('div',{className:'board-bottom-dock'},E('div',{className:'board-navigation'},hist,zoom),tbar);
+  root.append(topDock,bottomDock,fbar,announcementBox);
+  for(const panel of [participants,vtop,chat])panel.addEventListener('toggle',()=>{if(panel.open){mp.classList.remove('open');mb.setAttribute('aria-expanded','false')}});
+  mb.addEventListener('click',()=>{if(mp.classList.contains('open'))for(const panel of [participants,vtop,chat])panel.open=false});
   renderAnnouncement();m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||t.closest('.board-access-dialog')||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
