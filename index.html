@@ -2877,7 +2877,7 @@ function build(text,topic,N=18){
   return{title,lesson,hw};
 }
 /*EDU-END*/
-function eduView(m){
+async function eduView(m){
   history.replaceState(null,'',location.pathname+location.search+'#english');
   const tools=[
     {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html',version:2,localProgress:true},
