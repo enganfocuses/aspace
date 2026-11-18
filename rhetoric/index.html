@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
@@ -27,16 +27,16 @@
     </div>
     <section id="reader" aria-labelledby="reader-title" hidden>
       <div class="reader-tools">
-        <button id="close-reader" type="button">← К списку книг</button>
+        <button id="close-reader" type="button">‹ К книгам</button>
         <button id="reader-fullscreen" type="button">На весь экран</button>
         <select id="reading-layout" aria-label="Вид книги">
-          <option value="auto">Страницы: авто</option>
+          <option value="auto">Авто</option>
           <option value="single">Одна страница</option>
           <option value="spread">Две страницы</option>
         </select>
         <select id="contents" aria-label="Оглавление" hidden></select>
         <details id="typography">
-          <summary>Настройки текста</summary>
+          <summary>Текст</summary>
           <div class="text-controls">
             <label>Шрифт
               <select id="font-family">
@@ -70,7 +70,10 @@
         </select>
         <button id="toggle-notes" type="button" aria-controls="notes-panel" aria-expanded="false">Заметки</button>
       </div>
-      <h2 id="reader-title" tabindex="-1"></h2>
+      <div class="book-title-row">
+        <h2 id="reader-title" tabindex="-1"></h2>
+        <button id="rename-reader-book" type="button" class="quiet-button" aria-label="Переименовать книгу">Переименовать</button>
+      </div>
       <p id="edition" class="byline"></p>
       <div class="links">
         <a id="origin" target="_blank" rel="noopener noreferrer">Источник перевода ↗</a>
@@ -95,8 +98,8 @@
           <h3 id="notes-title">Заметки к книге</h3>
           <textarea id="book-notes" aria-labelledby="notes-title" placeholder="Запиши мысли или цитаты…"></textarea>
           <div class="notes-actions">
-            <button id="note-page" type="button">Вставить номер страницы</button>
-            <button id="export-notes" class="primary" type="button" disabled>Скачать TXT заметок</button>
+            <button id="note-page" type="button">Номер страницы</button>
+            <button id="export-notes" class="primary" type="button" aria-label="Скачать заметки в TXT" disabled>Скачать TXT</button>
           </div>
           <p id="notes-status" role="status"></p>
         </aside>
@@ -104,18 +107,28 @@
       <p id="reader-status" role="status"></p>
       <nav class="page-controls" aria-label="Страницы книги">
         <div class="page-controls-inner">
-          <button id="previous-page" type="button" aria-keyshortcuts="ArrowLeft" disabled>← Назад</button>
+          <button id="previous-page" type="button" aria-keyshortcuts="ArrowLeft" disabled>‹ Назад</button>
           <div id="page-jump" role="group" aria-label="Переход к странице">
             <input id="page-number" type="number" inputmode="numeric" aria-label="Номер страницы" min="1" step="1" value="1" required disabled>
             <span id="page-total"></span>
             <button id="jump-page" type="button" aria-label="Перейти на страницу" title="Перейти на страницу" disabled>↵</button>
           </div>
-          <button id="next-page" type="button" aria-keyshortcuts="ArrowRight" disabled>Дальше →</button>
+          <button id="next-page" type="button" aria-keyshortcuts="ArrowRight" disabled>Дальше ›</button>
         </div>
         <span id="page-announcement" role="status"></span>
       </nav>
     </section>
   </main>
-  <script type="module" src="app.mjs?v=8"></script>
+  <dialog id="rename-book" aria-labelledby="rename-heading">
+    <h2 id="rename-heading">Название книги</h2>
+    <label for="book-title-input">Новое название</label>
+    <input id="book-title-input" maxlength="160" required>
+    <p id="rename-status" role="status"></p>
+    <div class="rename-actions">
+      <button id="cancel-rename" type="button" class="quiet-button">Отмена</button>
+      <button id="save-rename" type="button" class="primary">Сохранить</button>
+    </div>
+  </dialog>
+  <script type="module" src="app.mjs?v=9"></script>
 </body>
 </html>

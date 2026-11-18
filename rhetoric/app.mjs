@@ -85,6 +85,56 @@ function saveLocal(key, value) {
   }
 }
 
+function titleKey(book) {
+  return 'title:' + (book.pdfId ?? book.text?.file ?? JSON.stringify([book.author, book.title]));
+}
+
+function displayTitle(book) {
+  return readLocal(titleKey(book)) || book.title;
+}
+
+const renameDialog = document.querySelector('#rename-book');
+const renameInput = document.querySelector('#book-title-input');
+const renameStatus = document.querySelector('#rename-status');
+let renamingBook;
+
+function renameBook(book) {
+  renamingBook = book;
+  renameStatus.textContent = '';
+  renameInput.setCustomValidity('');
+  renameInput.value = displayTitle(book);
+  renameDialog.showModal();
+  renameInput.focus();
+  renameInput.select();
+}
+
+function saveBookTitle() {
+  const name = renameInput.value.trim();
+  renameInput.setCustomValidity(name ? '' : 'Введи название книги.');
+  if (!renameInput.reportValidity()) return;
+  const key = titleKey(renamingBook);
+  const saved = saveLocal(key, name);
+  if (saved) renameDialog.close();
+  if (!reader.hidden) title.textContent = displayTitle(activeBook);
+  render();
+  const card = findBookCard(key);
+  if (!reader.hidden) activeButton = card?.querySelector('.read-button');
+  else if (saved) card?.querySelector('.rename-card-book')?.focus({preventScroll:true});
+  if (!saved) renameStatus.textContent = 'Название обновлено до закрытия вкладки.';
+}
+
+function findBookCard(key) {
+  return [...library.querySelectorAll('.book-card')].find(card => card.dataset.titleKey === key);
+}
+
+document.querySelector('#rename-reader-book').onclick = () => renameBook(activeBook);
+document.querySelector('#save-rename').onclick = saveBookTitle;
+document.querySelector('#cancel-rename').onclick = () => renameDialog.close();
+renameInput.oninput = () => renameInput.setCustomValidity('');
+renameInput.onkeydown = event => {
+  if (event.key === 'Enter' && !event.isComposing) saveBookTitle();
+};
+
 layout.value = ['single','spread'].includes(readLocal('layout')) ? readLocal('layout') : 'auto';
 function isSpread() {
   return layout.value === 'spread' || (layout.value === 'auto' && wideSpread.matches);
@@ -168,8 +218,8 @@ document.querySelector('#note-page').onclick = () => {
   notes.focus();
 };
 notesExport.onclick = () => {
-  const exportUrl = URL.createObjectURL(new Blob([activeBook.title, '\n\n', notes.value], {type:'text/plain;charset=utf-8'}));
-  const filename = activeBook.title.replace(/[\\/:*?"<>|]/g,'-').trim().slice(0,100);
+  const exportUrl = URL.createObjectURL(new Blob([displayTitle(activeBook), '\n\n', notes.value], {type:'text/plain;charset=utf-8'}));
+  const filename = displayTitle(activeBook).replace(/[\\/:*?"<>|]/g,'-').trim().slice(0,100);
   const link = element('a', '', {href:exportUrl, download:filename + ' — заметки.txt'});
   document.body.append(link);
   link.click();
@@ -326,7 +376,7 @@ function startReader(book, button) {
   catalogScroll = window.scrollY;
   catalogView.hidden = true;
   reader.hidden = false;
-  title.textContent = book.title;
+  title.textContent = displayTitle(book);
   origin.hidden = !book.text;
   if (book.text) origin.href = book.text.href;
   edition.textContent = book.text ? book.author + ' · ' + book.text.translator : 'Личный PDF';
@@ -434,16 +484,19 @@ document.querySelector('#close-reader').onclick = () => {
 
 function bookCard(book) {
   const card = element('article', '', {className:'book-card'});
+  card.dataset.titleKey = titleKey(book);
   const links = element('div', '', {className:'links'});
-  if (book.text) links.append(element('button', 'Читать в Aspace', {className:'read-button primary', type:'button', onclick:event => void readBook(book, event.currentTarget)}));
+  const actions = element('div', '', {className:'book-actions'});
+  links.append(actions);
+  if (book.text) actions.append(element('button', 'Читать', {className:'read-button primary', type:'button', onclick:event => void readBook(book, event.currentTarget)}));
   if (book.pdfId) {
-    links.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
+    actions.append(element('button', 'Читать PDF', {className:'read-button primary', type:'button', onclick:event => void readPdf(book, event.currentTarget)}));
     const removal = element('details', '', {className:'remove-pdf'});
     const confirm = element('button', 'Удалить файл', {type:'button', onclick:async () => {
       confirm.disabled = true;
       try {
         await removePdf(book.pdfId);
-        for (const field of ['page','notes']) {
+        for (const field of ['page','notes','title']) {
           const key = field + ':' + book.pdfId;
           volatileSettings.delete(key);
           try { localStorage.removeItem('aspace-reader:' + key); } catch {}
@@ -462,7 +515,9 @@ function bookCard(book) {
   for (const {label, href} of book.sources) {
     links.append(element('a', label + ' ↗', {href, target:'_blank', rel:'noopener noreferrer'}));
   }
-  card.append(element('h3', book.title), element('p', book.author, {className:'byline'}), element('p', book.subject), links);
+  actions.append(element('button', 'Переименовать', {className:'quiet-button rename-card-book', type:'button',
+    onclick:() => renameBook(book)}));
+  card.append(element('h3', displayTitle(book)), element('p', book.author, {className:'byline'}), element('p', book.subject), links);
   return card;
 }
 const normalize = value => value.toLocaleLowerCase('ru').replaceAll('ё', 'е');
@@ -472,7 +527,7 @@ function render() {
   library.replaceChildren();
   for (const shelf of shelvesData) {
     if (!query && shelf.id !== currentShelf) continue;
-    const books = shelf.books.filter(book => normalize([book.title, book.author, book.subject, ...book.sources.map(link => link.label)].join(' ')).includes(query));
+    const books = shelf.books.filter(book => normalize([displayTitle(book), book.title, book.author, book.subject, ...book.sources.map(link => link.label)].join(' ')).includes(query));
     if (!books.length) continue;
     const group = element('section');
     const grid = element('div', '', {className:'books'});
