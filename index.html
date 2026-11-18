@@ -1457,7 +1457,7 @@ function homeView(m){
 async function boardsView(m){
   const idx=(await load('meta/boards'))||{items:[]};
   const g=E('div',{className:'grid'});
-  const nw=E('div',{className:'card new',onclick:async()=>{const n=prompt('Название доски','Новая доска');if(n==null)return;const id=uid();idx.items.push({id,name:n||'Доска'});await save('meta/boards',idx);await save('boards/'+id,{name:n||'Доска',strokes:[],items:[],bg:'dots',siteUrl:'',upd:Date.now()});go(mm=>openBoard(mm,id,false))}},'＋ Новая доска');
+  const nw=E('button',{type:'button',className:'card new',onclick:async()=>{const n=prompt('Название доски','Новая доска');if(n==null)return;const id=uid();idx.items.push({id,name:n||'Доска'});await save('meta/boards',idx);await save('boards/'+id,{name:n||'Доска',strokes:[],items:[],bg:'dots',siteUrl:'',upd:Date.now()});go(mm=>openBoard(mm,id,false))}},'＋ Новая доска');
   g.append(nw);
   idx.items.forEach(b=>{
     const card=E('div',{className:'card'},E('div',{className:'board-preview',ariaHidden:'true'},E('span',{textContent:b.name.trim().slice(0,1).toUpperCase()||'A'})),E('b',{className:'board-card-title',textContent:b.name}));card.dataset.name=b.name.toLocaleLowerCase();
@@ -1528,7 +1528,7 @@ async function boardsView(m){
     card.append(actions);g.append(card);
   });
   const search=E('input',{className:'board-search',type:'search',placeholder:'Найти доску по названию…',ariaLabel:'Поиск досок',oninput:()=>{for(const card of g.children)if(card!==nw)card.hidden=!card.dataset.name.includes(search.value.trim().toLocaleLowerCase())}});
-  m.append(E('div',{className:'row',style:'justify-content:space-between;margin-bottom:20px'},E('h2',{textContent:'Мои доски · '+idx.items.length}),B('＋ Создать доску',()=>nw.click())),search,g);
+  m.append(search,g);
   if(currentUser?.uid===CFG.ownerUid)m.append(
     E('div',{className:'row',style:'margin-top:16px;align-items:center'},
       B('🧠 Психология · КПТ',()=>go(psychologyView)),
@@ -2481,7 +2481,7 @@ async function openBoard(m,id,guest,shareToken=null){
   const cursorLayer=E('div',{style:'position:absolute;inset:0;pointer-events:none;z-index:15'});wrap.append(cursorLayer);
   sc.addEventListener('pointermove',e=>{if(Date.now()-lastCursorSent<80)return;lastCursorSent=Date.now();const rect=wrap.getBoundingClientRect();r.emit('cursor',{id:r.id,name:myName,x:(e.clientX-rect.left)/z,y:(e.clientY-rect.top)/z})});
   r.on('cursor',event=>{const p=event.data;if(!p||p.id===r.id||!Number.isFinite(p.x)||!Number.isFinite(p.y))return;let node=cursorNodes.get(p.id);if(!node){node=E('span',{className:'remote-pointer'});cursorNodes.set(p.id,node);cursorLayer.append(node)}node.textContent='↖ '+(p.name||'Участник');node.style.left=p.x+'px';node.style.top=p.y+'px';clearTimeout(node._expiry);node._expiry=setTimeout(()=>{node.remove();cursorNodes.delete(p.id)},5000)});
-  mi('Поделиться',async()=>{const ix=await load('meta/boards'),board=ix?.items?.find(b=>b.id===id);if(board?.shareToken)copyLink(location.origin+location.pathname+'#s-'+board.shareToken);else say('Создай публичную ссылку в разделе «Домой → Мои доски».')});
+  mi('Поделиться',async()=>{const ix=await load('meta/boards'),board=ix?.items?.find(b=>b.id===id);if(board?.shareToken)copyLink(location.origin+location.pathname+'#s-'+board.shareToken);else say('Создай публичную ссылку в разделе «Доски».')});
   mp.append(saveMenu);
   mi('Скрыть / показать курсоры участников',()=>{hideCursors=!hideCursors;cursorLayer.hidden=hideCursors});
   mi('Вписать объекты в экран',()=>{
