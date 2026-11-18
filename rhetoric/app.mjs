@@ -132,7 +132,9 @@ document.querySelector('#save-rename').onclick = saveBookTitle;
 document.querySelector('#cancel-rename').onclick = () => renameDialog.close();
 renameInput.oninput = () => renameInput.setCustomValidity('');
 renameInput.onkeydown = event => {
-  if (event.key === 'Enter' && !event.isComposing) saveBookTitle();
+  if (event.key !== 'Enter' || event.isComposing) return;
+  event.preventDefault();
+  saveBookTitle();
 };
 
 layout.value = ['single','spread'].includes(readLocal('layout')) ? readLocal('layout') : 'auto';
