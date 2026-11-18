@@ -6,7 +6,7 @@
  background:color-mix(in srgb,var(--shell-bg,#f3ebdf) 73%,#ac84bd)!important;
  color:var(--shell-ink,#382935)!important;
 }
-:root .heritage-page button{
+.heritage-page :is(#catalog,#reader,#rename-book) button{
  border:0;border-radius:999px;box-shadow:none;padding:8px 14px;min-height:38px;
  font:500 .875rem/1.25 system-ui,sans-serif;cursor:pointer;
 }
