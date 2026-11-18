@@ -16,7 +16,12 @@ const library = document.querySelector('#collection');
 const search = document.querySelector('.search input');
 const shelves = document.querySelector('.shelves');
 const reader = document.querySelector('#reader');
-const pages = document.querySelector('#pages');
+const spread = document.querySelector('#book-spread');
+const rightSheet = spread.querySelector('.sheet-right');
+const layout = document.querySelector('#reading-layout');
+const sheets = [...spread.querySelectorAll('.book-sheet')].map(sheet => ({
+  content:sheet.querySelector('.page-content'), folio:sheet.querySelector('.folio')
+}));
 const status = document.querySelector('#reader-status');
 const origin = document.querySelector('#origin');
 const download = document.querySelector('#download');
@@ -45,6 +50,7 @@ const lineHeight = document.querySelector('#line-height');
 const pdfMode = document.querySelector('#pdf-mode');
 const pdfZoom = document.querySelector('#pdf-zoom');
 const narrowReader = matchMedia('(max-width: 880px)');
+const wideSpread = matchMedia('(min-width: 780px)');
 let activeBook, pdfDocument, painting;
 let bookPages = [];
 let pageIndex = 0;
@@ -79,6 +85,32 @@ function saveLocal(key, value) {
   }
 }
 
+layout.value = ['single','spread'].includes(readLocal('layout')) ? readLocal('layout') : 'auto';
+function isSpread() {
+  return layout.value === 'spread' || (layout.value === 'auto' && wideSpread.matches);
+}
+
+function spreadStart() {
+  return isSpread() ? pageIndex - pageIndex % 2 : pageIndex;
+}
+
+function updateLayout() {
+  const twoPages = isSpread();
+  reader.classList.toggle('has-spread', twoPages);
+  rightSheet.hidden = !twoPages;
+  leftEdge.setAttribute('aria-label', twoPages ? 'Предыдущий разворот' : 'Предыдущая страница');
+  rightEdge.setAttribute('aria-label', twoPages ? 'Следующий разворот' : 'Следующая страница');
+  if (!reader.hidden && countPages()) showPage(pageIndex);
+}
+layout.onchange = () => {
+  saveLocal('layout', layout.value);
+  updateLayout();
+};
+wideSpread.addEventListener('change', () => {
+  if (layout.value === 'auto') updateLayout();
+});
+updateLayout();
+
 function readingKey(field) {
   return field + ':' + (activeBook.pdfId ?? activeBook.text.file);
 }
@@ -93,9 +125,9 @@ fontFamily.value = Object.hasOwn(fontStacks, readLocal('font')) ? readLocal('fon
 fontSize.value = readLocal('size') ?? '19';
 lineHeight.value = ['1.45','1.65','1.9'].includes(readLocal('spacing')) ? readLocal('spacing') : '1.65';
 function applyTypography() {
-  pages.style.setProperty('--book-font', fontStacks[fontFamily.value]);
-  pages.style.setProperty('--book-size', fontSize.value + 'px');
-  pages.style.setProperty('--book-spacing', lineHeight.value);
+  spread.style.setProperty('--book-font', fontStacks[fontFamily.value]);
+  spread.style.setProperty('--book-size', fontSize.value + 'px');
+  spread.style.setProperty('--book-spacing', lineHeight.value);
   textSize.textContent = fontSize.value + ' пкс';
 }
 
@@ -149,49 +181,78 @@ function countPages() {
   return pdfDocument?.numPages ?? bookPages.length;
 }
 
-async function showPdfPage() {
+function visibleSheets() {
+  const first = spreadStart();
+  return sheets.slice(0, isSpread() ? 2 : 1).map((sheet, offset) => ({...sheet, index:first + offset}));
+}
+
+async function showPdfPages() {
   painting?.abort();
   const controller = new AbortController();
   painting = controller;
   const mode = pdfMode.value;
-  pages.replaceChildren();
+  const visible = visibleSheets().filter(({index}) => index < countPages());
+  const document = pdfDocument;
   pdfZoom.hidden = true;
-  status.textContent = 'Открываю страницу PDF…';
+  status.textContent = 'Открываю PDF…';
   try {
     const {renderPdfPage} = await import('./pdf-reader.mjs?v=1');
     controller.signal.throwIfAborted();
-    const asText = await renderPdfPage(pdfDocument, pageIndex + 1, pages, mode, controller.signal);
-    pages.classList.toggle('pdf-original', !asText);
-    pdfZoom.hidden = asText;
-    status.textContent = mode === 'text' && !asText ? 'У этой страницы нет текстового слоя. Показан оригинал.' : '';
+    const results = await Promise.allSettled(visible.map(async ({content, index}) => {
+      const asText = await renderPdfPage(document, index + 1, content, mode, controller.signal);
+      content.classList.toggle('pdf-original', !asText);
+      return asText;
+    }));
+    controller.signal.throwIfAborted();
+    const failed = results.some(result => result.status === 'rejected');
+    const hasOriginal = results.some(result => result.status === 'fulfilled' && !result.value);
+    pdfZoom.hidden = !hasOriginal;
+    status.textContent = failed ? 'Не удалось показать одну из страниц PDF.'
+      : mode === 'text' && hasOriginal ? 'Страницы без текстового слоя показаны в оригинале.' : '';
   } catch {
-    if (!controller.signal.aborted) status.textContent = 'Не удалось показать страницу PDF.';
+    if (!controller.signal.aborted) status.textContent = 'Не удалось открыть страницы PDF.';
   }
 }
 
-pdfZoom.onchange = () => pages.style.setProperty('--pdf-zoom', pdfZoom.value + '%');
+pdfZoom.onchange = () => spread.style.setProperty('--pdf-zoom', pdfZoom.value + '%');
 
 pdfMode.onchange = () => {
   typography.hidden = pdfMode.value === 'original';
-  void showPdfPage();
+  showPage(pageIndex);
 };
 
 function updatePageControls() {
-  previousPage.disabled = leftEdge.disabled = pageIndex === 0;
-  nextPage.disabled = rightEdge.disabled = pageIndex + 1 >= countPages();
+  const first = spreadStart();
+  const last = Math.min(first + (isSpread() ? 2 : 1), countPages());
+  previousPage.disabled = leftEdge.disabled = first === 0;
+  nextPage.disabled = rightEdge.disabled = last >= countPages();
   pageNumber.value = pageIndex + 1;
   pageNumber.max = countPages();
   pageNumber.disabled = jumpButton.disabled = !complete || countPages() < 2;
   pageTotal.textContent = complete ? 'из ' + countPages() : '';
-  pageAnnouncement.textContent = 'Страница ' + pageNumber.value + ' ' + pageTotal.textContent;
+  const range = last > first + 1 ? 'Страницы ' + (first + 1) + '–' + last : 'Страница ' + (first + 1);
+  pageAnnouncement.textContent = range + ' ' + pageTotal.textContent;
 }
 
 function showPage(index) {
   pageIndex = index;
-  if (pdfDocument) void showPdfPage();
-  else pages.replaceChildren(...bookPages[index].map((block, i) => isHeading(block)
-    ? element('h3', block.slice(2), {id:'page-heading-' + i})
-    : element('p', block)));
+  for (const {content, folio} of sheets) {
+    content.replaceChildren();
+    content.classList.remove('pdf-original');
+    content.removeAttribute('aria-label');
+    folio.textContent = '';
+  }
+  for (const {content, folio, index} of visibleSheets()) {
+    if (index >= countPages()) continue;
+    folio.textContent = String(index + 1);
+    content.setAttribute('aria-label','Страница ' + (index + 1));
+    if (!pdfDocument) {
+      content.replaceChildren(...bookPages[index].map((block, i) => isHeading(block)
+        ? element('h3', block.slice(2), {id:'page-heading-' + index + '-' + i})
+        : element('p', block)));
+    }
+  }
+  if (pdfDocument) void showPdfPages();
   if (complete) saveLocal(readingKey('page'), String(pageIndex));
   updatePageControls();
 }
@@ -212,12 +273,15 @@ function goToPage(index) {
   return true;
 }
 
-previousPage.onclick = leftEdge.onclick = () => goToPage(pageIndex - 1);
-nextPage.onclick = rightEdge.onclick = () => goToPage(pageIndex + 1);
+function turn(direction) {
+  return goToPage(spreadStart() + direction * (isSpread() ? 2 : 1));
+}
+previousPage.onclick = leftEdge.onclick = () => turn(-1);
+nextPage.onclick = rightEdge.onclick = () => turn(1);
 function jumpToPage() {
   if (!pageNumber.reportValidity()) return;
   goToPage(pageNumber.valueAsNumber - 1);
-  pages.focus({preventScroll:true});
+  sheets[pageIndex - spreadStart()].content.focus({preventScroll:true});
 }
 
 jumpButton.onclick = jumpToPage;
@@ -230,13 +294,13 @@ document.addEventListener('keydown', event => {
   if (reader.hidden || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
   if (event.target.closest?.('input, textarea, select, [contenteditable]') || window.getSelection()?.isCollapsed === false) return;
-  if (goToPage(pageIndex + (event.key === 'ArrowRight' ? 1 : -1))) event.preventDefault();
+  if (turn(event.key === 'ArrowRight' ? 1 : -1)) event.preventDefault();
 });
 contents.addEventListener('change', () => {
   if (!contents.value) return;
   const [index, heading] = contents.value.split(':');
   showPage(Number(index));
-  document.getElementById('page-heading-' + heading)?.scrollIntoView();
+  document.getElementById('page-heading-' + index + '-' + heading)?.scrollIntoView();
   contents.value = '';
 });
 
@@ -275,8 +339,11 @@ function startReader(book, button) {
   pdfZoom.hidden = true;
   pdfZoom.value = '100';
   pdfZoom.onchange();
-  pages.classList.remove('pdf-original');
-  pages.replaceChildren();
+  for (const {content, folio} of sheets) {
+    content.classList.remove('pdf-original');
+    content.replaceChildren();
+    folio.textContent = '';
+  }
   pdfDocument = null;
   bookPages = [];
   pageIndex = 0;
@@ -335,7 +402,7 @@ async function readBook(book, button) {
     bookPages = fullPages;
     complete = true;
     const start = savedPage();
-    if (previewMatches && start === 0) updatePageControls();
+    if (previewMatches && start === 0 && !isSpread()) updatePageControls();
     else showPage(start);
     updateContents();
     const copy = text.replace(/^# /gm, '');
@@ -358,7 +425,7 @@ document.querySelector('#close-reader').onclick = () => {
   fileUrl = null;
   download.removeAttribute('href');
   reader.hidden = true;
-  pages.replaceChildren();
+  for (const {content} of sheets) content.replaceChildren();
   bookPages = [];
   catalogView.hidden = false;
   window.scrollTo(0, catalogScroll);

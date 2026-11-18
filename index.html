@@ -1069,7 +1069,7 @@ function rhetoricView(m){
  if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
  history.replaceState(null,'',location.pathname+location.search+'#rhetoric');
  m.classList.add('rhetoric-view');
- const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=7&theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer'});
+ const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=8&theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer'});
  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads');
  const resizeReader=event=>{
   if(event.origin!==location.origin||event.source!==frame.contentWindow||event.data?.type!=='aspace-rhetoric-expand')return;

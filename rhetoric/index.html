@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
@@ -29,6 +29,11 @@
       <div class="reader-tools">
         <button id="close-reader" type="button">← К списку книг</button>
         <button id="reader-fullscreen" type="button">На весь экран</button>
+        <select id="reading-layout" aria-label="Вид книги">
+          <option value="auto">Страницы: авто</option>
+          <option value="single">Одна страница</option>
+          <option value="spread">Две страницы</option>
+        </select>
         <select id="contents" aria-label="Оглавление" hidden></select>
         <details id="typography">
           <summary>Настройки текста</summary>
@@ -74,7 +79,16 @@
       <div class="book-layout">
         <div class="book-page">
           <button class="page-edge" id="left-edge" type="button" aria-label="Предыдущая страница" disabled>‹</button>
-          <article id="pages" tabindex="-1"></article>
+          <div id="book-spread" class="book-spread">
+            <div class="book-sheet sheet-left">
+              <article id="pages" class="page-content" tabindex="-1"></article>
+              <span class="folio" aria-hidden="true"></span>
+            </div>
+            <div class="book-sheet sheet-right" hidden>
+              <article id="pages-right" class="page-content" tabindex="-1"></article>
+              <span class="folio" aria-hidden="true"></span>
+            </div>
+          </div>
           <button class="page-edge" id="right-edge" type="button" aria-label="Следующая страница" disabled>›</button>
         </div>
         <aside id="notes-panel" aria-labelledby="notes-title" hidden>
@@ -102,6 +116,6 @@
       </nav>
     </section>
   </main>
-  <script type="module" src="app.mjs?v=7"></script>
+  <script type="module" src="app.mjs?v=8"></script>
 </body>
 </html>
