@@ -19,31 +19,51 @@ async function flush(){clearTimeout(saveTimer);if(!dirty||!editor||!journalStore
  try{await journalStore.mutate(d=>{d.drafts[active.key]={type:active.type,title:active.title,fields,entryId:active.entryId||null,updatedAt:new Date().toISOString()}});if(editor===active){dirty=active.revision!==revision;active.status.textContent=dirty?'Черновик сохранён; есть новые изменения…':'Черновик сохранён на этом устройстве'}}catch(error){active.status.textContent=error.message;throw error}}
 addEventListener('pagehide',()=>{void flush().catch(()=>{})});
 addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue=''}});
-const nav=[['home','Маршрут'],['practice','Практикум'],['library','Библиотека'],['journal','Мой дневник']];
-for(const [view,text] of nav)$('nav').append(B(text,()=>show(view)));
+const courseViews=new Set(['home','lesson','practice','worksheet']);
+const nav=[
+ ['sections','Разделы'],
+ ['home','Маршрут'],
+ ['practice','Практикум'],
+ ['library','Библиотека'],
+ ['journal','Мой дневник']
+].map(([view,label])=>[view,B(label,()=>show(view))]);
+$('nav').append(...nav.map(([,button])=>button));
 const standaloneUrl=new URL(location.href);
+let currentView='sections';
 if(standaloneUrl.searchParams.has('embed')){
  standaloneUrl.searchParams.delete('embed');
  $('nav').append(B('Открыть в отдельном окне',()=>{
   standaloneUrl.searchParams.set('theme',document.documentElement.dataset.theme);
+  if(courseViews.has(currentView))standaloneUrl.searchParams.set('section','cpt');
+  else standaloneUrl.searchParams.delete('section');
   window.open(standaloneUrl.href,'_blank','popup,noopener,noreferrer');
  }));
 }
 function focusTitle(){main.querySelector('h1')?.setAttribute('tabindex','-1');main.querySelector('h1')?.focus({preventScroll:true})}
 async function show(view,arg=null,training=false){
  try{await flush()}catch(e){toast(e.message);return}
- editor=null;dirty=false;main.replaceChildren();
- for(const [i,[name]] of nav.entries())$('nav').children[i].setAttribute('aria-current',name===view||view==='lesson'&&name==='home'?'page':'false');
+ editor=null;dirty=false;currentView=view;main.replaceChildren();
+ const activeView={lesson:'home',worksheet:'practice',entry:'journal'}[view]||view;
+ for(const [name,button] of nav){
+  button.hidden=courseViews.has(name)&&!courseViews.has(view);
+  button.setAttribute('aria-current',name===activeView?'page':'false');
+ }
  if(pdfURL){URL.revokeObjectURL(pdfURL);pdfURL=null}
- try{({home:home,lesson:()=>lesson(arg),practice:practice,library:library,journal:journal,worksheet:()=>worksheet(arg),entry:()=>entry(arg)})[view]?.();focusTitle();window.scrollTo({top:0,behavior:'instant'});if(view==='lesson'&&arg===trainingLesson&&training)document.getElementById('situation-training')?.scrollIntoView()}catch(e){main.append(P('Не удалось открыть раздел: '+e.message,'error'))}
+ try{({sections,home,lesson:()=>lesson(arg),practice:practice,library:library,journal:journal,worksheet:()=>worksheet(arg),entry:()=>entry(arg)})[view]?.();focusTitle();window.scrollTo({top:0,behavior:'instant'});if(view==='lesson'&&arg===trainingLesson&&training)document.getElementById('situation-training')?.scrollIntoView()}catch(e){main.append(P('Не удалось открыть раздел: '+e.message,'error'))}
 }
 function stat(value,text){return E('div',{className:'stat'},E('strong',{textContent:String(value)}),E('span',{textContent:text}))}
+function sections(){
+ main.append(E('h1',{textContent:'Разделы психологии'}),E('button',{
+  type:'button',className:'primary cpt-entry',onclick:()=>show('home')
+ },E('span',{},E('strong',{textContent:'КПТ'}),E('span',{textContent:'Когнитивно-поведенческая терапия'})),
+ E('span',{ariaHidden:'true',className:'cpt-arrow',textContent:'→'})));
+}
 function home(){
- main.append(E('section',{className:'hero'},E('div',{className:'eyebrow',textContent:'Теория · практика · личные открытия'}),E('h1',{textContent:'КПТ: учиться понимать свои реакции'}),P('Теория — дословные фрагменты из двух учебников Джудит Бек, которые ты загрузила. В каждом модуле указаны книга, глава и страницы PDF. Авторский тренажёр отделён от текста учебников.'),E('div',{className:'row'},B('Продолжить обучение',()=>show('lesson',progress.last||LESSONS.find(l=>!progress.done.includes(l.id))?.id||LESSONS[0].id),'primary'),B('Выбрать рабочую форму',()=>show('practice')))));
+ main.append(B('Продолжить обучение',()=>show('lesson',progress.last||LESSONS.find(l=>!progress.done.includes(l.id))?.id||LESSONS[0].id),'primary continue-course'));
  main.append(E('div',{className:'stats'},stat(LESSONS.length,'подробных модулей'),stat(LESSONS.length*3,'задания к теории'),stat(WORKSHEETS.length,'рабочих форм'),stat(progress.done.length+'/'+LESSONS.length,'отмечено изученными')));
  main.append(E('aside',{className:'notice'},P('Как пользоваться'),P('Читай один модуль, разбирай пример, пробуй посильное упражнение и возвращайся к результату. Отметка о прохождении — учебный прогресс, а не оценка психического здоровья. Для личных записей открой личный дневник. Ничего личного не отправляется в Firebase.','mut')));
  const search=E('input',{type:'search',placeholder:'Найти тему: тревога, мысли, границы…',ariaLabel:'Поиск по курсу'}),filter=E('select',{ariaLabel:'Этап курса'},E('option',{value:'',textContent:'Все этапы'}),...[...new Set(LESSONS.map(l=>l.stage))].map(stage=>E('option',{value:stage,textContent:stage}))),grid=E('div',{className:'grid'});
- const draw=()=>{const query=search.value.trim().toLocaleLowerCase('ru');const found=LESSONS.filter(l=>(!filter.value||l.stage===filter.value)&&[l.title,l.goal,l.id===trainingLesson?'Тренинги ситуаций':'',...BOOK_EXCERPTS[l.id].pages.map(p=>p.text)].join(' ').toLocaleLowerCase('ru').includes(query));grid.replaceChildren(...found.map(l=>E('article',{className:'card'},E('div',{className:'lesson-number',textContent:String(LESSONS.indexOf(l)+1).padStart(2,'0')+' / '+LESSONS.length+' · '+l.stage}),E('h3',{textContent:l.title}),P(l.goal),P('Около 25 минут чтения и практики · '+(progress.done.includes(l.id)?'изучено':'можно начать'),'meta'),B('Открыть модуль',()=>show('lesson',l.id)),l.id===trainingLesson?B('Тренинги ситуаций',()=>show('lesson',l.id,true)):null)));if(!found.length)grid.append(P('По этому запросу модулей нет. Попробуй другое слово.'))};search.oninput=draw;filter.onchange=draw;main.append(E('h2',{textContent:'Твой учебный маршрут'}),E('div',{className:'filters'},search,filter),grid);draw();
+ const draw=()=>{const query=search.value.trim().toLocaleLowerCase('ru');const found=LESSONS.filter(l=>(!filter.value||l.stage===filter.value)&&[l.title,l.goal,l.id===trainingLesson?'Тренинги ситуаций':'',...BOOK_EXCERPTS[l.id].pages.map(p=>p.text)].join(' ').toLocaleLowerCase('ru').includes(query));grid.replaceChildren(...found.map(l=>E('article',{className:'card'},E('div',{className:'lesson-number',textContent:String(LESSONS.indexOf(l)+1).padStart(2,'0')+' / '+LESSONS.length+' · '+l.stage}),E('h3',{textContent:l.title}),P(l.goal),P('Около 25 минут чтения и практики · '+(progress.done.includes(l.id)?'изучено':'можно начать'),'meta'),B('Открыть модуль',()=>show('lesson',l.id)),l.id===trainingLesson?B('Тренинги ситуаций',()=>show('lesson',l.id,true)):null)));if(!found.length)grid.append(P('По этому запросу модулей нет. Попробуй другое слово.'))};search.oninput=draw;filter.onchange=draw;main.append(E('h1',{textContent:'Твой учебный маршрут'}),E('div',{className:'filters'},search,filter),grid);draw();
 }
 function questionBlock(question,index){const feedback=P('','feedback'),form=E('fieldset',{className:'question'},E('legend',{textContent:'Вопрос '+(index+1)}),P(question.text)),name=crypto.randomUUID();
  const choices=question.options.map((text,i)=>{const input=E('input',{type:'radio',name,value:String(i)});return {input,label:E('label',{className:'option'},input,E('span',{textContent:text}))}});
@@ -230,5 +250,5 @@ function library(){
  main.append(E('article',{className:'book'},E('h2',{textContent:DEFENSES.title}),...DEFENSES.sections.map(([title,text])=>E('section',{},E('h3',{textContent:title}),P(text))),B('Записать наблюдение через карту эпизода',()=>show('worksheet',{id:'model'}))));
  main.append(E('section',{className:'notice'},E('h3',{textContent:'Дополнительная проверка подхода'}),P('Курс не обещает лечебного эффекта и не заменяет помощь. Рекомендации NICE описывают структурированную самопомощь с поддержкой подготовленного специалиста; здесь такой поддержки автоматически нет.','mut'),E('div',{className:'row'},links('NICE · рекомендации по депрессии', 'https://www.nice.org.uk/guidance/ng222/chapter/recommendations'),links('Beck Institute · учебные ресурсы','https://beckinstitute.org/cbt-resources/resources-for-professionals-and-students/cbtresources/'))));
 }
-void show('home');
+void show(standaloneUrl.searchParams.get('section')==='cpt'?'home':'sections');
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('../sw.js').catch(()=>{});

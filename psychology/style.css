@@ -27,3 +27,33 @@ h1[tabindex="-1"]:focus{outline:none}.side{max-height:calc(100vh - 175px);overfl
   border: 1px solid var(--line);
   border-radius: 14px;
 }
+
+.heritage-page button.cpt-entry {
+  display: flex;
+  width: min(100%, 430px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: clamp(18px, 4vw, 32px);
+  text-align: left;
+  background: linear-gradient(135deg, #71384f, #4c263d);
+  border: 1px solid #b487a3;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px #3f18362e;
+}
+.cpt-entry strong {
+  display: block;
+  margin-bottom: 5px;
+  font: 600 clamp(30px, 5vw, 44px)/1.1 Georgia, serif;
+}
+.cpt-arrow {
+  flex: none;
+  color: #e0c6e9;
+  font-size: 25px;
+}
+.heritage-page button.cpt-entry:hover {
+  background: linear-gradient(135deg, #82435e, #5d314b);
+}
+.continue-course {
+  margin-bottom: 18px;
+}

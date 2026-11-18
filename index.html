@@ -1054,7 +1054,7 @@ async function trainerView(m){
 async function psychologyView(m){
  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
  history.replaceState(null,'',location.pathname+location.search+'#psychology');
- const url='./psychology/index.html?v=5&embed=1&theme='+currentTheme();
+ const url='./psychology/index.html?v=6&embed=1&theme='+currentTheme();
  const frame=E('iframe',{src:url,title:'Психология — курс и тренажёр КПТ',referrerPolicy:'no-referrer',style:'width:100%;height:82vh;min-height:640px;border:1px solid #d9c8e5;border-radius:18px;background:#f7f3ee'});
  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads allow-top-navigation-by-user-activation');
  m.append(frame);
