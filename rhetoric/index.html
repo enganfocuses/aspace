@@ -7,31 +7,34 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
   <main class="library">
     <h1>Риторика</h1>
-    <nav class="shelves" aria-label="Темы библиотеки"></nav>
-    <label class="search">Поиск книг
-      <input type="search" placeholder="Название, автор или вуз">
-    </label>
-    <div id="collection"></div>
-  </main>
-  <dialog id="reader" aria-labelledby="reader-title">
-    <header class="reader-head">
-      <h2 id="reader-title"></h2>
-      <button id="close-reader" type="button">Закрыть</button>
-    </header>
-    <p id="edition"></p>
-    <div class="links">
-      <a id="origin" target="_blank" rel="noopener noreferrer">Источник текста ↗</a>
-      <a id="download" hidden>Скачать TXT</a>
+    <div id="catalog">
+      <nav class="shelves" aria-label="Темы библиотеки"></nav>
+      <label class="search">Поиск книг
+        <input type="search" placeholder="Название, автор или вуз">
+      </label>
+      <div id="collection"></div>
     </div>
-    <p id="reader-status" role="status"></p>
-    <pre id="pages" lang="en"></pre>
-  </dialog>
-  <script type="module" src="app.mjs"></script>
+    <section id="reader" aria-labelledby="reader-title" hidden>
+      <div class="reader-tools">
+        <button id="close-reader" type="button">← К списку книг</button>
+        <select id="contents" aria-label="Оглавление" hidden></select>
+      </div>
+      <h2 id="reader-title" tabindex="-1"></h2>
+      <p id="edition" class="byline"></p>
+      <div class="links">
+        <a id="origin" target="_blank" rel="noopener noreferrer">Источник перевода ↗</a>
+        <a id="download" download>Скачать TXT</a>
+      </div>
+      <p id="reader-status" role="status"></p>
+      <article id="pages"></article>
+    </section>
+  </main>
+  <script type="module" src="app.mjs?v=2"></script>
 </body>
 </html>

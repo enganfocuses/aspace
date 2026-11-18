@@ -1,46 +1,38 @@
 const source = (label, href) => ({label, href});
 const book = (title, author, subject, sources, text) => ({title, author, subject, sources, text});
 
-// English study copies are text editions, with their source credits retained.
-// Contemporary publications point to the publisher, institution or library.
+const edition = (file, translator, href) => ({file, translator, href});
+const wiki = title => 'https://ru.wikisource.org/wiki/' + title;
+const translation = (name, translator, href) => edition(name, 'Перевод ' + translator, href);
+
 export const catalog = [
   {
     id: 'aristotle', title: 'Аристотель', books: [
       book('Риторика', 'Аристотель', 'Способы убеждения, виды публичной речи, аргументация и стиль.', [
-        source('Перевод Н. Платоновой · сканы 1892–1894', 'https://aristoteles.philosophy.nsc.ru/node/290'),
-        source('Издание РГБ · 2015', 'https://search.rsl.ru/ru/record/01008043217')
-      ], {file:'rhetoric', translator:'W. Rhys Roberts', href:'https://classics.mit.edu/Aristotle/rhetoric.html'}),
+        source('Сканы публикации 1892–1894 гг. · ИФПР СО РАН', 'https://aristoteles.philosophy.nsc.ru/node/290')
+      ], translation('rhetoric', 'Н. Платоновой', 'https://lib.ru/POEEAST/ARISTOTEL/ritoriki.txt')),
       book('Поэтика', 'Аристотель', 'Устройство трагедии, действие, фабула и характеры.', [
-        source('Русский перевод · Викитека', 'https://ru.wikisource.org/wiki/Поэтика_(Аристотель)'),
-        source('История русских переводов · ИФПР СО РАН', 'https://aristoteles.philosophy.nsc.ru/node/36')
-      ], {file:'poetics', translator:'S. H. Butcher', href:'https://classics.mit.edu/Aristotle/poetics.html'}),
+        source('Скан издания 1927 года', 'https://imwerden.de/pdf/aristotel_poetika_academia_1927__ocr.pdf')
+      ], translation('poetics', 'Н. Новосадского', wiki('Поэтика_(Аристотель)'))),
       book('Политика', 'Аристотель', 'Государство, гражданство, формы правления и воспитание.', [
-        source('Перевод Н. Скворцова · PDF в НЭБ', 'https://rusneb.ru/catalog/000199_000009_003569444/'),
-        source('Русский перевод С. Жебелёва · Викитека', 'https://ru.wikisource.org/wiki/Политика_(Аристотель)')
-      ], {file:'politics', translator:'William Ellis', href:'https://www.gutenberg.org/ebooks/6762'}),
-      book('Метафизика', 'Аристотель', 'Первые причины, сущность, возможность и действительность.', [
-        source('Перевод А. Кубицкого · Викитека', 'https://ru.wikisource.org/wiki/Метафизика_(Аристотель;_Кубицкий)')
-      ], {file:'metaphysics', translator:'W. D. Ross', href:'https://classics.mit.edu/Aristotle/metaphysics.html'})
+        source('Перевод Н. Скворцова · НЭБ', 'https://rusneb.ru/catalog/000199_000009_003569444/')
+      ], translation('politics', 'С. Жебелёва', 'https://grachev62.narod.ru/aristotel/contents.html')),
+      book('Метафизика', 'Аристотель', 'Первые причины, сущность, возможность и действительность.', [],
+        translation('metaphysics', 'А. Кубицкого', wiki('Метафизика_(Аристотель;_Кубицкий)')))
     ]
   },
   {
     id: 'stoics', title: 'Стоики', books: [
-      book('Наедине с собой', 'Марк Аврелий', 'Двенадцать книг размышлений о долге, суждениях и самообладании.', [
-        source('Перевод С. Роговина · Викитека', 'https://ru.wikisource.org/wiki/Наедине_с_собой_(Марк_Аврелий;_Роговин)')
-      ], {file:'meditations', translator:'George Long', href:'https://classics.mit.edu/Antoninus/meditations.html'}),
-      book('Энхиридион', 'Эпиктет', 'Краткое руководство о суждениях, желаниях и поступках.', [
-        source('Английский текст · Project Gutenberg', 'https://dev.gutenberg.org/cache/epub/45109/pg45109-images.html'),
-        source('Русское издание «Основания стоицизма» · 1888', 'https://ru.wikisource.org/wiki/Епиктет._Основания_стоицизма_(Эпиктет)/ДО')
-      ], {file:'epictetus', translator:'Thomas Wentworth Higginson', href:'https://dev.gutenberg.org/cache/epub/45109/pg45109-images.html'}),
-      book('Беседы и Энхиридион', 'Эпиктет', 'Избранные «Беседы» и руководство в английском переводе Джорджа Лонга.', [
-        source('Электронное издание · Project Gutenberg', 'https://www.gutenberg.org/ebooks/10661')
-      ]),
+      book('Наедине с собой', 'Марк Аврелий', 'Двенадцать книг размышлений о долге, суждениях и самообладании.', [],
+        translation('meditations', 'С. Роговина', wiki('Наедине_с_собой_(Марк_Аврелий;_Роговин)'))),
+      book('Основания стоицизма', 'Эпиктет · Арриан', 'Русское издание «Энхиридиона» 1888 года.', [
+        source('Историческое издание 1767 года · НЭБ', 'https://kp.rusneb.ru/item/material/epiktita-stoicheskago-filosofa-enhiridion-i-apoffegmy')
+      ], translation('epictetus', 'В. Алексеева', 'https://www.psylib.org.ua/books/_arria01.htm')),
       book('Нравственные письма к Луцилию', 'Луций Анней Сенека', 'Письма о времени, дружбе, учении и нравственном выборе.', [
         source('Русское издание в переводе С. Ошерова · РГБ', 'https://search.rsl.ru/ru/record/01007854921')
       ]),
-      book('О благодеяниях', 'Луций Анней Сенека', 'Трактат о благодарности, дарах и взаимных обязательствах.', [
-        source('Английский текст · Project Gutenberg', 'https://www.gutenberg.org/ebooks/3794')
-      ], {file:'seneca', translator:'Aubrey Stewart', href:'https://www.gutenberg.org/ebooks/3794'})
+      book('О благодеяниях', 'Луций Анней Сенека', 'Семь книг о благодарности, дарах и взаимных обязательствах.', [],
+        edition('seneca', 'Перевод 1889–1897 гг., приписывается П. Краснову', 'https://ancientrome.ru/antlitr/seneca/'))
     ]
   },
   {
