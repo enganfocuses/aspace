@@ -170,3 +170,14 @@ test('concurrent edits to the same object position remain an explicit conflict',
  assert.equal(merged.ok,false);
  assert.ok(merged.conflicts.some(x=>x.includes('items:a.x')||x.includes('items:a.y')));
 });
+
+test('initial owner snapshot renders from Firebase before reserve reconciliation',async()=>{
+ const s=setup({shared:false}), owner=s.create();
+ const initial=await owner.readInitial();
+ assert.deepEqual(initial.value,s.live());
+ assert.equal(initial.source,'firebase');
+ assert.equal(s.backup(),null);
+ assert.equal(s.writes.length,0);
+ await owner.read();
+ assert.deepEqual(cleanBoard(s.backup().value),initial.value);
+});

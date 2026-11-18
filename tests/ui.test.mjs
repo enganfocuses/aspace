@@ -113,7 +113,7 @@ test('eraser size is adjustable and pencil accepts any custom color',()=>{
 });
 
 test('opening a board stores its route so refresh restores that board',()=>{
- const begin=index.indexOf('async function openBoard(m,id,guest,shareToken=null){');
+ const begin=index.indexOf('async function openBoard(m,id,guest,shareToken=null,listedBoard=null){');
  const end=index.indexOf('const cloneBoard=value=>JSON.parse(JSON.stringify(value));',begin);
  const open=index.slice(begin,end);
  assert.match(open,/const boardRoute=shareToken\?'#s-'\+shareToken:'#b-'\+id\+'-'\+\(guest\?'view':'edit'\)/);

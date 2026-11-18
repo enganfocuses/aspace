@@ -90,5 +90,5 @@ test('shared drafts persist without replacing pending local edits',()=>{
   assert.match(html,/createObjectStore\('guestDrafts'/);
   assert.match(html,/if\(got\|\|!x.data\|\|unsyncedShareDraft\)return/);
   assert.match(html,/shareSyncChain=shareSyncChain.then/);
-  assert.match(html,/const boardShareToken=activeShareToken/);
+  assert.match(html,/activeShareToken=boardShareToken/);
 });

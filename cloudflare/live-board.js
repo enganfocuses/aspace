@@ -188,6 +188,18 @@ export function createLiveBoard({key,firebaseDatabaseURL,primaryPath='/docs/'+ke
   notify('firebase',mirrored?'saved':'saved_without_mirror');
   return remember(live.value,'firebase',{pending:false,mirrored,primaryHash});
  }
+ // Opening the owner's UI does not need to wait for a healthy Firebase
+ // snapshot to be reconciled with the reserve. The next read or write does that.
+ async function readInitial(){
+  let live;
+  try{live=await primary('GET')}
+  catch(error){
+   if(!outage(error))throw error;
+   const backup=await cloudRead();
+   return remember(backup.value,'cloudflare',{primaryHash:backup.meta?.baseHash||await boardHash(backup.value),pending:backup.meta?.mode==='standby'});
+  }
+  return remember(live.value,'firebase');
+ }
  async function readInternal(){
   const queued=await queue.get(key);
   if(queued&&canWrite()){
@@ -245,7 +257,7 @@ export function createLiveBoard({key,firebaseDatabaseURL,primaryPath='/docs/'+ke
   await removeDraft(record.id);notify('firebase','saved');
   return remember(confirmed.value,'firebase',{pending:false,mirrored:true,primaryHash});
  }
- return {read:()=>serial(readInternal),write:(value,options)=>serial(()=>save(value,null,options)),
+ return {read:()=>serial(readInternal),readInitial:()=>serial(readInitial),write:(value,options)=>serial(()=>save(value,null,options)),
   inspect:()=>serial(inspect),resolve:(choice,reviewed)=>serial(()=>resolve(choice,reviewed)),
   pending:()=>queue.get(key),draft:()=>queue.get(key),close:()=>{closed=true}};
 }

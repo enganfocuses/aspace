@@ -6,6 +6,7 @@ export function createCloudflareFallback({ baseUrl, getIdToken, fetchImpl = fetc
     const token = await getIdToken();
     if (!token) throw new Error("Firebase ID token is unavailable");
     const response = await fetchImpl(base + path, {
+      signal: AbortSignal.timeout(8000),
       ...options,
       headers: {
         Authorization: `Bearer ${token}`,

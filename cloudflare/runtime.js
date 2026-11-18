@@ -1,5 +1,5 @@
-import {createLiveBoard,outage} from './live-board.js';
-import {createCloudflareFallback} from './adapter.js';
+import {createLiveBoard,outage} from './live-board.js?v=2';
+import {createCloudflareFallback} from './adapter.js?v=2';
 import {createAspaceGuestStandby} from './guest-standby.js';
 import {createIndexedDBStandbyQueue} from './queue.js';
 export {mergeBoard,same} from './merge-board.js';

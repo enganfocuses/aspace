@@ -656,15 +656,15 @@ const standbyKey=p=>/^boards\/[A-Za-z0-9_-]+$/.test(p);
 let boardRuntimePromise=null;const syncStates=new Map();
 function getBoardRuntime(){
  if(!standbyOptIn())return Promise.resolve(null);
- return boardRuntimePromise||(boardRuntimePromise=import('./cloudflare/runtime.js').then(module=>
+ return boardRuntimePromise||(boardRuntimePromise=import('./cloudflare/runtime.js?v=2').then(module=>
   module.createBoardRuntime({databaseURL:DB(),baseUrl:CFG.reserve?.url||'https://aspace-fallback-api.anncodes001.workers.dev',
    getOwner:()=>currentUser?.uid===CFG.ownerUid?currentUser:null,
    local:{get:localGet,put:localPut,all:localAll,remove:localDelete},fetchImpl:rawFetch,
    onStatus:info=>{if(Number.isFinite(info.bytes))usageTracker.recordSummary(info.key,info);syncStates.set(info.key,info);window.dispatchEvent(new CustomEvent('aspace-sync-status',{detail:info}))}
   })));
 }
-async function boardProvider(id,token=null){const runtime=await getBoardRuntime();
- if(!runtime)return null;return token?runtime.shared(token):runtime.provider(id)}
+async function boardProvider(id,token=null,{knownOwner=false}={}){const runtime=await getBoardRuntime();
+ if(!runtime)return null;return token&&!knownOwner?runtime.shared(token):runtime.provider(id,token)}
 const guestStandbyEnabled=standbyOptIn;
 const MAX_UPLOAD_BYTES=6*1024*1024;
 // Keep D1 share permissions aligned with
@@ -804,7 +804,7 @@ async function load(p){
  let cached=null,pending=false;
  try{const c=await localGet('docs',p);cached=c?.value??null;pending=!!(await localGet('pending',p))}catch{}
  if(pending&&cached!==null)return cached;
- try{const r=await fetch(DB()+'/docs/'+p+'.json');if(r.ok){const v=await r.json();const data=v&&v.j?JSON.parse(v.j):v;
+ try{const r=await fetch(DB()+'/docs/'+p+'.json',p==='meta/boards'?{signal:AbortSignal.timeout(6000)}:undefined);if(r.ok){const v=await r.json();const data=v&&v.j?JSON.parse(v.j):v;
    try{await localPut('docs',{key:p,value:data,updatedAt:Date.now()})}catch{}
    return data;
   }}catch{}
@@ -916,7 +916,7 @@ const room0={async join(name,customPath,onData=()=>{}){
     });
     // Test write authorization once; a readable SSE stream alone cannot
     // guarantee that callers are able to send offers/answers.
-    const probe=await fetch(base+'.json',{method:'POST',body:JSON.stringify({t:'ready',d:'{}',s:me})});
+    const probe=await fetch(base+'.json',{method:'POST',body:JSON.stringify({t:'ready',d:'{}',s:me}),signal:AbortSignal.timeout(6000)});
     if(!probe.ok)throw new Error('Нет права отправлять сигналы (Firebase HTTP '+probe.status+').');
     const ping=await probe.json();
     if(!ping?.name)throw new Error('Сервер сигналинга не принял тестовое сообщение');
@@ -1620,7 +1620,7 @@ async function boardsView(m){
   idx.items.forEach(b=>{
     const card=E('div',{className:'card'},E('div',{className:'board-preview',ariaHidden:'true'},E('span',{textContent:b.name.trim().slice(0,1).toUpperCase()||'A'})),E('b',{className:'board-card-title',textContent:b.name}));card.dataset.name=b.name.toLocaleLowerCase();
     const actions=E('div',{className:'row'});
-    actions.append(B('Открыть',()=>go(mm=>openBoard(mm,b.id,false))));
+    actions.append(B('Открыть',()=>go(mm=>openBoard(mm,b.id,false,null,b))));
     const publicUrl=()=>location.origin+location.pathname+'#s-'+b.shareToken;
     if(b.shareToken){
       actions.append(B('🔗 Скопировать публичную ссылку',()=>copyLink(publicUrl())));
@@ -1768,43 +1768,108 @@ function externalMedia(raw){
   if(/\.(?:mp4|webm|mov)(?:$)/i.test(u.pathname))return{kind:'vid',url:u.href,host:'Видео'};
   return null;
 }
-async function openBoard(m,id,guest,shareToken=null){
-  let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
-  activeShareToken=shareToken;
-  if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
-  else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board');shareMeta=await shareRead(entry.shareToken,'meta')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
+function deferBoardSignals(){
+  let channel=null,closed=false;
+  const handlers=[];
+  return {
+    get id(){return channel?.id||null},
+    emit(type,data){return channel?.emit(type,data)??Promise.resolve(false)},
+    on(type,listener){
+      if(channel)return channel.on(type,listener);
+      const entry={type,listener,remove:null};
+      handlers.push(entry);
+      return ()=>{entry.remove?.();const i=handlers.indexOf(entry);if(i>=0)handlers.splice(i,1)};
+    },
+    attach(next){
+      if(closed){next.close();return false}
+      channel=next;
+      for(const entry of handlers)entry.remove=channel.on(entry.type,entry.listener);
+      return true;
+    },
+    close(){closed=true;channel?.close();handlers.length=0}
+  };
+}
+async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
+  const isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid),ownerUid=currentUser?.uid;
+  const loading=E('div',{className:'gate'},E('div',{className:'box',role:'status'},E('h2',{textContent:'Загружаю доску…'})));
+  m.append(loading);
+  let shareMeta=null,d0=null,boardShareToken=shareToken,boardTransport=null,localGuestDraft=null;
+  let openedFromCache=false,cachedRevision;
+  const ownerCacheKey=()=>isOwner?'board-view:'+ownerUid+':'+id+':'+(boardShareToken||'private'):null;
+  const storeBoardView=async value=>{
+    const key=ownerCacheKey();
+    if(!key||!value||value.upd!=null&&value.upd===cachedRevision)return;
+    try{await localPut('docs',{key,value,updatedAt:Date.now()});cachedRevision=value.upd}catch{}
+  };
+  async function readOwnerBoard(){
+    boardTransport=await boardProvider(id,boardShareToken,{knownOwner:true});
+    localGuestDraft=boardTransport?await boardTransport.pending():null;
+    if(localGuestDraft?.value)return localGuestDraft.value;
+    if(boardTransport){
+      const cached=await localGet('docs',ownerCacheKey()).catch(()=>null);
+      if(cached?.value){openedFromCache=true;cachedRevision=cached.value.upd;return cached.value}
+      const result=await boardTransport.readInitial();
+      if(result.value)void storeBoardView(result.value);
+      return result.value;
+    }
+    const path=boardShareToken?shareURL(boardShareToken)+'/board.json':DB()+'/docs/boards/'+encodeURIComponent(id)+'.json';
+    const response=await fetch(path,{cache:'no-store',signal:AbortSignal.timeout(7000)});
+    if(!response.ok)throw Object.assign(Error('Firebase HTTP '+response.status),{status:response.status});
+    const raw=await response.json();
+    return !boardShareToken&&raw?.j?JSON.parse(raw.j):raw;
+  }
+  try{
+    if(shareToken){
+      shareMeta=await shareRead(shareToken,'meta');
+      id=shareMeta.boardId;
+      guest=shareMeta.role!=='editor';
+      // Confirm the share can still be read before restoring guest drafts.
+      if(isOwner)d0=await readOwnerBoard();
+      else{
+        boardTransport=await boardProvider(id,shareToken);
+        d0=boardTransport?(await boardTransport.read()).value:await shareRead(shareToken,'board');
+        localGuestDraft=boardTransport?await boardTransport.pending():null;
+      }
+    }else if(isOwner){
+      const entry=listedBoard?.id===id?listedBoard:(await load('meta/boards'))?.items?.find(item=>item.id===id);
+      boardShareToken=entry?.shareToken||null;
+      try{d0=await readOwnerBoard()}
+      catch(error){
+        if(!boardShareToken||![401,403,404].includes(error.status))throw error;
+        boardShareToken=null;
+        d0=await readOwnerBoard();
+      }
+      if(!d0&&boardShareToken){boardShareToken=null;d0=await readOwnerBoard()}
+    }
+    if(!d0)throw Error('По этому адресу нет сохранённой доски.');
+  }catch(error){
+    if(!loading.isConnected)return;
+    const message=shareToken&&[401,403,404].includes(error.status)?'Доступ по этой ссылке закрыт.':'Не удалось загрузить доску.';
+    loading.replaceChildren(E('div',{className:'box'},E('h2',{textContent:message}),
+      E('p',{className:'mut',textContent:error.message}),
+      B('Повторить',()=>go(view=>openBoard(view,id,guest,shareToken))),
+      ...(isOwner?[B('К списку досок',()=>go(boardsView))]:[])));
+    return;
+  }
+  if(!loading.isConnected)return;
+  loading.remove();
+  activeShareToken=boardShareToken;
   if(isOwner)guest=false;
   // Keep the current board in the address bar without firing hashchange/reloading.
   const boardRoute=shareToken?'#s-'+shareToken:'#b-'+id+'-'+(guest?'view':'edit');
   history.replaceState(null,'',location.pathname+location.search+boardRoute);
   const cloneBoard=value=>JSON.parse(JSON.stringify(value));
-  const boardShareToken=activeShareToken;
   const stopUsage=isOwner?usageTracker.trackBoard('boards/'+id,boardShareToken):()=>{};
-  let lastConfirmedShared=boardShareToken&&d0?cloneBoard(d0):null;
-  const boardTransport=await boardProvider(id,boardShareToken);
-  const localGuestDraft=boardTransport?await boardTransport.pending():null;
-  if(localGuestDraft?.value&&!guest){
-    lastConfirmedShared=localGuestDraft.base??lastConfirmedShared;
-    d0=cloneBoard(localGuestDraft.value);
-  }
-  if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
-  const d=d0||{name:'Доска',strokes:[],items:[]};
+  if(localGuestDraft?.value&&!guest)d0=cloneBoard(localGuestDraft.value);
+  const d=d0;
   const W=3000,H=2400;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),cv=E('canvas',{width:W,height:H}),ctx=cv.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
   wrap.style.width=W+'px';wrap.style.height=H+'px';
-  let roomWarning='',r,cloudPollTimer=null;
-  try{
-    r=await room0.join('b-'+id,activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room'):null,
-      isOwner?data=>usageTracker.recordStream('boards/'+id,data):undefined);
-  }catch(error){
-    roomWarning=String(error.message||error);
-    // Missing signaling permission must not hide a board that was already
-    // downloaded. Editing stays local, but live co-editing is unavailable.
-    r={id:uid()+uid(),emit:()=>Promise.resolve(false),on:()=>()=>{},close:()=>{}};
-  }
+  let roomWarning='',cloudPollTimer=null;
+  const r=deferBoardSignals();
   const say=t=>{toast.textContent=t;toast.style.display=t?'block':'none'};
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
   const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null,remoteTimer=null;
@@ -1876,6 +1941,7 @@ async function openBoard(m,id,guest,shareToken=null){
         boardShareToken?await shareWrite(boardShareToken,'board',data):{pending:!await save('boards/'+id,data),value:data};
       if(disposed)return;
       if(!result.value)result.value=data;
+      if(!result.pending&&!result.conflict)void storeBoardView(result.value);
       unsyncedShareDraft=Boolean(result.pending||result.conflict);
       if(result.value&&!result.conflict){
         if(editEpoch===epoch){applySnapshot(result.value);savedEpoch=epoch}
@@ -2430,9 +2496,9 @@ async function openBoard(m,id,guest,shareToken=null){
   const chat=E('details',{className:'board-chat'});
   const chatTab=E('summary',{textContent:'Чат'});
   const chatLog=E('div',{className:'chat-log',role:'log',ariaLabel:'Сообщения урока'});
-  const chatStatus=E('small',{role:'status',textContent:roomWarning?'Связь недоступна':'Чат текущего урока'});
-  const chatInput=E('input',{type:'text',maxLength:1000,placeholder:'Сообщение',ariaLabel:'Сообщение',disabled:!!roomWarning});
-  const chatSend=E('button',{type:'submit',textContent:'Отправить',disabled:!!roomWarning});
+  const chatStatus=E('small',{role:'status',textContent:'Подключаю чат…'});
+  const chatInput=E('input',{type:'text',maxLength:1000,placeholder:'Сообщение',ariaLabel:'Сообщение',disabled:true});
+  const chatSend=E('button',{type:'submit',textContent:'Отправить',disabled:true});
   const chatForm=E('form',{className:'chat-form'},chatInput,chatSend);
   chat.append(chatTab,E('div',{className:'chat-panel'},chatLog,chatStatus,chatForm));
   const chatIds=new Set();
@@ -2672,13 +2738,13 @@ async function openBoard(m,id,guest,shareToken=null){
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
     else if(e.key==='Escape'){mp.classList.remove('open');mb.setAttribute('aria-expanded','false');saveMenu.open=false;wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
-  setTool('select');fbar.style.display='none';redraw();renderAll();r.emit('req',{from:r.id});queueViewport();
+  setTool('select');fbar.style.display='none';redraw();renderAll();
   let polling=false;
   const pollBoard=async()=>{
     if(disposed||polling||document.visibilityState==='hidden')return;
     polling=true;const epoch=editEpoch;
     try{
-      if(boardShareToken){
+      if(boardShareToken&&!isOwner){
         const meta=await shareRead(boardShareToken,'meta');
         shareMeta=meta;
         if(!isOwner){guest=meta.role!=='editor';root.classList.toggle('readonly',guest)}
@@ -2687,8 +2753,9 @@ async function openBoard(m,id,guest,shareToken=null){
       const result=boardTransport?await boardTransport.read():
         boardShareToken?{value:await shareRead(boardShareToken,'board')}:null;
       if(!result)return;
+      if(!disposed&&result.value&&!result.conflict&&!result.pending)void storeBoardView(result.value);
       if(!disposed&&editEpoch===epoch&&result.value){
-        if(!result.conflict){applySnapshot(result.value);displayedBase=cloneBoard(result.value)}
+        if(!result.conflict&&JSON.stringify(displayedBase)!==JSON.stringify(result.value)){applySnapshot(result.value);displayedBase=cloneBoard(result.value)}
         unsyncedShareDraft=Boolean(result.pending);
         if(result.conflict)say('Firebase и резерв содержат разные правки. Обе версии сохранены.');
       }
@@ -2706,11 +2773,23 @@ async function openBoard(m,id,guest,shareToken=null){
     const labels={firebase:'Firebase',cloudflare:'Резерв Cloudflare',local:'На устройстве'};
     syncIndicator.textContent=event.detail.phase==='conflict'?'⚠ Конфликт — копии сохранены':labels[event.detail.source]||'Сохранение…';
   };
-  const syncIndicator=E('span',{className:'sync-indicator',ariaLive:'polite',textContent:'Сохранение подключено'});
+  const syncIndicator=E('span',{className:'sync-indicator',ariaLive:'polite',textContent:openedFromCache?'Локальная копия · сверяю с облаком':'Сохранение подключено'});
   root.append(syncIndicator);window.addEventListener('aspace-sync-status',onSyncStatus);
-  if(syncStates.has('boards/'+id))onSyncStatus({detail:syncStates.get('boards/'+id)});
+  if(!openedFromCache&&syncStates.has('boards/'+id))onSyncStatus({detail:syncStates.get('boards/'+id)});
   if(localGuestDraft)setTimeout(retrySharedDraft,500);
-  if(roomWarning)setTimeout(()=>say('Режим без Firebase-сигналинга: '+roomWarning),500);
+  if(isOwner&&boardShareToken&&!shareMeta)void shareRead(boardShareToken,'meta').then(meta=>{if(!disposed)shareMeta=meta}).catch(()=>{});
+  if(openedFromCache||localGuestDraft)setTimeout(()=>{void pollBoard()},0);
+  void room0.join('b-'+id,boardShareToken?('/shares/'+encodeURIComponent(boardShareToken)+'/room'):null,
+    isOwner?data=>usageTracker.recordStream('boards/'+id,data):undefined).then(channel=>{
+      if(!r.attach(channel))return;
+      chatStatus.textContent='Чат текущего урока';chatInput.disabled=chatSend.disabled=false;
+      announce();void r.emit('req',{from:r.id});queueViewport();
+    }).catch(error=>{
+      if(disposed)return;
+      roomWarning=String(error.message||error);
+      chatStatus.textContent='Чат пока недоступен.';
+      say('Синхронизация участников пока недоступна. Доска открыта.');
+    });
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}

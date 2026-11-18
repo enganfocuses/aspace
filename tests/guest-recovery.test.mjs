@@ -11,9 +11,9 @@ const next={...base,name:'Updated'};
 function setup(result){
  const writes=[],applied=[],messages=[];
  const transport={write:async(value,options)=>{writes.push({value,options});return result}};
- const save=new Function('boardTransport','displayedBase','cloneBoard','applySnapshot','say',
+ const save=new Function('boardTransport','displayedBase','cloneBoard','applySnapshot','say','storeBoardView',
   'let disposed=false,guest=false,editEpoch=1,savedEpoch=0,unsyncedShareDraft=false,roomWarning="";\n'+definition+'\nreturn saveSharedDraft;')(
-   transport,base,structuredClone,x=>applied.push(x),x=>messages.push(x));
+   transport,base,structuredClone,x=>applied.push(x),x=>messages.push(x),async()=>{});
  return {save,writes,applied,messages};
 }
 test('UI submits the displayed ancestor to the canonical shared transport',async()=>{
