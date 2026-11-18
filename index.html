@@ -620,6 +620,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin .vbar>button.end-call,.vwin .vh button.end-call{width:80px;min-width:80px;max-width:80px;font-size:14px;white-space:nowrap;font-weight:600}
 @container (max-width:300px){.vwin .vbar,.vwin.home-call-window .vbar{gap:2px}.vwin .vbar>button,.vwin .vbar>details>summary{width:34px;min-width:34px;max-width:34px;font-size:34px}.vwin .vbar>button .ic{width:30px;height:30px}.vwin .vbar>button.end-call,.vwin .vh button.end-call{width:70px;min-width:70px;max-width:70px;font-size:13px}}
 
+.board-access-dialog{width:min(470px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--line);border-radius:18px;padding:22px;background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.board-access-dialog::backdrop{background:#24121c88}.board-access-dialog h2{margin:0 0 12px}.board-access-dialog form:not([hidden]),.board-access-link:not([hidden]),.board-access-dialog label:not([hidden]){display:grid;gap:9px}.board-access-dialog input,.board-access-dialog select{width:100%;min-width:0}.board-access-dialog [role=status]:empty{display:none}
 .password-reset-dialog{width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #b7a28c;border-radius:22px;padding:25px;background:#f6efdf;color:#3b2934;box-shadow:0 18px 60px #17081366}.password-reset-dialog::backdrop{background:#24121c88}.password-reset-dialog form{display:grid;gap:12px}:root .password-reset-dialog h2,:root .password-reset-dialog p{margin:0;color:#3b2934}.password-reset-dialog h2{font-family:Georgia,serif;font-size:26px}.password-reset-dialog p{font-size:14px;line-height:1.55}:root .password-reset-dialog input{width:100%;background:#fffaf3;color:#3b2934;border:1px solid #b7a28c}:root .password-reset-dialog button{color:#49354f;background:#c8b8e8}:root .password-reset-dialog .reset-send{background:#71384f;color:#fff}.reset-status:empty{display:none}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=4"></head><body>
@@ -1454,6 +1456,162 @@ function homeView(m){
   m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
 }
 
+const boardCallDestinations=[
+ {id:'aspace',label:'Видеозвонок Aspace'},
+ {id:'telemost',label:'Яндекс Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']},
+ {id:'salute',label:'Салют Джаз',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']}
+];
+function boardInvitationUrl(raw,service){
+ try{
+  const url=new URL(raw);
+  if(url.protocol!=='https:'||!service.hosts.includes(url.hostname)||url.username||url.password||url.port)return '';
+  const pathOk=service.field==='telemostUrl'?/^\/j\/[^/]+\/?$/.test(url.pathname):
+   /^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(url.pathname)&&!/\/(?:meetings|history|conference|profile|settings|calendar)\/?$/i.test(url.pathname);
+  return pathOk?url.href:'';
+ }catch{return ''}
+}
+async function readPublicBoardMeta(token){
+ const response=await fetch(shareURL(token)+'/meta.json',{cache:'no-store',headers:{'X-Firebase-ETag':'true'}});
+ if(!response.ok)throw Error('Не удалось проверить публичную ссылку (HTTP '+response.status+').');
+ const meta=await response.json();
+ const etag=response.headers.get('etag');
+ if(!meta||!etag)throw Error('Публичная ссылка уже недействительна.');
+ return {meta,etag};
+}
+async function publishBoardLink(board,meta){
+ const token=newShareToken(),files=new Set((board.items||[]).map(item=>item.u).filter(url=>typeof url==='string'&&url.startsWith('img:')));
+ const uploaded=[];
+ try{
+  for(const file of files){
+   const data=await imgSrc(file);
+   if(!data)throw Error('Один из файлов доски недоступен. Сохрани его перед публикацией.');
+   const part='assets/'+encodeURIComponent(file.slice(4));
+   await shareWrite(token,part,data);uploaded.push(part);
+  }
+  // Seed Firebase before the public metadata exists. The regular shared transport
+  // only accepts an already-published token.
+  const response=await fetch(shareURL(token)+'/board.json',{method:'PUT',body:JSON.stringify(board)});
+  if(!response.ok)throw Error('Не удалось опубликовать доску (HTTP '+response.status+').');
+  uploaded.push('board');
+  await shareWrite(token,'meta',meta);
+ }catch(error){
+  // A lost response to the last write may still mean Firebase published it.
+  if(uploaded.includes('board')&&!error.status){
+   try{
+    const existing=(await readPublicBoardMeta(token)).meta;
+    if(existing.boardId===meta.boardId)return token;
+   }catch{}
+  }
+  await Promise.allSettled(uploaded.map(part=>fetch(shareURL(token)+'/'+part+'.json',{method:'DELETE'})));
+  throw error;
+ }
+ return token;
+}
+async function boardAccessDialog(boardId,{liveBoard,prepare=async()=>{},onSettings,onLinkChange=()=>go(boardsView)}={}){
+ if(currentUser?.uid!==CFG.ownerUid||!currentUser)return;
+ if(document.querySelector('.board-access-dialog'))return;
+ const dialog=E('dialog',{className:'board-access-dialog',ariaLabel:'Доступ и видеозвонок'});
+ const heading=E('h2',{textContent:'Доступ и видеозвонок'});
+ const status=E('p',{role:'status',ariaLive:'polite',textContent:'Загружаю настройки…'});
+ const role=E('select',{},E('option',{value:'viewer',textContent:'Только просмотр'}),
+  E('option',{value:'editor',textContent:'Можно редактировать'}));
+ const destination=E('select',{},...boardCallDestinations.map(service=>E('option',{value:service.id,textContent:service.label})));
+ const invitation=E('input',{type:'url',placeholder:'https://…'});
+ const invitationLabel=E('label',{},'Прямая ссылка-приглашение',invitation);
+ const publicLink=E('input',{type:'text',readOnly:true,ariaLabel:'Публичная ссылка на доску',onclick:()=>publicLink.select()});
+ const copy=B('Скопировать ссылку',()=>copyLink(publicLink.value));
+ const linkBox=E('div',{className:'board-access-link'},E('label',{},'Публичная ссылка на доску',publicLink),copy);
+ const close=B('Закрыть',()=>dialog.close());
+ const submit=E('button',{type:'submit',className:'primary'});
+ const revoke=B('Отозвать ссылку',()=>void change(true));
+ const form=E('form',{hidden:true},E('label',{},'Права по ссылке',role),E('label',{},'Куда ведёт кнопка «Видео» у ученика',destination),invitationLabel,linkBox,
+  E('div',{className:'row'},submit,revoke));
+ let token=null,busy=false,linkChanged=false;
+ const invitations=new Map();
+ function showInvitation(){
+  invitationLabel.hidden=destination.value==='aspace';
+  invitation.required=!invitationLabel.hidden;
+  invitation.value=invitations.get(destination.value)||'';
+ }
+ destination.onchange=showInvitation;
+ invitation.oninput=()=>invitations.set(destination.value,invitation.value);
+ function showLink(){
+  publicLink.value=token?link('s',token):'';
+  linkBox.hidden=revoke.hidden=!token;
+  submit.textContent=token?'Сохранить настройки':'Создать публичную ссылку';
+ }
+ async function loadEntry(){
+  const index=await load('meta/boards'),entry=index?.items?.find(item=>item.id===boardId);
+  if(!entry)throw Error('Доска отсутствует в списке.');
+  return {index,entry};
+ }
+ async function change(remove=false){
+  if(busy||currentUser?.uid!==CFG.ownerUid||!currentUser)return;
+  if(remove&&!confirm('Отозвать публичную ссылку на эту доску?'))return;
+  const service=boardCallDestinations.find(item=>item.id===destination.value);
+  const url=service.field?boardInvitationUrl(invitation.value.trim(),service):null;
+  if(!remove&&service.field&&!url){status.textContent='Вставь прямую ссылку-приглашение '+service.label+'.';return}
+  busy=true;
+  for(const field of [submit,revoke,close,role,destination,invitation])field.disabled=true;
+  status.textContent=remove?'Отзываю ссылку…':'Сохраняю настройки…';
+  try{
+   const {index,entry}=await loadEntry();
+   if((entry.shareToken||null)!==token)throw Error('Ссылка изменилась. Закрой и открой настройки снова.');
+   if(remove){
+    await prepare();
+    await revokeShare(token);
+    delete entry.shareToken;token=null;linkChanged=true;
+    const synced=await save('meta/boards',index);
+    dialog.close();
+    say2(synced?'Публичная ссылка отозвана':'Ссылка отозвана. Список досок ждёт синхронизации.');
+    return;
+   }
+   const existing=token?await readPublicBoardMeta(token):null;
+   if(existing&&existing.meta.boardId!==boardId)throw Error('Эта ссылка принадлежит другой доске.');
+   const meta={...existing?.meta,boardId,name:entry.name,role:role.value,destination:service.id,destinationUrl:url,updatedAt:Date.now()};
+   let note='Настройки сохранены.';
+   if(existing){
+    await shareWrite(token,'meta',meta,'PUT',existing.etag);
+   }else{
+    const board=await liveBoard?.()||await load('boards/'+boardId);
+    if(!board)throw Error('Сначала сохрани доску.');
+    token=await publishBoardLink(board,{...meta,createdAt:Date.now()});
+    entry.shareToken=token;linkChanged=true;
+    const synced=await save('meta/boards',index);
+    showLink();
+    note=synced?'Публичная ссылка готова.':'Ссылка готова. Список досок ждёт синхронизации.';
+   }
+   onSettings?.(meta);
+   try{if(!existing||existing.meta.role!==meta.role)await syncStandbyShare(boardId,token,meta.role)}
+   catch{note+=' Резерв Cloudflare пока не подтвердил права.'}
+   status.textContent=note;
+   if(!existing)publicLink.focus();
+  }catch(error){status.textContent=error.message}
+  finally{
+   busy=false;
+   for(const field of [submit,revoke,close,role,destination,invitation])field.disabled=false;
+  }
+ }
+ form.onsubmit=event=>{event.preventDefault();void change()};
+ dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault()});
+ dialog.addEventListener('close',()=>{dialog.remove();if(linkChanged)void onLinkChange()},{once:true});
+ dialog.append(heading,form,status,close);document.body.append(dialog);dialog.showModal();
+ try{
+  const {entry}=await loadEntry();
+  token=entry.shareToken||null;
+  const meta=token?(await readPublicBoardMeta(token)).meta:null;
+  if(meta&&meta.boardId!==boardId)throw Error('Эта ссылка принадлежит другой доске.');
+  const board=liveBoard?await liveBoard(false):await load('boards/'+boardId);
+  const configured=boardCallDestinations.find(service=>service.id===meta?.destination)||
+   (board?.entryCall==='aspace'?boardCallDestinations[0]:boardCallDestinations.find(service=>service.field&&service.field===board?.entryCall)||
+    boardCallDestinations.find(service=>service.field&&boardInvitationUrl(board?.[service.field],service))||boardCallDestinations[0]);
+  for(const service of boardCallDestinations)if(service.field)invitations.set(service.id,board?.[service.field]||'');
+  if(meta?.destinationUrl)invitations.set(meta.destination,meta.destinationUrl);
+  role.value=meta?.role||'viewer';destination.value=configured.id;
+  showInvitation();showLink();form.hidden=false;status.textContent='';role.focus();
+ }catch(error){status.textContent=error.message}
+}
+
 async function boardsView(m){
   const idx=(await load('meta/boards'))||{items:[]};
   const g=E('div',{className:'grid'});
@@ -1480,46 +1638,8 @@ async function boardsView(m){
             '. Запись учеником проверяется отдельно в реальном уроке.');
         }catch(error){alert('Гостевой доступ не подтверждён: '+error.message)}
       }));
-      actions.append(B('🎥 Куда подключаться',async()=>{
-        const choice=prompt('Куда направлять ученика по этой ссылке на доску?\\n1 — видеозвонок Aspace\\n2 — Яндекс Телемост\\n3 — Салют Джаз','1');if(choice===null)return;if(!['1','2','3'].includes(choice)){alert('Выбери 1, 2 или 3.');return}
-        const destination=({'1':'aspace','2':'telemost','3':'salute'})[choice];let destinationUrl=null;
-        if(destination!=='aspace'){const hosts=destination==='telemost'?['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']:['salutejazz.ru','jazz.sberbank.ru'];const raw=prompt('Вставь прямую ссылку-приглашение '+(destination==='telemost'?'Яндекс Телемост':'Салют Джаз'));if(raw===null)return;try{const target=new URL(raw.trim());const pathOk=destination==='telemost'?/^\/j\/[^/]+\/?$/.test(target.pathname):/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(target.pathname);if(target.protocol==='https:'&&hosts.includes(target.hostname)&&pathOk&&!target.username&&!target.password&&!target.port)destinationUrl=target.href}catch{}if(!destinationUrl){alert('Ссылка не прошла проверку.');return}}
-        try{const meta=await shareRead(b.shareToken,'meta');await shareWrite(b.shareToken,'meta',{...meta,destination,destinationUrl,updatedAt:Date.now()});say2('Направление видеозвонка сохранено для этой ссылки')}catch(error){alert('Не удалось сохранить направление: '+error.message)}
-      }));
-      actions.append(B('⚙️ Доступ',async()=>{
-        const choice=prompt('Настройки публичной ссылки:\n1 — изменить права\n2 — отозвать ссылку','1');
-        if(choice==='1'){
-          const role=confirm('ОК — ученик сможет редактировать доску.\nОтмена — только просмотр.')?'editor':'viewer';
-          try{await shareWrite(b.shareToken,'meta',{boardId:b.id,name:b.name,role,updatedAt:Date.now()});
-            try{await syncStandbyShare(b.id,b.shareToken,role)}catch(error){notifyStandbyGrantError(error)}
-            say2('Права Firebase обновлены')}
-          catch(e){alert('Не удалось изменить права: '+e.message)}
-        }else if(choice==='2'){
-          if(!confirm('Отозвать публичную ссылку? Ученик больше не сможет открыть доску.'))return;
-          try{const oldToken=b.shareToken;await revokeShare(oldToken);delete b.shareToken;await save('meta/boards',idx);
-            try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
-            go(boardsView)}
-          catch(e){alert('Не удалось отозвать ссылку: '+e.message)}
-        }
-      }));
-    }else{
-      actions.append(B('🌐 Создать публичную ссылку',async()=>{
-        try{
-          const board=await load('boards/'+b.id);if(!board)throw new Error('Сначала открой и сохрани доску');
-          const role=confirm('Разрешить ученику редактировать доску?\n\nОК — редактирование, Отмена — только просмотр.')?'editor':'viewer';
-          const token=newShareToken();
-          await shareWrite(token,'meta',{boardId:b.id,name:b.name,role,createdAt:Date.now()});
-          await shareWrite(token,'board',board);
-          for(const it of (board.items||[])){if(it.u&&it.u.startsWith('img:')){const aid=it.u.slice(4),ar=await fetch(DB()+'/img/'+aid+'.json');if(ar.ok)await shareWrite(token,'assets/'+aid,await ar.json())}}
-          b.shareToken=token;await save('meta/boards',idx);activeShareToken=null;
-          try{await syncStandbyShare(b.id,token,role)}catch(error){
-            if(standbyOptIn())notifyStandbyGrantError(error)
-          }
-          await copyLink(publicUrl());
-          go(boardsView);
-        }catch(e){alert('Не удалось создать ссылку: '+e.message)}
-      }));
     }
+    actions.append(B(b.shareToken?'⚙️ Доступ и видеозвонок':'🌐 Создать публичную ссылку',()=>boardAccessDialog(b.id)));
     actions.append(B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);
       if(b.shareToken){const oldToken=b.shareToken;await revokeShare(oldToken);
         try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
@@ -1652,7 +1772,7 @@ async function openBoard(m,id,guest,shareToken=null){
   let shareMeta=null,d0=null,isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid);
   activeShareToken=shareToken;
   if(shareToken){try{shareMeta=await shareRead(shareToken,'meta');id=shareMeta.boardId;d0=await shareRead(shareToken,'board');guest=shareMeta.role!=='editor'}catch(e){activeShareToken=null;m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Ссылка недействительна'}),E('div',{className:'mut',textContent:'Владелец мог отключить доступ или ссылка скопирована не полностью.'}))));return}}
-  else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
+  else {const ix=(await load('meta/boards'))||{items:[]},entry=ix.items.find(x=>x.id===id);if(isOwner&&entry?.shareToken){activeShareToken=entry.shareToken;try{d0=await shareRead(entry.shareToken,'board');shareMeta=await shareRead(entry.shareToken,'meta')}catch{activeShareToken=null;d0=await load('boards/'+id)}}else d0=await load('boards/'+id)}
   if(isOwner)guest=false;
   // Keep the current board in the address bar without firing hashchange/reloading.
   const boardRoute=shareToken?'#s-'+shareToken:'#b-'+id+'-'+(guest?'view':'edit');
@@ -1669,10 +1789,6 @@ async function openBoard(m,id,guest,shareToken=null){
   }
   if(!d0&&guest){m.append(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доска не найдена'}),E('div',{className:'mut',textContent:'Ссылка неверна, доска удалена или не сохранилась. Попросите владельца отправить ссылку заново.'}))));return}
   const d=d0||{name:'Доска',strokes:[],items:[]};
-  // The share's route controls the existing top-right student video button.
-  if(shareMeta?.destination==='telemost'&&shareMeta.destinationUrl){d.telemostUrl=shareMeta.destinationUrl;d.entryCall='telemostUrl'}
-  else if(shareMeta?.destination==='salute'&&shareMeta.destinationUrl){d.jazzUrl=shareMeta.destinationUrl;d.entryCall='jazzUrl'}
-  else if(shareMeta?.destination==='aspace')d.entryCall='aspace';
   const W=3000,H=2400;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
@@ -2357,20 +2473,13 @@ async function openBoard(m,id,guest,shareToken=null){
     {name:'SaluteJazz',field:'jazzUrl',hosts:['salutejazz.ru','jazz.sberbank.ru']},
     {name:'Телемост',field:'telemostUrl',hosts:['telemost.yandex.ru','telemost.360.yandex.ru','telemost.yandex.com','telemost.360.yandex.com']}
   ];
-  function meetingUrl(raw,service){
-    try{
-      const url=new URL(raw);
-      if(url.protocol!=='https:' || !service.hosts.includes(url.hostname) || url.username || url.password || url.port)return '';
-      if(service.field==='telemostUrl' ? !/^\/j\/[^/]+\/?$/.test(url.pathname) : !/^\/(?:calls\/)?(?:sber-)?[a-z0-9]{6,}\/?$/i.test(url.pathname) || /\/(?:meetings|history|conference|profile|settings|calendar)\/?$/i.test(url.pathname))return '';
-      return url.href;
-    }catch{return ''}
-  }
+  const meetingUrl=boardInvitationUrl;
   for(const service of meetingServices){
     service.section=E('section');
     service.join=B('Войти в '+service.name,()=>launchMeeting(service),'mbtn');
   }
-  function launchMeeting(service){
-    let url=meetingUrl(d[service.field],service);
+  function launchMeeting(service,invitation){
+    let url=meetingUrl(invitation||publicMeetingUrl(service)||d[service.field],service);
     if(!url && isOwner)url=configureMeeting(service);
     if(!url)return;
     if(isOwner&&d.entryCall!==service.field){d.entryCall=service.field;refreshMeetings();persist()}
@@ -2393,7 +2502,7 @@ async function openBoard(m,id,guest,shareToken=null){
     entryPrompt=E('div',{className:'board-entry-call',role:'dialog',ariaLabel:'Звонок этой доски'},
       E('strong',{textContent:'Не удалось открыть отдельное окно звонка.'}),
       E('p',{textContent:'Можно разрешить всплывающие окна для Aspace и повторить попытку. Если браузер или телефон не поддерживает отдельное окно, открой звонок в новой вкладке.'}),
-      B('Повторить открытие отдельного окна',()=>launchMeeting(service),'mbtn'),
+      B('Повторить открытие отдельного окна',()=>launchMeeting(service,url),'mbtn'),
       E('a',{className:'mbtn',href:url,target:'_blank',rel:'noopener noreferrer',textContent:'Открыть звонок в отдельной вкладке'}),
       B('Остаться на доске',dismiss));
     root.append(entryPrompt);
@@ -2431,7 +2540,14 @@ async function openBoard(m,id,guest,shareToken=null){
   }
   const videoOptions=E('div',{className:'video-options'});
   const vtop=E('details',{className:'vtop board-video'},E('summary',{className:'tbtn',title:'Видео',ariaLabel:'Видео'},ic('video'),'Видео'),videoOptions);
-  if(isOwner)videoOptions.append(E('label',{},'Канал по кнопке видео ученика ',defaultCall));
+  function publicMeetingUrl(service){
+    const settings=boardCallDestinations.find(item=>item.id===shareMeta?.destination);
+    return settings?.field===service.field?meetingUrl(shareMeta.destinationUrl,service):'';
+  }
+  if(isOwner){
+    if(!boardShareToken)videoOptions.append(E('label',{},'Канал по кнопке видео ученика ',defaultCall));
+    else videoOptions.append(B('Доступ и видеозвонок',()=>{vtop.open=false;openAccessSettings()}));
+  }
   videoOptions.append(B('Видеозвонок Aspace',()=>{vtop.open=false;openVideo()},'board-call'));
   for(const service of meetingServices){
     service.section.append(E('b',{textContent:service.name}),service.join);
@@ -2443,11 +2559,18 @@ async function openBoard(m,id,guest,shareToken=null){
   function updateEmptyVideo(){emptyVideo.hidden=!root.classList.contains('readonly')||meetingServices.some(service=>!!meetingUrl(d[service.field],service))}
   vtop.ontoggle=updateEmptyVideo;
   refreshMeetings();
-  // Students use the top-right video button to enter the channel selected by the owner.
+  // The share's route controls the existing top-right student video button.
   // Opening the board itself must never start a call or redirect to an external meeting.
   vtop.querySelector('summary').addEventListener('click',event=>{
     if(isOwner)return;
     event.preventDefault();
+    if(shareMeta?.destination){
+      const service=meetingServices.find(item=>publicMeetingUrl(item));
+      if(service)launchMeeting(service,publicMeetingUrl(service));
+      else if(shareMeta.destination==='aspace')openVideo(true);
+      else say('Ссылка на видеозвонок недоступна. Попроси владельца проверить настройки.');
+      return;
+    }
     const service=entryService();
     if(service)launchMeeting(service);else openVideo(true);
   });
@@ -2481,7 +2604,21 @@ async function openBoard(m,id,guest,shareToken=null){
   const cursorLayer=E('div',{style:'position:absolute;inset:0;pointer-events:none;z-index:15'});wrap.append(cursorLayer);
   sc.addEventListener('pointermove',e=>{if(Date.now()-lastCursorSent<80)return;lastCursorSent=Date.now();const rect=wrap.getBoundingClientRect();r.emit('cursor',{id:r.id,name:myName,x:(e.clientX-rect.left)/z,y:(e.clientY-rect.top)/z})});
   r.on('cursor',event=>{const p=event.data;if(!p||p.id===r.id||!Number.isFinite(p.x)||!Number.isFinite(p.y))return;let node=cursorNodes.get(p.id);if(!node){node=E('span',{className:'remote-pointer'});cursorNodes.set(p.id,node);cursorLayer.append(node)}node.textContent='↖ '+(p.name||'Участник');node.style.left=p.x+'px';node.style.top=p.y+'px';clearTimeout(node._expiry);node._expiry=setTimeout(()=>{node.remove();cursorNodes.delete(p.id)},5000)});
-  mi('Поделиться',async()=>{const ix=await load('meta/boards'),board=ix?.items?.find(b=>b.id===id);if(board?.shareToken)copyLink(location.origin+location.pathname+'#s-'+board.shareToken);else say('Создай публичную ссылку в разделе «Доски».')});
+  async function flushBoardForAccess(){
+    if(editEpoch!==savedEpoch||unsyncedShareDraft){
+      clearTimeout(tm);await queueSharedDraft(snapshot());
+    }
+    if(unsyncedShareDraft||editEpoch!==savedEpoch)throw Error('Дождись синхронизации доски перед изменением ссылки.');
+  }
+  function openAccessSettings(){
+    return boardAccessDialog(id,{
+      prepare:flushBoardForAccess,
+      liveBoard:async(sync=true)=>{if(sync)await flushBoardForAccess();return snapshot()},
+      onSettings:meta=>{shareMeta=meta},
+      onLinkChange:()=>{if(!disposed)return go(m=>openBoard(m,id,false))}
+    });
+  }
+  if(isOwner)mi('Публичная ссылка и видеозвонок',openAccessSettings);
   mp.append(saveMenu);
   mi('Скрыть / показать курсоры участников',()=>{hideCursors=!hideCursors;cursorLayer.hidden=hideCursors});
   mi('Вписать объекты в экран',()=>{
@@ -2529,7 +2666,7 @@ async function openBoard(m,id,guest,shareToken=null){
   mp.append(themeControl());
   root.append(menu,boardActions,fbar,tbar,hist,zoom,announcementBox);
   renderAnnouncement();m.append(root);
-  const key=e=>{const t=e.target;if(t.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
+  const key=e=>{const t=e.target;if(t.isContentEditable||t.closest('.board-access-dialog')||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
@@ -2543,6 +2680,7 @@ async function openBoard(m,id,guest,shareToken=null){
     try{
       if(boardShareToken){
         const meta=await shareRead(boardShareToken,'meta');
+        shareMeta=meta;
         if(!isOwner){guest=meta.role!=='editor';root.classList.toggle('readonly',guest)}
       }
       if(!guest&&editEpoch!==savedEpoch)return;

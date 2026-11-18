@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const source=html.slice(html.indexOf('  const meetingServices='),html.indexOf("  const videoOptions=E('div'"));
+const urlValidator=html.slice(html.indexOf('function boardInvitationUrl'),html.indexOf('async function readPublicBoardMeta'));
+const source=urlValidator+html.slice(html.indexOf('  const meetingServices='),html.indexOf("  const videoOptions=E('div'"));
 function setup(board={}){
  const d={entryCall:'aspace',...board},answers=[],messages=[];let saves=0,prompts=0;
  const context=vm.createContext({URL,d,isOwner:true,prompt:()=>{prompts++;return answers.shift()??null},say:s=>messages.push(s),persist:()=>saves++,updateEmptyVideo:()=>{},

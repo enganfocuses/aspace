@@ -63,7 +63,7 @@ test('quota-safe board sync does not post oversized catch-up snapshots',()=>{
 
 
 test('external meeting providers request compact popup windows and offer retry when blocked',()=>{
- const begin=index.indexOf('function launchMeeting(service){');
+ const begin=index.indexOf('function launchMeeting(service,invitation){');
  const end=index.indexOf('const defaultCall=',begin);
  const launch=index.slice(begin,end);
  assert.ok(launch.includes('popup=yes,resizable=yes,scrollbars=yes'));
