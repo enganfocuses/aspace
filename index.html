@@ -390,6 +390,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 *,*::before,*::after{box-sizing:border-box}
 #main,#main *{min-width:0}
 #main{overflow-x:hidden}
+#main.rhetoric-view{display:flex;overflow:hidden;padding:clamp(4px,1vw,14px)}
+.rhetoric-frame{width:100%;min-width:0;min-height:0;flex:1;border:0;border-radius:14px}
+
 #main :where(p,h1,h2,h3,h4,small,strong,b,label,a,span,div,button){overflow-wrap:anywhere}
 #main :where(input,select,textarea){width:100%;min-width:0;max-width:100%}
 #main .row{min-width:0;flex-wrap:wrap;align-items:center}
@@ -1058,7 +1061,8 @@ async function trainerView(m){
 function rhetoricView(m){
  if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
  history.replaceState(null,'',location.pathname+location.search+'#rhetoric');
- const frame=E('iframe',{src:'./rhetoric/index.html?theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer',style:'width:100%;height:82vh;min-height:550px;border:0;border-radius:18px'});
+ m.classList.add('rhetoric-view');
+ const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=3&theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer',allowFullscreen:true});
  frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads');
  m.append(frame);
 }

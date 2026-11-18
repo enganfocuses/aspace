@@ -7,13 +7,13 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
   <main class="library">
-    <h1>Риторика</h1>
     <div id="catalog">
+      <h1>Риторика</h1>
       <nav class="shelves" aria-label="Темы библиотеки"></nav>
       <label class="search">Поиск книг
         <input type="search" placeholder="Название, автор или вуз">
@@ -23,18 +23,24 @@
     <section id="reader" aria-labelledby="reader-title" hidden>
       <div class="reader-tools">
         <button id="close-reader" type="button">← К списку книг</button>
+        <button id="reader-fullscreen" type="button" hidden>На весь экран</button>
         <select id="contents" aria-label="Оглавление" hidden></select>
+        <nav class="page-controls" aria-label="Страницы книги">
+          <button id="previous-page" type="button" disabled>← Назад</button>
+          <output id="page-number" aria-live="polite"></output>
+          <button id="next-page" type="button" disabled>Дальше →</button>
+        </nav>
       </div>
       <h2 id="reader-title" tabindex="-1"></h2>
       <p id="edition" class="byline"></p>
       <div class="links">
         <a id="origin" target="_blank" rel="noopener noreferrer">Источник перевода ↗</a>
-        <a id="download" download>Скачать TXT</a>
+        <a id="download" download hidden>Скачать TXT</a>
       </div>
-      <p id="reader-status" role="status"></p>
       <article id="pages"></article>
+      <p id="reader-status" role="status"></p>
     </section>
   </main>
-  <script type="module" src="app.mjs?v=2"></script>
+  <script type="module" src="app.mjs?v=3"></script>
 </body>
 </html>
