@@ -22,6 +22,9 @@ const edition = document.querySelector('#edition');
 const previousPage = document.querySelector('#previous-page');
 const nextPage = document.querySelector('#next-page');
 const pageNumber = document.querySelector('#page-number');
+const pageTotal = document.querySelector('#page-total');
+const pageAnnouncement = document.querySelector('#page-announcement');
+const jumpButton = document.querySelector('#jump-page');
 const fullscreen = document.querySelector('#reader-fullscreen');
 let bookPages = [];
 let pageIndex = 0;
@@ -42,7 +45,11 @@ const tabs = catalog.map(({id, title}) => {
 function updatePageControls() {
   previousPage.disabled = pageIndex === 0;
   nextPage.disabled = pageIndex + 1 >= bookPages.length;
-  pageNumber.textContent = 'Стр. ' + (pageIndex + 1) + (complete ? ' из ' + bookPages.length : '');
+  pageNumber.value = pageIndex + 1;
+  pageNumber.max = bookPages.length;
+  pageNumber.disabled = jumpButton.disabled = !complete || bookPages.length < 2;
+  pageTotal.textContent = complete ? 'из ' + bookPages.length : '';
+  pageAnnouncement.textContent = 'Страница ' + pageNumber.value + ' ' + pageTotal.textContent;
 }
 
 function showPage(index) {
@@ -63,15 +70,33 @@ function updateContents() {
   contents.hidden = options.length < 3;
 }
 
-function turnPage(step) {
-  const index = pageIndex + step;
-  if (index < 0 || index >= bookPages.length) return;
+function goToPage(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= bookPages.length || index === pageIndex) return false;
   showPage(index);
-  pages.scrollIntoView({block:'start'});
+  window.scrollTo(0, 0);
+  return true;
 }
 
-previousPage.onclick = () => turnPage(-1);
-nextPage.onclick = () => turnPage(1);
+previousPage.onclick = () => goToPage(pageIndex - 1);
+nextPage.onclick = () => goToPage(pageIndex + 1);
+function jumpToPage() {
+  if (!pageNumber.reportValidity()) return;
+  goToPage(pageNumber.valueAsNumber - 1);
+  pages.focus({preventScroll:true});
+}
+
+jumpButton.onclick = jumpToPage;
+pageNumber.addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  jumpToPage();
+});
+document.addEventListener('keydown', event => {
+  if (reader.hidden || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  if (event.target.closest?.('input, textarea, select, [contenteditable]') || window.getSelection()?.isCollapsed === false) return;
+  if (goToPage(pageIndex + (event.key === 'ArrowRight' ? 1 : -1))) event.preventDefault();
+});
 contents.addEventListener('change', () => {
   if (!contents.value) return;
   const [index, heading] = contents.value.split(':');

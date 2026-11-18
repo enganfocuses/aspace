@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Риторика · Aspace</title>
   <link rel="stylesheet" href="../workspace-theme.css?v=4">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="../appearance.js?v=1"></script>
 </head>
 <body class="heritage-page">
@@ -25,11 +25,6 @@
         <button id="close-reader" type="button">← К списку книг</button>
         <button id="reader-fullscreen" type="button">На весь экран</button>
         <select id="contents" aria-label="Оглавление" hidden></select>
-        <nav class="page-controls" aria-label="Страницы книги">
-          <button id="previous-page" type="button" disabled>← Назад</button>
-          <output id="page-number" aria-live="polite"></output>
-          <button id="next-page" type="button" disabled>Дальше →</button>
-        </nav>
       </div>
       <h2 id="reader-title" tabindex="-1"></h2>
       <p id="edition" class="byline"></p>
@@ -37,10 +32,22 @@
         <a id="origin" target="_blank" rel="noopener noreferrer">Источник перевода ↗</a>
         <a id="download" download hidden>Скачать TXT</a>
       </div>
-      <article id="pages"></article>
+      <article id="pages" tabindex="-1"></article>
       <p id="reader-status" role="status"></p>
+      <nav class="page-controls" aria-label="Страницы книги">
+        <div class="page-controls-inner">
+          <button id="previous-page" type="button" aria-keyshortcuts="ArrowLeft" disabled>← Назад</button>
+          <div id="page-jump" role="group" aria-label="Переход к странице">
+            <input id="page-number" type="number" inputmode="numeric" aria-label="Номер страницы" min="1" step="1" value="1" required disabled>
+            <span id="page-total"></span>
+            <button id="jump-page" type="button" aria-label="Перейти на страницу" title="Перейти на страницу" disabled>↵</button>
+          </div>
+          <button id="next-page" type="button" aria-keyshortcuts="ArrowRight" disabled>Дальше →</button>
+        </div>
+        <span id="page-announcement" role="status"></span>
+      </nav>
     </section>
   </main>
-  <script type="module" src="app.mjs?v=4"></script>
+  <script type="module" src="app.mjs?v=5"></script>
 </body>
 </html>
