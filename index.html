@@ -2620,15 +2620,18 @@ function build(text,topic,N=18){
 async function eduView(m){
   // Course builders are standalone local HTML tools; no Firebase or Worker writes.
   const tools=[
-    {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html'},
+    {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html',version:2,localProgress:true},
     {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html'}
   ];
   tools.forEach(tool=>{
     const card=E('section',{className:'card',style:'margin:14px 0;padding:16px'});
-    const open=B('↗ Открыть на весь экран',()=>window.open(tool.url+'?theme='+currentTheme(),'_blank','noopener,noreferrer'));
-    const download=E('a',{href:tool.url,download:tool.file,textContent:'⬇ Скачать HTML',style:'display:inline-block;padding:10px;color:#795779'});
-    const frame=E('iframe',{src:tool.url+'?theme='+currentTheme(),title:tool.title,loading:'lazy',referrerPolicy:'no-referrer',style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
-    frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads');
+    const source=new URL(tool.url,location.href);
+    if(tool.version)source.searchParams.set('v',tool.version);
+    const download=E('a',{href:source.href,download:tool.file,textContent:'⬇ Скачать HTML',style:'display:inline-block;padding:10px;color:#795779'});
+    source.searchParams.set('theme',currentTheme());
+    const open=B('↗ Открыть на весь экран',()=>window.open(source.href,'_blank','noopener,noreferrer'));
+    const frame=E('iframe',{src:source.href,title:tool.title,loading:'lazy',referrerPolicy:'no-referrer',style:'width:100%;height:min(78vh,960px);min-height:620px;border:1px solid #d9c8e5;border-radius:16px;background:white'});
+    frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-popups allow-downloads'+(tool.localProgress?' allow-same-origin':''));
     card.append(E('div',{className:'row',style:'margin:10px 0'},open,download),frame);m.append(card);
   });
 }
