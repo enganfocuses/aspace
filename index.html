@@ -193,7 +193,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .pop{border:1px solid var(--line);background:#fff;box-shadow:0 8px 28px #34233f1c;border-radius:14px}
 .mbtn,.vtop{border-radius:10px;box-shadow:0 5px 18px #34233f18}
 .mbtn{background:#fff!important;color:var(--wine)!important;border:1px solid var(--line)}
-.menu{display:flex;gap:8px;align-items:flex-start}.menu .mp{position:absolute;top:42px;left:0;max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.homebtn{padding:8px 12px}.menu>.mbtn:not(.homebtn){padding:8px 12px}
+.menu{display:flex;gap:8px;align-items:flex-start}.menu .mp{position:absolute;top:42px;left:0;max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}.back-to-boards{padding:8px 12px}.menu>.mbtn:not(.back-to-boards){padding:8px 12px}
 .toast{background:var(--wine);color:#fff;border:0;border-radius:10px}
 .it.rr .bgl,.it.rect .bgl,.it.pill .bgl,.it.oval .bgl{border-color:#b8a5d0}
 .it.frame .bgl{border-color:#9a80ba}
@@ -315,7 +315,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 
 /* Clear, touch-friendly board controls */
 .card[hidden]{display:none}
-@media(max-width:600px){.menu .center-board{display:none}.menu{right:8px;max-width:none}.menu>.mbtn:not(.homebtn){min-width:0;flex:1}.menu>.mbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hist{bottom:66px!important}.zoom{bottom:12px!important}}
+@media(max-width:600px){.menu .center-board{display:none}.menu{right:8px;max-width:none}.menu>.mbtn:not(.back-to-boards){min-width:0;flex:1}.menu>.mbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hist{bottom:66px!important}.zoom{bottom:12px!important}}
 .tbar{left:12px;top:80px;bottom:auto;transform:none;flex-direction:column;max-height:calc(100dvh - 170px);max-width:60px;overflow:auto;padding:5px;border-radius:14px;gap:3px}
 .tbar .sep{width:30px;height:1px;margin:5px 0;flex:none}
 .tbar .tbtn,.hist .tbtn{background:transparent;color:#354155;border-radius:9px;width:44px;height:44px;border:0}
@@ -1000,6 +1000,11 @@ function goHome(){
     shell(false);go(homeView);
   }else go(boardsView);
 }
+function backToBoards(){
+  if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
+  history.replaceState(null,'',location.pathname+location.search+'#boards');
+  shell(false);
+}
 function shell(guest){
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
@@ -1008,6 +1013,7 @@ function shell(guest){
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
   else if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
+  else if(h==='#boards'&&currentUser?.uid===CFG.ownerUid)go(boardsView);
   else if(h==='#usage'&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h==='#architecture'&&currentUser?.uid===CFG.ownerUid)go(architectureView);
   else if(h==='#trainer'&&currentUser?.uid===CFG.ownerUid)go(trainerView);
@@ -1735,7 +1741,7 @@ const ICONS={
  split:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 4v16"/>',
  lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 018 0v3M12 14v3"/>',
  unlock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 017-2M12 14v3"/>',
- home:'<path d="M3 10.5L12 3l9 7.5M5.5 9v11h13V9M9.5 20v-6h5v6"/>',
+ back:'<path d="M19 12H5m7 7-7-7 7-7"/>',
  align:'<path d="M4 5h16M4 12h10M4 19h16M18 9l3 3-3 3"/>',
  full:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'};
 const ic=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 24 24');s.setAttribute('class','ic');s.innerHTML=ICONS[n];return s};
@@ -1869,7 +1875,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     loading.replaceChildren(E('div',{className:'box'},E('h2',{textContent:message}),
       E('p',{className:'mut',textContent:error.message}),
       B('Повторить',()=>go(view=>openBoard(view,id,guest,shareToken))),
-      ...(isOwner?[B('К списку досок',()=>go(boardsView))]:[])));
+      ...(isOwner?[B('Назад к доскам',backToBoards)]:[])));
     return;
   }
   if(!loading.isConnected)return;
@@ -2674,13 +2680,13 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     B('× Остановить следование',()=>{followId=null;say('Следование остановлено')}));
   const bgb=k=>{bg=k;wrap.className='wrap '+k;sc.className='bscroll '+k;r.emit('bg',{bg:k});persist()};
   const mb=E('button',{className:'mbtn',ariaLabel:'Меню доски',ariaExpanded:'false',onclick:()=>{mp.classList.toggle('open');mb.setAttribute('aria-expanded',String(mp.classList.contains('open')))}},ic('menu'),E('span',{textContent:d.name}));
-  const home=E('button',{className:'mbtn homebtn',title:'Домой',onclick:goHome},ic('home'),E('span',{textContent:'Домой'}));
+  const backButton=isOwner?[E('button',{type:'button',className:'mbtn back-to-boards',title:'Назад к доскам',onclick:backToBoards},ic('back'),E('span',{textContent:'Назад к доскам'}))]:[];
   const centerBoard=B('Центр доски',()=>{
     sc.scrollLeft=Math.max(0,(W*z-sc.clientWidth)/2);
     sc.scrollTop=Math.max(0,(parseFloat(wrap.style.height)*z-sc.clientHeight)/2);
     queueViewport();
   },'mbtn center-board');
-  const menu=E('div',{className:'menu'},home,mb,centerBoard,mp);
+  const menu=E('div',{className:'menu'},...backButton,mb,centerBoard,mp);
   const participants=E('details',{className:'board-participants'},E('summary',{textContent:'Участники'}),followPanel);
   const boardActions=E('div',{className:'board-actions'},participants,vtop,chat);
   for(const panel of [participants,vtop,chat]){
