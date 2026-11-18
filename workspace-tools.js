@@ -93,6 +93,97 @@ function contentView(m){
   }
   function create(){const item={id:uid(),created:Date.now(),title:'',kind:'Идея',text:'',date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
   section.append(E('aside',{},E('h3',{textContent:'Контент-план'}),B('＋ Новая запись',create),list),editor);
-  m.append(E('h2',{textContent:'Контент'}),section,linkedWorkspacePanel('document'));
+  const planner=E('div',{},section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true});
+  const tabs=E('nav',{className:'builder-tabs',ariaLabel:'Разделы контента'});
+  function selectTab(isResources){
+    planner.hidden=isResources;resources.hidden=!isResources;
+    tabs.children[0].setAttribute('aria-pressed',String(!isResources));tabs.children[1].setAttribute('aria-pressed',String(isResources));
+    if(isResources&&!resources.childElementCount)resourceEditor(resources);
+  }
+  tabs.append(B('Контент-план',()=>selectTab(false)),B('Мои ресурсы',()=>selectTab(true)));selectTab(false);
+  m.append(E('h2',{textContent:'Контент'}),tabs,planner,resources);
   if(records.size)edit(records.values().next().value);else create();
+}
+
+function resourceEditor(host){
+  const sites=['anesterovna.ru','harizma.deploya.ru'];
+  const tabs=E('div',{className:'builder-tabs',ariaLabel:'Сайты'});
+  const live=E('a',{target:'_blank',rel:'noopener noreferrer'});
+  const code=E('textarea',{spellcheck:false,wrap:'off',ariaLabel:'Исходный HTML'});
+  const frame=E('iframe',{className:'workspace-preview',title:'Предпросмотр HTML',hidden:true,referrerPolicy:'no-referrer'});
+  frame.setAttribute('sandbox','allow-scripts');
+  const status=E('small',{role:'status'}),upload=E('input',{type:'file',accept:'.html,.htm'});
+  let currentSite='',filename='',version=0,revision=0,edited=false;
+  const key=site=>'resource-html:'+currentUser.uid+':'+site;
+  const preview=B('Предпросмотр',()=>{
+    const doc=new DOMParser().parseFromString(code.value,'text/html');
+    if(!doc.querySelector('base[href]'))doc.head.prepend(Object.assign(doc.createElement('base'),{href:live.href}));
+    frame.srcdoc='<!doctype html>'+doc.documentElement.outerHTML;frame.hidden=false;
+  });
+  const download=B('Скачать HTML',()=>{
+    const url=URL.createObjectURL(new Blob([code.value],{type:'text/html;charset=utf-8'}));
+    const a=E('a',{href:url,download:filename});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  });
+  function available(ready){code.disabled=preview.disabled=download.disabled=!ready}
+  async function persist(){
+    const site=currentSite,rev=++revision;edited=true;status.textContent='Сохраняю…';
+    try{
+      await localPut('docs',{key:key(site),value:{source:code.value,filename}});
+      if(site===currentSite&&rev===revision)status.textContent='Черновик сохранён на устройстве';
+    }catch(error){if(site===currentSite&&rev===revision)status.textContent='Не удалось сохранить черновик. Скачай HTML: '+error.message}
+  }
+  async function openSite(site){
+    const request=++version;currentSite=site;edited=false;revision++;available(false);
+    code.value='';frame.hidden=true;frame.removeAttribute('srcdoc');
+    live.href='https://'+site+'/';live.textContent='Открыть '+site+' ↗';
+    for(const button of tabs.children)button.setAttribute('aria-pressed',String(button.textContent===site));
+    status.textContent='Открываю HTML…';
+    try{
+      const draft=(await localGet('docs',key(site)))?.value;
+      let source=draft?.source;
+      if(typeof source!=='string'){
+        const response=await fetch('./assets/resources/'+site+'.html.txt');
+        if(!response.ok)throw Error('Исходник недоступен. Открой HTML с устройства.');
+        source=await response.text();
+      }
+      if(request!==version)return;
+      filename=draft?.filename||site+'.html';code.value=source;edited=!!draft;
+      status.textContent=draft?'Открыт локальный черновик':'Открыта копия главной страницы';available(true);
+    }catch(error){if(request===version)status.textContent=error.message}
+  }
+  upload.onchange=async()=>{
+    const file=upload.files[0];upload.value='';if(!file)return;
+    if(!/\.html?$/i.test(file.name)){status.textContent='Выбери HTML-файл';return}
+    if(edited&&!confirm('Заменить черновик этого сайта выбранным файлом?'))return;
+    const request=++version;
+    try{
+      const source=await file.text();if(request!==version)return;
+      filename=file.name;code.value=source;frame.hidden=true;frame.removeAttribute('srcdoc');available(true);await persist();
+    }catch(error){if(request===version)status.textContent=error.message}
+  };
+  code.oninput=persist;
+  for(const site of sites)tabs.append(B(site,()=>{if(currentSite!==site)void openSite(site)}));
+  const socials=E('nav',{className:'resource-socials',ariaLabel:'Мои соцсети'});
+  const profiles=[
+  [
+    "Telegram",
+    "https://t.me/anfocuses"
+  ],
+  [
+    "Instagram",
+    "https://www.instagram.com/annfocuses?vrfl=bjIxbDd6NWcxenJ3&utm_source=qr"
+  ],
+  [
+    "ВКонтакте",
+    "https://vk.ru/anfocuses"
+  ],
+  [
+    "MAX",
+    "https://max.ru/join/O8eqgDIWEFbaQmuAmSSV5r4e1MFffSAEBoqGVs48orc"
+  ]
+];
+  for(const [name,href] of profiles)socials.append(E('a',{href,target:'_blank',rel:'noopener noreferrer',textContent:name+' ↗'}));
+  host.append(E('section',{className:'card'},E('h3',{textContent:'Мои соцсети'}),socials));
+  host.append(E('section',{className:'card resource-editor'},E('h3',{textContent:'Мои ресурсы'}),tabs,live,E('label',{},'Открыть HTML с устройства',upload),E('label',{},'Исходный HTML',code),E('div',{className:'row'},preview,download),status,frame));
+  void openSite(sites[0]);
 }
