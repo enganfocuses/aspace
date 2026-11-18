@@ -32,8 +32,10 @@ test("owner may revoke room; anonymous participants only post bounded room messa
  assert.ok(secure(room[".write"]));
  assert.match(room["$msg"][".write"],/150000/);
  const calls=rules.rooms["$room"].call;
- assert.match(calls[".read"],/c-/);
- assert.match(calls["$signal"][".write"],/150000/);
+ assert.ok(secure(calls[".read"]));
+ assert.ok(secure(calls["$signal"][".write"]));
+ assert.match(room[".read"],/meta/);
+ assert.match(room.call["$signal"][".write"],/150000/);
 });
 test("all production owner placeholders are consistent",()=>{
  const raw=JSON.stringify(json);
