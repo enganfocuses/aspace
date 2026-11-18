@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Риторика · Aspace</title>
+  <link rel="stylesheet" href="../workspace-theme.css?v=4">
+  <link rel="stylesheet" href="style.css">
+  <script src="../appearance.js?v=1"></script>
+</head>
+<body class="heritage-page">
+  <main class="library">
+    <h1>Риторика</h1>
+    <nav class="shelves" aria-label="Темы библиотеки"></nav>
+    <label class="search">Поиск книг
+      <input type="search" placeholder="Название, автор или вуз">
+    </label>
+    <div id="collection"></div>
+  </main>
+  <dialog id="reader" aria-labelledby="reader-title">
+    <header class="reader-head">
+      <h2 id="reader-title"></h2>
+      <button id="close-reader" type="button">Закрыть</button>
+    </header>
+    <p id="edition"></p>
+    <div class="links">
+      <a id="origin" target="_blank" rel="noopener noreferrer">Источник текста ↗</a>
+      <a id="download" hidden>Скачать TXT</a>
+    </div>
+    <p id="reader-status" role="status"></p>
+    <pre id="pages" lang="en"></pre>
+  </dialog>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>

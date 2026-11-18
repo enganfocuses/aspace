@@ -1,0 +1,21 @@
+.library{max-width:1140px;margin:0 auto;padding:22px clamp(14px,3vw,30px) 44px}
+.library h1{margin:0 0 16px;font:600 clamp(32px,5vw,46px)/1.1 Georgia,serif}
+.shelves,.links{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.shelves button,.read-button,#close-reader{font:inherit;cursor:pointer;padding:9px 14px;border:1px solid #cbb5c6}
+.shelves button[aria-pressed=true]{background:#71384f!important;color:#fff5e7!important;border-color:#71384f}
+.search{display:grid;gap:5px;max-width:380px;margin:18px 0;font-size:.9rem}
+.search input{font:inherit;padding:10px 12px;border:1px solid #b7a28c;background:#fff9ef;color:#382935}
+.shelf-title{margin:23px 0 11px;font:600 25px Georgia,serif}
+.books{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.heritage-page .book-card{display:flex;flex-direction:column;gap:8px;min-width:0;margin:0;padding:17px 18px;border-radius:14px;box-shadow:none}
+.book-card h3,.book-card p{margin:0}
+.book-card h3{font:600 21px/1.25 Georgia,serif}
+.byline{font-size:.88rem}
+.book-card .links{align-items:flex-start;flex-direction:column;margin-top:auto;padding-top:8px}
+.book-card a,#reader a{color:#71384f;text-underline-offset:3px;font-weight:600;font-size:.9rem}
+#reader{width:min(760px,calc(100% - 22px));max-height:calc(100dvh - 22px);border:1px solid #bcaa93;border-radius:18px;padding:20px;background:#fffbf4;color:#382935}
+#reader::backdrop{background:#21101ac0}
+.reader-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.reader-head h2{margin:0;font:600 25px Georgia,serif}
+#reader-status:empty,#pages:empty{display:none}
+#pages{white-space:pre-wrap;overflow-wrap:anywhere;font:1rem/1.65 Georgia,serif}

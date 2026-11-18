@@ -372,6 +372,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .section-art{position:absolute;inset:0;z-index:-2;background-size:cover;background-position:center;filter:saturate(.55) sepia(.15)}
 .section-copy{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:100%}.section-copy strong{font-family:'Oswald',Georgia,serif;font-stretch:condensed;font-weight:400;text-transform:uppercase;font-size:clamp(26px,2.8vw,40px);line-height:1.12;overflow-wrap:anywhere}.section-copy>span{font-size:13px;font-weight:400;line-height:1.4;max-width:210px}.section-enter{position:absolute;right:13px;top:8px;font-size:22px}
 .section-boards .section-art,.section-education .section-art{background-image:linear-gradient(0deg,#151b16ee,transparent 80%),url('assets/home/art-436535.jpg')}.home-sections .section-boards{color:#fff9e9}.section-education .section-copy{background:#f5efdded;padding:20px 12px;outline:1px solid #6b7155;outline-offset:-6px}
+.home-sections .section-rhetoric{background:#4e2338;color:#fff1df}.section-rhetoric .section-art{background:radial-gradient(ellipse at 30% 15%,#bc8693 0,transparent 64%),linear-gradient(130deg,#714458,#321625)}.section-rhetoric:before{content:'§';position:absolute;inset:0;display:grid;place-items:center;color:#f0d8c55c;font:clamp(75px,13vw,135px)/1 Georgia,serif}
 .section-calls .section-art,.section-psychology .section-art{background-image:url('assets/home/art-436105.jpg')}.section-calls .section-art{background-position:35% center}.section-calls .section-copy{background:#f8f1e1ed;padding:18px 14px;clip-path:polygon(0 3%,97% 0,100% 97%,2% 100%)}
 .home-sections .section-trainer{background:#4f0e1d;color:#faecc4}.section-trainer .section-art{background-image:linear-gradient(0deg,#4f0e1dee,transparent),url('assets/home/art-436535.jpg')}.home-sections .section-psychology{color:#f9f2df}.section-psychology .section-art{background-image:linear-gradient(0deg,#1b0a16ee,transparent),url('assets/home/art-436105.jpg');background-position:78% center}
 .home-sections .section-usage{background:radial-gradient(ellipse at 50% 28%,#827d70 0,#252829 26%,#9c8d73 27%,#c9bca2 28%,#514b40 30%,transparent 31%),#e8e0cc;align-items:flex-end}.section-usage:before{content:'☾';position:absolute;top:11%;left:0;right:0;font-family:Georgia,serif;font-size:100px;color:#eee8d0;text-shadow:0 3px 18px #fff7}
@@ -998,7 +999,7 @@ function goHome(){
 function shell(guest){
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
-  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Образование',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
+  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Образование',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Лимиты',usageView,'VI'),navButton('Архитектура',architectureView,'VII'),navButton('Риторика',rhetoricView,'VIII'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
   $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -1007,6 +1008,7 @@ function shell(guest){
   else if(h==='#architecture'&&currentUser?.uid===CFG.ownerUid)go(architectureView);
   else if(h==='#trainer'&&currentUser?.uid===CFG.ownerUid)go(trainerView);
   else if(h==='#psychology'&&currentUser?.uid===CFG.ownerUid)go(psychologyView);
+  else if(h==='#rhetoric'&&currentUser?.uid===CFG.ownerUid)go(rhetoricView);
   else if(h.startsWith('#usage?reading=')&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h.startsWith('#c-'))go(m=>roomUI(m,h.slice(3),'Видеозвонок',false));
   else go(guest?boardsView:homeView);
@@ -1051,6 +1053,14 @@ async function trainerView(m){
  for(const [title,url] of tools){const button=B(title,()=>select(url));button.dataset.tool=url;buttons.append(button,E('a',{href:url,target:'_blank',rel:'noopener noreferrer',textContent:title+' ↗'}))}
  buttons.append(E('a',{href:'https://speechcoach-anfocuses.com/',target:'_blank',rel:'noopener noreferrer',textContent:'Открыть тренажер ↗'}));
  m.append(buttons,host);select(tools[0][1]);
+}
+
+function rhetoricView(m){
+ if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
+ history.replaceState(null,'',location.pathname+location.search+'#rhetoric');
+ const frame=E('iframe',{src:'./rhetoric/index.html?theme='+currentTheme(),title:'Риторика — библиотека',referrerPolicy:'no-referrer',style:'width:100%;height:82vh;min-height:550px;border:0;border-radius:18px'});
+ frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads');
+ m.append(frame);
 }
 
 async function psychologyView(m){
@@ -1445,6 +1455,7 @@ function homeView(m){
     ['Видеозвонки','Встречи и совместные занятия',()=>go(callView),'calls'],
     ['Образование','Курсы и материалы для уроков',()=>go(eduView),'education'],
     ['Психология','КПТ · курс, дневник и практики',()=>go(psychologyView),'psychology'],
+    ['Риторика','Аристотель, стоики и искусство речи',()=>go(rhetoricView),'rhetoric'],
     ['Тренажер','Speechcoach · панель сайта и коды доступа',()=>go(trainerView),'trainer'],
     ['Лимиты','Использование пространства',()=>go(usageView),'usage'],
     ['Резерв Cloudflare','Проверка и подготовка копий',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'),'reserve']
