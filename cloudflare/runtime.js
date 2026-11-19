@@ -12,8 +12,14 @@ export function createBoardRuntime({databaseURL,baseUrl,getOwner,local,onStatus,
  const queues=new Map();
  let tabScope='';
  if(!globalThis.navigator?.locks){
-  tabScope=sessionStorage.getItem('aspace-sync-tab')||crypto.randomUUID().replaceAll('-','');
-  sessionStorage.setItem('aspace-sync-tab',tabScope);
+  try{
+   tabScope=sessionStorage.getItem('aspace-sync-tab')||crypto.randomUUID().replaceAll('-','');
+   sessionStorage.setItem('aspace-sync-tab',tabScope);
+  }catch{
+   // Private browsing may disable sessionStorage. A memory-only tab scope
+   // still keeps this tab's local standby queue isolated.
+   tabScope=crypto.randomUUID().replaceAll('-','');
+  }
  }
  const digest=async token=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token)))]
   .map(x=>x.toString(16).padStart(2,'0')).join('');
