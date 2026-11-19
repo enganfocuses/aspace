@@ -510,18 +510,34 @@ function contentView(m){
     }
     refreshPlans();monthCursor.setTime(new Date(start+'T12:00:00').getTime());monthCursor.setDate(1);mode='Календарь';search.value='';channel.value=stageFilter.value='';viewTabs.children[1].click();changePlan();selectTab(planner);
   });
+  const modernCalendar=E('div',{className:'content-plan-modern',hidden:true});
+  modernCalendar.style.cssText='min-width:0;width:100%;min-height:620px';
+  let modernCalendarStop=()=>{};
   const tabs=E('nav',{className:'builder-tabs',ariaLabel:'Разделы контента'});
-  const views=[planner,editorial,googleDoc,resources];
+  const views=[planner,editorial,googleDoc,resources,modernCalendar];
   function selectTab(view){
     views.forEach((section,i)=>{section.hidden=section!==view;tabs.children[i].setAttribute('aria-pressed',String(section===view))});
     if(view===resources&&!resources.childElementCount)resourceEditor(resources);
+    if(view===modernCalendar&&!modernCalendar.dataset.loaded){
+      modernCalendar.dataset.loaded='loading';
+      import('./content-plan.js?v=2').then(async module=>{
+        const stop=await module.renderContentPlan(modernCalendar,{load,save});
+        if(!modernCalendar.isConnected)stop();else modernCalendarStop=stop;
+        modernCalendar.dataset.loaded='yes';
+      }).catch(error=>{
+        delete modernCalendar.dataset.loaded;
+        modernCalendar.append(E('p',{className:'mut',textContent:'Не удалось открыть дополнительный календарь: '+error.message}));
+      });
+    }
   }
-  for(const [i,title] of ['Контент-план','Редакция Анны','Google Документ','Мои ресурсы'].entries())tabs.append(B(title,()=>selectTab(views[i])));
+  for(const [i,title] of ['Мой контент-план','Продвижение · Редакция Анны','Google Документ','Мои ресурсы','Новый календарь'].entries())tabs.append(B(title,()=>selectTab(views[i])));
   selectTab(planner);
   m.append(tabs,...views);
   changePlan();
   const originalStore=store;
   store=function(){originalStore();refreshIdeas();refreshStats()};
+  const originalRelease=release;
+  cleanup=()=>{originalRelease();modernCalendarStop()};;
 }
 
 function resourceEditor(host){
