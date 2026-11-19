@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const from=html.indexOf('const room0=');
-const to=html.indexOf('const isLocal=false;',from);
+const to=html.indexOf('const link=',from);
 assert.ok(from>0&&to>from,'Signaling function should be in index');
 const definition=html.slice(from,to);
 let counter=0;

@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const start=source.indexOf('pc.oniceconnectionstatechange=()=>{');const end=source.indexOf('\n    };',start)+7;
 function setup(init=true){let offers=0;const timers=new Map(),pending=new Map(),pcs={},pc={iceConnectionState:'disconnected',signalingState:'stable',async createOffer(o){assert.equal(o.iceRestart,true);offers++;return {}},async setLocalDescription(){}};pcs.peer=pc;
- new Function('pc','init','pcs','id','me','r','reconnectTimers','setTimeout','clearTimeout',source.slice(start,end))(pc,init,pcs,'peer','me',{emit:async()=>true},pending,(fn,ms)=>{const key={};timers.set(key,{fn,ms});return key},key=>timers.delete(key));
+ new Function('pc','init','pcs','id','me','send','reconnectTimers','setTimeout','clearTimeout',source.slice(start,end))(pc,init,pcs,'peer','me',async()=>true,pending,(fn,ms)=>{const key={};timers.set(key,{fn,ms});return key},key=>timers.delete(key));
  return {pc,timers,pcs,get offers(){return offers},async tick(){const [key,timer]=timers.entries().next().value;timers.delete(key);await timer.fn()}};
 }
 test('temporary cellular disconnect schedules recovery and cancels it if connection returns',()=>{const s=setup();s.pc.oniceconnectionstatechange();assert.equal([...s.timers.values()][0].ms,4000);s.pc.iceConnectionState='connected';s.pc.oniceconnectionstatechange();assert.equal(s.timers.size,0)});
@@ -31,10 +31,24 @@ test('answering uses the transceivers created by the incoming offer for both loc
     async setLocalDescription(){}
   }
   const signals=[];
-  await new Function('RTCPeerConnection','MediaStream','st','r',`
+  await new Function('RTCPeerConnection','MediaStream','st','send',`
     const ICE=[],pcs={},me='self',x={from:'peer',d:{}},flushIce=async()=>{};
     ${media}
     return (async()=>{${offer}})();
-  `)(Peer,class {},{getTracks:()=>tracks},{emit:(_,value)=>signals.push(value)});
+  `)(Peer,class {},{getTracks:()=>tracks},(_,value)=>signals.push(value));
   assert.equal(signals[0].k,'answer');
+});
+
+
+test('a rejoining participant replaces the previous peer and rejects its delayed signals',()=>{
+  const code=source.slice(source.indexOf('  function acceptParticipant('),source.indexOf('  async function attachMedia('));
+  const closed=[];
+  const accept=new Function('participants','identity','drop',code+';return acceptParticipant')(
+    new Map(),{participant:'local'},id=>closed.push(id)
+  );
+  assert.equal(accept({from:'old',participant:'teacher',entered:100}),true);
+  assert.equal(accept({from:'new',participant:'teacher',entered:101}),true);
+  assert.equal(accept({from:'old',participant:'teacher',entered:100}),false);
+  assert.equal(accept({from:'other',participant:'student',entered:99}),true);
+  assert.deepEqual(closed,['old']);
 });
