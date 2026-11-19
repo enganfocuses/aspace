@@ -55,6 +55,44 @@ function contentView(m){
     const css=E('style',{id:'vintage-content-calendar-style'});
     css.textContent=`
       .vintage-content-planner{--v-wine:#642b38;--v-wine2:#7b3b49;--v-cream:#f5ecdc;--v-paper:#fbf6eb;--v-ink:#342a2a;--v-gold:#b18a55;color:var(--v-ink)}
+      .vintage-content-planner{width:100%;max-width:none}
+      .vintage-content-planner .content-studio{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;width:100%;max-width:none}
+      .vintage-content-planner .planner-index{width:100%;min-width:0;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+      .vintage-content-planner .vintage-month-grid{width:100%;grid-template-columns:repeat(7,minmax(0,1fr));gap:0;border-top:1px solid #e4d6c9;border-left:1px solid #e4d6c9;border-radius:10px;overflow:hidden}
+      .vintage-content-planner .vintage-weekday{background:#f7eee8;border-right:1px solid #e4d6c9;border-bottom:1px solid #e4d6c9;padding:11px 4px;font-size:13px}
+      .vintage-content-planner .vintage-day{min-height:150px;border:0;border-right:1px solid #e4d6c9;border-bottom:1px solid #e4d6c9;border-radius:0;padding:8px;background:#fffdfa}
+      .vintage-content-planner .vintage-day:nth-child(7n){border-right:0}
+      .vintage-content-planner .vintage-day.outside-month{background:#f8f2ed}
+      .vintage-content-planner .vintage-day-top{font-size:15px;color:#291c28}
+      .vintage-content-planner .planner-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+      .vintage-content-planner .planner-view-tabs{display:flex;gap:4px;padding:4px;background:#f7eee8;border:1px solid #eadbd4;border-radius:12px}
+      .vintage-content-planner .planner-view-tabs button{background:transparent;color:#3c2430;border:0;border-radius:9px;padding:9px 14px}
+      .vintage-content-planner .planner-view-tabs button[aria-pressed=true]{background:#762d49;color:#fff}
+      .vintage-content-planner .planner-utility{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .vintage-content-planner .planner-utility input{min-width:190px}
+      .vintage-content-planner .planner-lower{display:grid;grid-template-columns:1.35fr 1fr 1.1fr;gap:10px;margin-top:10px}
+      .vintage-content-planner .planner-lower-card{min-width:0;background:linear-gradient(145deg,#fffdfa,#fbf4ef);border:1px solid #eadbd4;border-radius:16px;padding:16px;box-shadow:0 4px 16px #4b29300a}
+      .vintage-content-planner .planner-lower-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;color:#762d49;font:600 18px Georgia,serif}
+      .vintage-content-planner .planner-lower-head button{background:transparent;color:#762d49;border:0;padding:3px}
+      .vintage-content-planner .planner-anna-preview{display:grid;grid-template-columns:42% 1fr;gap:12px;align-items:center}
+      .vintage-content-planner .planner-anna-preview img{width:100%;height:150px;object-fit:cover;border-radius:10px}
+      .vintage-content-planner .planner-anna-photo{height:150px;border-radius:10px;background:linear-gradient(145deg,#ead8c8,#f7eee8);display:grid;place-items:center;color:#762d49;font:italic 17px Georgia,serif}
+
+      .vintage-content-planner .planner-anna-preview p{margin:5px 0;color:#4a3440}
+      .vintage-content-planner .planner-idea-list{list-style:none;margin:0;padding:0}
+      .vintage-content-planner .planner-idea-list li{padding:7px 0;border-bottom:1px solid #eee2dc}
+      .vintage-content-planner .planner-idea-list li:before{content:'•';color:#9b3156;margin-right:10px}
+      .vintage-content-planner .planner-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+      .vintage-content-planner .planner-stat strong{display:block;font:700 25px Georgia,serif;color:#2e2030}
+      .vintage-content-planner .planner-stat small{font-size:11px;color:#75636b}
+      .vintage-content-planner .planner-stat-growth{color:#178348!important}
+      .vintage-content-planner .planner-mini-chart{width:100%;height:82px;margin-top:12px}
+      .vintage-content-planner .planner-month-nav{border:0;margin:0;padding:0 6px}
+      .vintage-content-planner .planner-index .planner-actions{display:flex;flex-wrap:wrap}
+      .vintage-content-planner .content-editor{width:100%;box-sizing:border-box}
+      @media(max-width:900px){.vintage-content-planner .planner-lower{grid-template-columns:1fr 1fr}.vintage-content-planner .planner-lower-card:first-child{grid-column:1/-1}}
+      @media(max-width:620px){.vintage-content-planner .planner-lower{grid-template-columns:1fr}.vintage-content-planner .planner-lower-card:first-child{grid-column:auto}.vintage-content-planner .vintage-day{min-height:88px;padding:4px}.vintage-content-planner .planner-anna-preview{grid-template-columns:1fr 1.2fr}.vintage-content-planner .planner-anna-preview img{height:110px}}
+
       .vintage-planner-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:8px 0 22px;padding:22px 26px;border:1px solid #d9c6a8;border-radius:18px;background:radial-gradient(ellipse at 82% 18%,#fff7e8 0,#f4e8d8 48%,#ead8c8 100%);box-shadow:inset 0 0 0 4px #fff9,0 8px 22px #4b293012;position:relative;overflow:hidden}
       .vintage-planner-heading:after{content:'✧  ·  ✦  ·  ✧';position:absolute;right:22px;bottom:10px;color:#a88765;letter-spacing:9px;font-size:13px}
       .vintage-kicker{font:700 10px/1.4 Georgia,serif;letter-spacing:.2em;color:var(--v-gold)}
@@ -231,7 +269,25 @@ function contentView(m){
   }
   function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
   const planTools=E('div',{className:'planner-actions'},planSelect,B('＋ План',newPlan),B('Скачать план',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)}),B('Удалить план',removePlan));
-  section.append(E('aside',{className:'planner-index'},B('＋ Новая запись',create),search,E('div',{className:'planner-actions'},mode,channel),monthNav,weekNav,list),editor);
+  const viewTabs=E('div',{className:'planner-view-tabs'},...['Календарь','Список','Недели'].map((label,i)=>{const b=B(label,()=>{mode.value=['Календарь','По датам','Неделя'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
+  const exportButton=B('↓ Экспорт',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)});
+  const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,exportButton));
+  const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create));
+  const annaCard=E('section',{className:'planner-lower-card'},
+    E('div',{className:'planner-lower-head'},E('span',{textContent:'☆  Редакция Анны'}),B('Все материалы →',()=>selectTab(editorial))),
+    E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo',textContent:'✦  Авторский сезон'}),E('div',{},E('strong',{textContent:'Авторский сезон о мышлении и речи'}),E('p',{textContent:'Сценарии, идеи и готовый план публикаций'}),B('Открыть материалы',()=>selectTab(editorial)))));
+  const ideaCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head'},E('span',{textContent:'♧  Идеи'}),B('Все идеи →',()=>{mode.value='По этапам';listPlan();selectTab(planner)})));
+  const ideaList=E('ul',{className:'planner-idea-list'});
+  const refreshIdeas=()=>{ideaList.replaceChildren();const ideas=inPlan().filter(x=>x.stage==='Идея'||x.kind==='Идея').slice(0,5);for(const item of ideas)ideaList.append(E('li',{textContent:item.title||'Новая идея',onclick:()=>{edit(item);selectTab(planner)}}));if(!ideas.length)ideaList.append(E('li',{textContent:'Добавьте первую идею через календарь'}) )};
+  ideaCard.append(ideaList);
+  const statsCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head'},E('span',{textContent:'▥  Статистика'}),E('small',{textContent:'За всё время'})));
+  const stats=E('div',{className:'planner-stat-row'});
+  const statPublished=E('strong',{textContent:'0'}),statPlanned=E('strong',{textContent:'0'}),statIdeas=E('strong',{textContent:'0'});
+  for(const [num,label,cls] of [[statPublished,'Публикаций',''],[statPlanned,'Запланировано','planner-stat-growth'],[statIdeas,'Идей','']])stats.append(E('div',{className:'planner-stat'},Object.assign(E('span'),{textContent:''}),num,E('small',{textContent:label})));
+  const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея'||x.kind==='Идея').length)};
+  statsCard.append(stats);
+  const lower=E('div',{className:'planner-lower'},annaCard,ideaCard,statsCard);
+  section.append(E('aside',{className:'planner-index'},toolbar,monthTools,E('div',{className:'planner-actions'},channel),weekNav,list),editor,lower);
   const planner=E('div',{className:'vintage-content-planner'},
     E('div',{className:'vintage-planner-heading'},
       E('div',{className:'vintage-heading-copy'},E('span',{className:'vintage-kicker',textContent:'✦ МОЯ РЕЧЕВАЯ МАСТЕРСКАЯ ✦'}),E('h2',{textContent:'Календарь контента'}),E('p',{textContent:'Мысли, которые обретают голос. Публикации, которые находят свой день.'})),
@@ -266,7 +322,9 @@ function contentView(m){
   for(const [i,title] of ['Редакция Анны','Контент-план','Мои ресурсы'].entries())tabs.append(B(title,()=>selectTab(views[i])));
   selectTab(editorial);
   m.append(E('h2',{textContent:'Контент'}),tabs,...views);
-  changePlan();
+  changePlan();refreshIdeas();refreshStats();
+  const originalStore=store;
+  store=function(){originalStore();refreshIdeas();refreshStats()};
 }
 
 function resourceEditor(host){
