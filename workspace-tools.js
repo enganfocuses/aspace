@@ -151,6 +151,39 @@ function contentView(m){
       .content-workspace .planner-lower-head,.content-workspace .planner-stat small{overflow-wrap:anywhere}
       .season-fields textarea{width:100%;box-sizing:border-box}
       @media(max-width:620px){.content-workspace .planner-utility{justify-content:flex-start}.content-workspace .vintage-day{min-height:64px}.content-workspace .vintage-event{padding:4px}}
+
+      #main.content-workspace{--planner-wine:#642b38;--planner-beige:#f4e7d5;--planner-ink:#3f2630}
+      #main.content-workspace button{background:var(--planner-beige)!important;color:var(--planner-ink)!important;border-color:#bd9fa4;box-shadow:none;transition:none}
+      :root #main.workspace-view.content-workspace :is(button[aria-pressed=true],button.planner-primary,.builder-tabs button[aria-pressed=true]):not(.sw):not(.vbar button),#main.content-workspace .planner-disclosure[open]>summary{background:var(--planner-wine)!important;color:#fff!important;border-color:var(--planner-wine)}
+      #main.content-workspace button small{color:inherit}
+      #main.content-workspace button:focus-visible,#main.content-workspace summary:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+      #main.content-workspace .planner-index{background:#fffaf5;box-shadow:none;border-color:#d3bdba}
+      #main.content-workspace .planner-view-tabs{background:none;border:0;padding:0}
+      #main.content-workspace .planner-disclosure>summary{display:inline-block;cursor:pointer;background:var(--planner-beige);color:var(--planner-ink);border:1px solid #bd9fa4;border-radius:8px;padding:7px 10px}
+      #main.content-workspace .planner-disclosure>summary::after{content:' ▾'}
+      #main.content-workspace .planner-week{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:0;margin:0;border:0}
+      #main.content-workspace .planner-week[hidden]{display:none}
+      .planner-week>strong{font:600 20px Georgia,serif}
+      .planner-agenda{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;color:#3f2630}
+      .planner-days,.planner-preview{min-width:0;background:#fffdf9;border:1px solid #d3bdba;border-radius:12px}
+      .planner-agenda-day{padding:8px 10px;border-bottom:1px solid #e5d5cf;display:grid;grid-template-columns:minmax(64px,96px) minmax(0,1fr) auto;gap:8px;align-items:start}
+      .planner-agenda-day:last-child{border-bottom:0}
+      .planner-agenda-day.is-today{background:#f9f0e8}
+      .planner-agenda-day>strong{padding-top:6px;text-transform:capitalize}
+      .planner-agenda-day .agenda-row{display:flex;flex-direction:column;gap:5px;min-width:0}
+      .planner-agenda-day .agenda-task{text-align:left;white-space:normal;overflow-wrap:anywhere;padding:6px 9px}
+      .agenda-task small{display:block;margin-top:2px}
+      .planner-preview{padding:16px;align-self:start}
+      .planner-preview h3{color:#642b38;font:600 22px Georgia,serif;margin:4px 0 8px;overflow-wrap:anywhere}
+      .planner-preview p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 12px}
+      .planner-preview .preview-text{max-height:13rem;overflow:auto}
+      .planner-move-status:empty{display:none}
+      .planner-move{margin-top:12px;padding-top:12px;border-top:1px solid #e5d5cf}
+      .planner-move input,.planner-move select{max-width:100%;min-width:0}
+      .planner-move .planner-filter{flex:1 1 125px}
+      .planner-drop-target{outline:2px dashed #642b38;outline-offset:-3px}
+      .content-workspace .planner-lower .planner-disclosure>summary{margin-bottom:10px}
+      @media(max-width:680px){.planner-agenda{grid-template-columns:1fr}.planner-agenda-day{grid-template-columns:64px minmax(0,1fr) auto}}
     `;
     document.head.append(css);
   }
@@ -173,7 +206,7 @@ function contentView(m){
   const planSelect=E('select',{ariaLabel:'Контент-план'}),search=E('input',{type:'search',placeholder:'Найти идею или текст',ariaLabel:'Поиск записей'});
   const channel=E('select',{ariaLabel:'Площадка'},E('option',{value:'',textContent:'Все площадки'}),...platforms.map(textContent=>E('option',{textContent})));
   const stageFilter=E('select',{ariaLabel:'Статус'},E('option',{value:'',textContent:'Все статусы'}),...stages.map(textContent=>E('option',{textContent})));
-  const mode=E('select',{ariaLabel:'Вид плана'},...['Календарь','По этапам','По датам','Неделя','Блоки'].map(textContent=>E('option',{textContent})));mode.value='Календарь';
+  let mode='Неделя';
   const monthCursor=new Date();monthCursor.setDate(1);monthCursor.setHours(12,0,0,0);
   const monthLabel=E('strong',{className:'planner-month-label'});
   function shiftMonth(delta){monthCursor.setMonth(monthCursor.getMonth()+delta);listPlan()}
@@ -182,9 +215,11 @@ function contentView(m){
   const dateString=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
   const monday=new Date();monday.setHours(12,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
 
+  let selectedTaskId='';
+  const moveStatus=E('small',{className:'planner-move-status',role:'status'});
   const weekRange=E('strong');
   function shiftWeek(days){monday.setDate(monday.getDate()+days);listPlan()}
-  const weekNav=E('div',{className:'planner-week',hidden:true},B('←',()=>shiftWeek(-7)),weekRange,B('→',()=>shiftWeek(7)));
+  const weekNav=E('div',{className:'planner-week',hidden:true},B('←',()=>shiftWeek(-7)),weekRange,B('→',()=>shiftWeek(7)),B('Сегодня',()=>{monday.setTime(Date.now());monday.setDate(monday.getDate()-(monday.getDay()+6)%7);listPlan()}));
   weekNav.firstChild.title='Предыдущая неделя';weekNav.lastChild.title='Следующая неделя';
   const inPlan=()=>[...records.values()].filter(item=>(item.plan||'default')===currentPlan);
   function refreshPlans(){
@@ -193,36 +228,121 @@ function contentView(m){
   function changePlan(){
     localStorage.setItem(planKey+':selected',currentPlan||'');
     if(dialog.open)dialog.close();
-    entry=null;release();editor.replaceChildren();listPlan();refreshIdeas();refreshStats();
+    entry=null;selectedTaskId='';moveStatus.textContent='';release();editor.replaceChildren();listPlan();refreshIdeas();refreshStats();
   }
   function newPlan(){
     const name=prompt('Название контент-плана')?.trim();if(!name)return false;
     const plan={id:uid(),name};plans.push(plan);localStorage.setItem(planKey,JSON.stringify(plans));currentPlan=plan.id;refreshPlans();changePlan();return true;
   }
+  function moveTask(item,patch){
+    const updated={...item,...patch};
+    try{
+      localStorage.setItem(prefix+item.id,JSON.stringify(updated));
+    }catch(error){moveStatus.textContent='Не удалось переместить запись: '+error.message;return}
+    Object.assign(item,patch);
+    selectedTaskId=item.id;
+    moveStatus.textContent=patch.date?'Новая дата: '+new Date(patch.date+'T12:00:00').toLocaleDateString('ru')+'.':'Запись перемещена.';
+    listPlan();refreshIdeas();refreshStats();
+  }
+  let draggingTask=null;
+  function draggable(button,item){
+    button.draggable=true;
+    button.ondragstart=event=>{
+      draggingTask=item;
+      event.dataTransfer.effectAllowed='move';
+      event.dataTransfer.setData('text/plain',item.title||'Запись');
+    };
+    button.ondragend=()=>{draggingTask=null};
+    return button;
+  }
+  function dropTarget(node,key,value){
+    node.ondragover=event=>{
+      if(!draggingTask||draggingTask[key]===value)return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect='move';
+      node.classList.add('planner-drop-target');
+    };
+    node.ondragleave=event=>{if(!node.contains(event.relatedTarget))node.classList.remove('planner-drop-target')};
+    node.ondrop=event=>{
+      if(!draggingTask)return;
+      event.preventDefault();
+      node.classList.remove('planner-drop-target');
+      const item=draggingTask;
+      draggingTask=null;
+      if(item[key]!==value)moveTask(item,{[key]:value});
+    };
+    return node;
+  }
+  function renderWeek(visible){
+    const days=Array.from({length:7},(_,i)=>{const day=new Date(monday);day.setDate(day.getDate()+i);return dateString(day)});
+    weekRange.textContent=days[0].slice(8)+'.'+days[0].slice(5,7)+' — '+days[6].slice(8)+'.'+days[6].slice(5,7);
+    const weekItems=visible.filter(item=>days.includes(item.date)||!item.date);
+    const selected=weekItems.find(item=>item.id===selectedTaskId)||weekItems.find(item=>item.date>=dateString(new Date()))||weekItems[0];
+    const agenda=E('div',{className:'planner-days'});
+    const preview=E('aside',{className:'planner-preview',ariaLabel:'Просмотр записи'});
+    function show(item){
+      selectedTaskId=item?.id||'';
+      for(const button of agenda.querySelectorAll('.agenda-task'))button.setAttribute('aria-pressed',String(button.dataset.id===selectedTaskId));
+      if(!item){preview.replaceChildren(E('p',{textContent:'Выбери запись, чтобы открыть её текст.'}));return}
+      const date=E('input',{type:'date',value:item.date||''});
+      const stage=E('select',{},...stages.map(textContent=>E('option',{textContent})));
+      stage.value=item.stage||stages[0];
+      const move=E('form',{className:'planner-actions planner-move',onsubmit:event=>{
+        event.preventDefault();
+        if(date.value!==item.date||stage.value!==item.stage)moveTask(item,{date:date.value,stage:stage.value});
+      }},filter('Перенести на дату',date),filter('Этап',stage),E('button',{type:'submit',textContent:'Переместить'}));
+      preview.replaceChildren(E('small',{textContent:[item.storyFormat||item.kind,item.stage,...item.platforms].filter(Boolean).join(' · ')}),
+        E('h3',{textContent:item.title||'Без названия'}),
+        E('p',{className:'preview-text',textContent:item.text||item.explanation||'Текст пока не добавлен.'}),
+        B('Редактировать',()=>edit(item)),move);
+    }
+    for(const date of [...days,...(weekItems.some(item=>!item.date)?['']:[])]){
+      const dayTasks=weekItems.filter(item=>(item.date||'')===date);
+      const label=date?new Date(date+'T12:00:00').toLocaleDateString('ru',{weekday:'short',day:'numeric'}):'Без даты';
+      const add=B('＋',()=>create(date));add.setAttribute('aria-label','Добавить запись: '+label);
+      const rows=E('div',{className:'agenda-row'});
+      for(const item of dayTasks){
+        const button=draggable(B(item.title||'Без названия',()=>{
+          show(item);
+          if(matchMedia('(max-width:680px)').matches)preview.scrollIntoView({block:'nearest'});
+        },'agenda-task'),item);
+        button.dataset.id=item.id;
+        const meta=[item.time,...item.platforms].filter(Boolean).join(' · ');
+        if(meta)button.append(E('small',{textContent:meta}));
+        rows.append(button);
+      }
+      const day=E('div',{className:'planner-agenda-day'+(date===dateString(new Date())?' is-today':'')},
+        E('strong',{textContent:label}),rows,add);
+      agenda.append(dropTarget(day,'date',date));
+    }
+    show(selected);
+    list.append(E('div',{className:'planner-agenda'},agenda,preview));
+  }
   function listPlan(){
     list.replaceChildren();
     const query=search.value.trim().toLocaleLowerCase();
     const visible=inPlan().filter(item=>(!channel.value||item.platforms.includes(channel.value))&&(!stageFilter.value||item.stage===stageFilter.value)&&[item.title,item.text].join(' ').toLocaleLowerCase().includes(query));
-    const byStage=mode.value==='По этапам',calendarMode=mode.value==='Календарь';
+    const calendarMode=mode==='Календарь';
     visible.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||'')||b.created-a.created);
-    const gridMode=mode.value==='Блоки';
+    const gridMode=mode==='Блоки';
     section.classList.toggle('plan-wide',gridMode);
     if(gridMode){
       weekNav.hidden=monthNav.hidden=true;
       const card=item=>{
-        const b=B(item.title||'Без названия',()=>{edit(item)},'plan-tile');
+        const b=draggable(B(item.title||'Без названия',()=>edit(item),'plan-tile'),item);
         b.append(E('small',{textContent:[item.date,item.time,item.kind].filter(Boolean).join(' · ')}));b.setAttribute('aria-pressed',String(entry===item));return b;
       };
         const blocks=E('div',{className:'plan-blocks'});
         for(const stage of stages){
           const rows=visible.filter(item=>(item.stage||stages[0])===stage);
-          blocks.append(E('section',{},E('h4',{textContent:stage+' · '+rows.length}),...rows.map(card)));
+          blocks.append(dropTarget(E('section',{},E('h4',{textContent:stage+' · '+rows.length}),...rows.map(card)),'stage',stage));
         }
         list.append(blocks);
       return;
     }
-    const groupName=item=>byStage?(item.stage||stages[0]):item.date||'Без даты';
-    const week=mode.value==='Неделя';weekNav.hidden=!week;monthNav.hidden=!calendarMode;
+    const groupName=item=>item.date||'Без даты';
+    const week=mode==='Неделя';weekNav.hidden=!week;monthNav.hidden=!calendarMode;
+    if(week){renderWeek(visible);return}
     if(calendarMode){
       monthLabel.textContent=monthCursor.toLocaleDateString('ru',{month:'long',year:'numeric'});
       const weekdays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
@@ -241,30 +361,27 @@ function contentView(m){
         const add=B('+',()=>create(key));add.className='vintage-day-add';add.title='Добавить публикацию';top.append(add);cell.append(top);
         const entries=visible.filter(item=>item.date===key);
         for(const item of entries){
-          const chip=B('',()=>{edit(item)});chip.dataset.format=item.storyFormat||item.kind;chip.className='vintage-event '+(item.stage==='Опубликовано'?'is-published':item.stage==='Запланировано'?'is-scheduled':'');
-          chip.append(E('span',{className:'vintage-event-kind',textContent:item.storyFormat||item.kind}),E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.time,item.stage].filter(Boolean).join(' · ')}));
+          const chip=draggable(B(item.title||'Без названия',()=>edit(item),'vintage-event'),item);
+          chip.title=[item.storyFormat||item.kind,item.time,item.stage].filter(Boolean).join(' · ');
           cell.append(chip);
         }
-            grid.append(cell);
+        grid.append(dropTarget(cell,'date',key));
       }
       list.append(grid);
       if(!visible.length)list.append(E('p',{className:'vintage-empty-note',textContent:'Пока нет публикаций. Нажми «+» в нужной дате, чтобы добавить первую.'}));
       return;
     }
-    const days=Array.from({length:7},(_,i)=>{const day=new Date(monday);day.setDate(day.getDate()+i);return dateString(day)});
-    weekRange.textContent=days[0].slice(8)+'.'+days[0].slice(5,7)+' — '+days[6].slice(8)+'.'+days[6].slice(5,7);
-    const groups=week?days:byStage?stages:[...new Set(visible.map(groupName))];
+    const groups=[...new Set(visible.map(groupName))];
     for(const name of groups){
-      const members=visible.filter(item=>groupName(item)===name);if(!week&&!members.length)continue;
-      const label=!byStage&&name!=='Без даты'?new Date(name+'T12:00:00').toLocaleDateString('ru',{weekday:'short',day:'numeric',month:'long'}):name;
-      const heading=E('h4',{textContent:label+' · '+members.length});
-      if(week){const add=B('＋',()=>create(name));add.title='Добавить публикацию на '+name;add.setAttribute('aria-label',add.title);heading.append(add)}list.append(heading);
+      const members=visible.filter(item=>groupName(item)===name);
+      const label=name!=='Без даты'?new Date(name+'T12:00:00').toLocaleDateString('ru',{weekday:'short',day:'numeric',month:'long'}):name;
+      list.append(E('h4',{textContent:label+' · '+members.length}));
       for(const item of members){
         const button=E('button',{className:'content-entry',onclick:()=>edit(item)},E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.kind,item.date,item.time,...item.platforms].filter(Boolean).join(' · ')}));
         button.setAttribute('aria-pressed',String(entry===item));list.append(button);
       }
     }
-    if(!week&&!visible.length)list.append(E('p',{textContent:query||channel.value?'По этим условиям записей нет.':'В этом плане пока нет записей.'}));
+    if(!visible.length)list.append(E('p',{textContent:query||channel.value?'По этим условиям записей нет.':'В этом плане пока нет записей.'}));
   }
   async function exportRecords(items,name){
     try{
@@ -289,13 +406,13 @@ function contentView(m){
     await removeItems(items);plans.splice(plans.indexOf(plan),1);localStorage.setItem(planKey,JSON.stringify(plans));
     currentPlan=plans[0]?.id;refreshPlans();changePlan();
   }
-  planSelect.onchange=()=>{currentPlan=planSelect.value;changePlan()};search.oninput=channel.onchange=stageFilter.onchange=mode.onchange=listPlan;refreshPlans();
+  planSelect.onchange=()=>{currentPlan=planSelect.value;changePlan()};search.oninput=channel.onchange=stageFilter.onchange=listPlan;refreshPlans();
   function store(){
     try{localStorage.setItem(prefix+entry.id,JSON.stringify(entry));records.set(entry.id,entry);status.textContent='Сохранено на устройстве';listPlan()}
     catch(error){status.textContent='Ошибка записи на устройстве: '+error.message}
   }
   function edit(item){
-    release();entry=item;listPlan();editor.replaceChildren();
+    release();entry=item;selectedTaskId=item.id;listPlan();editor.replaceChildren();
     if(!dialog.open)dialog.showModal();
     function field(label,key,node){
       node.value=item[key]||(key==='stage'?stages[0]:'');node.oninput=()=>{item[key]=node.value;store()};return E('label',{},label,node);
@@ -320,14 +437,21 @@ function contentView(m){
     localGet('assets',assetKey).then(saved=>{if(saved?.value)show(saved.value)}).catch(error=>status.textContent=error.message);
   }
   function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
-  const viewTabs=E('div',{className:'planner-view-tabs'},...['Календарь','Список','Недели','Блоки'].map((label,i)=>{const b=B(label,()=>{mode.value=['Календарь','По датам','Неделя','Блоки'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
+  const viewTabs=E('div',{className:'planner-view-tabs'},...['Неделя','Месяц','Список','Блоки'].map((label,i)=>{const b=B(label,()=>{mode=['Неделя','Календарь','По датам','Блоки'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
   const exportButton=B('↓ Экспорт',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)});
   const filter=(label,input)=>E('label',{className:'planner-filter'},label,input);
   const tools=E('details',{},E('summary',{textContent:'Действия с планом'}),E('div',{className:'planner-actions'},B('＋ Новый план',newPlan),exportButton,B('Удалить план',removePlan)));
-  const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,B('＋ Запись',create)));
-  const filters=E('div',{className:'planner-toolbar'},monthNav,
-    filter('План',planSelect),filter('Площадка',channel),filter('Статус',stageFilter),
-    B('Сбросить фильтры',()=>{search.value=channel.value=stageFilter.value='';listPlan()}),tools);
+  function createVisibleTask(){
+    const today=new Date();
+    const weekEnd=new Date(monday);weekEnd.setDate(weekEnd.getDate()+6);
+    if(mode==='Неделя'&&(dateString(today)<dateString(monday)||dateString(today)>dateString(weekEnd)))return create(dateString(monday));
+    if(mode==='Календарь'&&(today.getMonth()!==monthCursor.getMonth()||today.getFullYear()!==monthCursor.getFullYear()))return create(dateString(monthCursor));
+    create(dateString(today));
+  }
+  const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,B('＋ Запись',createVisibleTask,'planner-primary')));
+  const filters=E('details',{className:'planner-disclosure'},E('summary',{textContent:'Фильтры и планы'}),
+    E('div',{className:'planner-actions'},filter('План',planSelect),filter('Площадка',channel),filter('Статус',stageFilter),
+      B('Сбросить фильтры',()=>{search.value=channel.value=stageFilter.value='';listPlan()}),tools));
   const annaCard=E('section',{className:'planner-lower-card'},
     E('div',{className:'planner-lower-head'},E('span',{textContent:'☆ Редакция Анны'})),
     E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo'}),
@@ -349,7 +473,8 @@ function contentView(m){
   }},ideaInput,E('button',{type:'submit',textContent:'＋ Добавить'}));
   const ideaStatus=E('small',{role:'status'});
   const ideaList=E('ul',{className:'planner-idea-list'});
-  const ideaCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head',textContent:'Банк идей'}),ideaForm,ideaStatus,ideaList);
+  const ideaCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head',textContent:'Банк идей'}),ideaForm,ideaStatus,
+    E('details',{className:'planner-disclosure'},E('summary',{textContent:'Открыть идеи'}),ideaList));
   function refreshIdeas(){
     const ideas=inPlan().filter(item=>item.stage==='Идея').sort((a,b)=>b.created-a.created);
     ideaList.replaceChildren(...ideas.map(item=>E('li',{},B(item.title||'Без названия',()=>edit(item)))));
@@ -360,9 +485,9 @@ function contentView(m){
   const statPublished=E('strong',{textContent:'0'}),statPlanned=E('strong',{textContent:'0'}),statIdeas=E('strong',{textContent:'0'});
   for(const [num,label,cls] of [[statPublished,'Публикаций',''],[statPlanned,'Запланировано','planner-stat-growth'],[statIdeas,'Идей','']])stats.append(E('div',{className:'planner-stat'},Object.assign(E('span'),{textContent:''}),num,E('small',{textContent:label})));
   const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея').length)};
-  statsCard.append(stats);
+  statsCard.append(E('details',{className:'planner-disclosure'},E('summary',{textContent:'Показать статистику'}),stats));
   const lower=E('div',{className:'planner-lower'},ideaCard,statsCard,annaCard);
-  section.append(E('aside',{className:'planner-index'},toolbar,filters,weekNav,list),lower,dialog);
+  section.append(E('aside',{className:'planner-index'},toolbar,E('div',{className:'planner-toolbar'},weekNav,monthNav,filters),moveStatus,list),lower,dialog);
   const planner=E('div',{className:'vintage-content-planner'},section);
   const resources=E('div',{className:'personal-resources'}),googleDoc=linkedWorkspacePanel('document');
   const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),(start,season,seasonName,stories)=>{
@@ -383,7 +508,7 @@ function contentView(m){
       }catch(error){for(const item of added)localStorage.removeItem(prefix+item.id);alert('Не удалось сохранить сезон: '+error.message);return}
       plans.push(plan);for(const item of added)records.set(item.id,item);currentPlan=plan.id;
     }
-    refreshPlans();monthCursor.setTime(new Date(start+'T12:00:00').getTime());monthCursor.setDate(1);mode.value='Календарь';search.value='';channel.value=stageFilter.value='';viewTabs.firstChild.click();changePlan();selectTab(planner);
+    refreshPlans();monthCursor.setTime(new Date(start+'T12:00:00').getTime());monthCursor.setDate(1);mode='Календарь';search.value='';channel.value=stageFilter.value='';viewTabs.children[1].click();changePlan();selectTab(planner);
   });
   const tabs=E('nav',{className:'builder-tabs',ariaLabel:'Разделы контента'});
   const views=[planner,editorial,googleDoc,resources];
