@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Oswald:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Lobster&family=Pacifico&family=Caveat:wght@400;700&family=Marck+Script&family=Comfortaa:wght@400;700&family=Neucha&subset=cyrillic&display=swap">
 <script src="config.js"></script>
-<script src="./anna-editorial.js?v=4"></script>
+<script src="./anna-editorial.js?v=5"></script>
 <script src="./workspace-tools.js?v=8"></script>
 <script src="usage-tracker.js"></script>
 <link rel="stylesheet" href="usage.css">
@@ -669,7 +669,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 #main.workspace-view .idea-card.tone-2 summary{color:#fff}.idea-card h3{font:600 1.45rem/1.15 Georgia,serif;margin:14px 0}.idea-card .anna-details{padding:8px 0;border:0;border-top:1px solid #b59a72;border-radius:0}.idea-card p{line-height:1.5}
 .plan-wide{grid-template-columns:minmax(0,1fr)}.plan-blocks section,.month-day{border:1px solid #baa88e;border-radius:10px;padding:8px}.plan-tile{display:grid;gap:5px;text-align:left;width:100%;white-space:normal;overflow-wrap:anywhere;margin:4px 0}.plan-tile small{font-size:.75rem}.month-scroll{max-width:100%;overflow:auto}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(90px,1fr));gap:4px}.month-day{min-height:76px}.month-day>button:first-child{padding:3px 8px}.month-day .plan-tile{padding:6px;border-radius:6px;font-size:.82rem}
 .anna-edition .anna-cover{background:#51172b url('./assets/home/anna-studio.webp') center right/cover no-repeat;position:relative;isolation:isolate;overflow:hidden}.anna-cover:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#391021f5,#391021db 40%,transparent 90%)}.anna-season-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.anna-season-select{display:flex;flex:0 1 285px;align-items:center;gap:8px;min-width:0}
+.anna-season-select{display:flex;flex:0 1 285px;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.anna-season-select>span{flex:none}
 #main .anna-season-select select{width:100%;min-width:0}
 .anna-season-bar button,.anna-season-bar summary{white-space:nowrap}
 .anna-season-actions>summary{list-style:none}
@@ -1104,7 +1105,7 @@ const say2=t=>{const e=E('div',{className:'toast',textContent:t});e.style.displa
 addEventListener('hashchange',()=>location.reload());
 let cleanup=()=>{};
 const main=()=>$('#main');
-const go=async(fn)=>{cleanup();cleanup=()=>{};boardThemeScope=null;applyTheme();main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={contentView:'Контент',boardsView:'Доски',callView:'Видеозвонки',eduView:'Английский',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
+const go=async(fn)=>{cleanup();cleanup=()=>{};boardThemeScope=null;applyTheme();main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={contentView:'Контент',boardsView:'Доски',callView:'Видеозвонки',eduView:'Английский',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
 function passwordResetDialog(prefill=currentUser?.email||''){
@@ -1173,7 +1174,7 @@ function shell(guest){
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',title,onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const sidebarToggle=B('❤',toggleSidebar,'sidebar-toggle');sidebarToggle.setAttribute('aria-label','Свернуть меню');sidebarToggle.setAttribute('aria-expanded','true');sidebarToggle.title='Свернуть меню';
   const hd=E('header',{},E('b',{textContent:'Aspace'}),sidebarToggle,...(guest?[]:[themeControl(),B('⌂ Домой',goHome,'nav-home')]));
-  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),navButton('Контент',contentView,'IX'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
+  if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Тренажер',trainerView,'V'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),navButton('Контент',contentView,'IX'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
   const app=E('div',{id:'app'},hd,E('div',{id:'main'}));app.classList.toggle('sidebar-collapsed',ls.g('aspace-sidebar-collapsed',false));$('#root').replaceChildren(app);
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
@@ -1182,7 +1183,7 @@ function shell(guest){
   else if(h==='#usage'&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h==='#architecture'&&currentUser?.uid===CFG.ownerUid)go(architectureView);
   else if(h==='#trainer'&&currentUser?.uid===CFG.ownerUid)go(trainerView);
-  else if(h==='#psychology'&&currentUser?.uid===CFG.ownerUid)go(psychologyView);
+  else if((h==='#psychology'||h==='#library-psychology')&&currentUser?.uid===CFG.ownerUid)go(m=>rhetoricView(m,'psychology'));
   else if((h==='#library'||h==='#rhetoric')&&currentUser?.uid===CFG.ownerUid)go(rhetoricView);
   else if(h==='#content'&&currentUser?.uid===CFG.ownerUid)go(contentView);
   else if(h==='#english'&&currentUser?.uid===CFG.ownerUid)go(eduView);
@@ -1232,27 +1233,20 @@ async function trainerView(m){
  m.append(buttons,host);select(tools[0][1]);
 }
 
-function rhetoricView(m){
+function rhetoricView(m,shelf=''){
  if(!currentUser||currentUser.uid!==CFG.ownerUid)return;
- history.replaceState(null,'',location.pathname+location.search+'#library');
+ history.replaceState(null,'',location.pathname+location.search+(shelf==='psychology'?'#library-psychology':'#library'));
  m.classList.add('rhetoric-view');
- const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?v=11&theme='+currentTheme(),title:'Библиотека Aspace',referrerPolicy:'no-referrer'});
- frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-downloads');
+ const params=new URLSearchParams({v:'12',theme:currentTheme()});
+ if(shelf)params.set('shelf',shelf);
+ const frame=E('iframe',{className:'rhetoric-frame',src:'./rhetoric/index.html?'+params,title:'Библиотека Aspace',referrerPolicy:'no-referrer'});
+ frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads');
  const resizeReader=event=>{
   if(event.origin!==location.origin||event.source!==frame.contentWindow||event.data?.type!=='aspace-rhetoric-expand')return;
   frame.classList.toggle('rhetoric-frame-expanded',event.data.expanded===true);
  };
  window.addEventListener('message',resizeReader);
  cleanup=()=>window.removeEventListener('message',resizeReader);
- m.append(frame);
-}
-
-async function psychologyView(m){
- if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Раздел доступен владельцу пространства.'}));return}
- history.replaceState(null,'',location.pathname+location.search+'#psychology');
- const url='./psychology/index.html?v=6&embed=1&theme='+currentTheme();
- const frame=E('iframe',{src:url,title:'Психология — курс и тренажёр КПТ',referrerPolicy:'no-referrer',style:'width:100%;height:82vh;min-height:640px;border:1px solid #d9c8e5;border-radius:18px;background:#f7f3ee'});
- frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads allow-top-navigation-by-user-activation');
  m.append(frame);
 }
 
@@ -1675,8 +1669,7 @@ function homeView(m){
     ['Доски','Все ваши рабочие пространства',()=>go(boardsView),'boards'],
     ['Видеозвонки','Встречи и совместные занятия',()=>go(callView),'calls'],
     ['Английский','Сборщики упражнений',()=>go(eduView),'education'],
-    ['Психология','КПТ · курс, дневник и практики',()=>go(psychologyView),'psychology'],
-    ['Библиотека','Книги и заметки',()=>go(rhetoricView),'rhetoric'],
+    ['Библиотека','Книги, заметки и психология',()=>go(rhetoricView),'rhetoric'],
     ['Тренажер','Speechcoach · панель сайта и коды доступа',()=>go(trainerView),'trainer'],
     ['Контент','Идеи, публикации и контент-план',()=>go(contentView),'usage']
   ];

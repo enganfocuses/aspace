@@ -1,4 +1,4 @@
-import {catalog, openingPages} from './catalog.mjs?v=3';
+import {catalog, openingPages} from './catalog.mjs?v=4';
 import {isHeading, paginate} from './pagination.mjs?v=1';
 import {addPdf, listPdfs, readPdfFile, removePdf} from './pdf-library.mjs?v=3';
 
@@ -15,6 +15,8 @@ function element(tag, text, props = {}) {
 }
 const catalogView = document.querySelector('#catalog');
 const library = document.querySelector('#collection');
+const psychologyPanel = document.querySelector('#psychology-panel');
+let psychologyFrame;
 const search = document.querySelector('.search input');
 const shelves = document.querySelector('.shelves');
 const reader = document.querySelector('#reader');
@@ -57,7 +59,8 @@ let activeBook, pdfDocument, painting;
 let bookPages = [];
 let pageIndex = 0;
 let complete = false;
-let currentShelf = catalog[0].id;
+const requestedShelf = new URLSearchParams(location.search).get('shelf');
+let currentShelf = navigationShelves.some(shelf => shelf.id === requestedShelf) ? requestedShelf : catalog[0].id;
 let request, activeButton, fileUrl;
 let catalogScroll = 0;
 const tabs = navigationShelves.map(({id, title}) => {
@@ -96,7 +99,8 @@ function displayTitle(book) {
 }
 
 function bookShelf(book) {
-  return readLocal('section:' + bookKey(book)) ?? book.shelfId;
+  const shelf = readLocal('section:' + bookKey(book)) ?? book.shelfId;
+  return shelf === 'stoics' ? 'aristotle' : shelf;
 }
 
 function isHiddenBook(book) {
@@ -562,10 +566,29 @@ function bookCard(book) {
   return card;
 }
 const normalize = value => value.toLocaleLowerCase('ru').replaceAll('ё', 'е');
+function showPsychology(visible) {
+  psychologyPanel.hidden = !visible;
+  if (!visible || psychologyFrame) return;
+  const root = document.documentElement;
+  const url = new URL('../psychology/index.html', location.href);
+  url.search = new URLSearchParams({v:'7', embed:'1', theme:root.dataset.theme || 'beige'});
+  psychologyFrame = element('iframe', '', {
+    src:url.href, className:'psychology-frame', title:'Психология — курс и практикум КПТ',
+    referrerPolicy:'no-referrer'
+  });
+  const forwardTheme = () => psychologyFrame.contentWindow?.postMessage({
+    type:'aspace-theme', theme:root.dataset.theme
+  }, location.origin);
+  psychologyFrame.addEventListener('load', forwardTheme);
+  new MutationObserver(forwardTheme).observe(root, {attributeFilter:['data-theme']});
+  psychologyPanel.append(psychologyFrame);
+}
 function render() {
   const query = normalize(search.value.trim());
   for (const [id, button] of tabs) button.setAttribute('aria-pressed', String(!query && id === currentShelf));
   library.replaceChildren();
+  const showingPsychology = !query && currentShelf === 'psychology';
+  showPsychology(showingPsychology);
   const entries = shelvesData.flatMap(shelf => shelf.books.map(book => ({shelfId:shelf.id, ...book})));
   for (const shelf of navigationShelves) {
     if ((!query && shelf.id !== currentShelf) || (query && shelf === hiddenShelf && currentShelf !== hiddenShelf.id)) continue;
@@ -578,7 +601,7 @@ function render() {
     group.append(element('h2', shelf.title, {className:'shelf-title'}), grid);
     library.append(group);
   }
-  if (!library.children.length) library.append(element('p',
+  if (!showingPsychology && !library.children.length) library.append(element('p',
     query ? 'По этому запросу книг нет.' : 'В этом разделе пока нет книг.'));
 
 }

@@ -53,10 +53,15 @@ test('invalid imported field types are rejected and a too-short passphrase creat
  const store=memory(),vault=new JournalVault(store);await assert.rejects(()=>vault.create('short'),/10 символов/);assert.equal(store.getItem(VAULT_KEY),null);
  await vault.create(pass);await assert.rejects(()=>vault.mutate(d=>d.entries.push({type:'thought',fields:{bad:{html:'x'}}})),/Некорректное поле/);assert.equal(vault.data.entries.length,0);
 });
-test('owner route and navigation are present while psychology records never enter board persistence',()=>{
- const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');assert.match(html,/h==='#psychology'&&currentUser\?\.uid===CFG\.ownerUid/);
- const view=html.slice(html.indexOf('async function psychologyView('),html.indexOf('/* ---------- звонок'));
- assert.match(view,/currentUser\?\.uid!==CFG\.ownerUid/);assert.match(view,/psychology\/index.html/);assert.doesNotMatch(view,/\bload\(|\bsave\(|fetch\(/);
+test('owner psychology route opens its library shelf while journal records stay local',()=>{
+ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+ assert.match(html,/h==='#psychology'\|\|h==='#library-psychology'/);
+ assert.match(html,/go\(m=>rhetoricView\(m,'psychology'\)\)/);
+ assert.doesNotMatch(html,/navButton\('Психология'/);
+ const view=html.slice(html.indexOf('function rhetoricView('),html.indexOf('/* ---------- звонок'));
+ assert.match(view,/currentUser.uid!==CFG.ownerUid/);
+ const library=readFileSync(new URL('../rhetoric/app.mjs',import.meta.url),'utf8');
+ assert.match(library,/new URL\('\.\.\/psychology\/index\.html', location.href\)/);
  const source=readFileSync(new URL('../psychology/vault.mjs',import.meta.url),'utf8');assert.doesNotMatch(source,/fetch\(|XMLHttpRequest|firebase|sendBeacon/);
 });
 test('offline shell includes every psychology module and local source PDFs are not public assets',()=>{
