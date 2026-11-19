@@ -413,7 +413,7 @@ function makeStudentLink(){
  const types={};['advanced','theory','vocab','translation','errors','grammar','writing','listening'].forEach(k=>types[k]=selectedType(k));
  if(!Object.values(types).some(Boolean)){alert('Выберите хотя бы один вид упражнений');return;}
  const payload={v:1,u:u.n,codes,types,name:$('#sheetname').value.trim()||('Speakout B1+ · Unit '+u.n+' · '+codes.join(', '))};
- const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+ const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).split('+').join('-').split('/').join('_').replace(/=+$/,'');
  const link=location.href.split('#')[0]+'#assignment='+encoded;
  $('#studentlink').value=link;$('#studentlinkbox').classList.remove('hidden');$('#studentlinkbox').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
