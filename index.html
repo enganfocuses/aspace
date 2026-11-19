@@ -2988,9 +2988,20 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
         if(result.conflict)say('Firebase и резерв содержат разные правки. Обе версии сохранены.');
       }
     }catch(error){
-      if(!isOwner&&[401,403,404].includes(error.status)){
-        pollStopped=true;guest=true;clearTimeout(cloudPollTimer);r.close();call?.stop();callRoom?.close();
-        root.replaceChildren(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доступ к доске закрыт'}))));
+      if(!isOwner&&boardShareToken&&[401,403,404].includes(error.status)){
+        // A failed board read is not proof that a share was revoked. Confirm
+        // revocation through the share metadata endpoint before removing the
+        // student's active board. If metadata itself is unreachable, preserve
+        // the already-loaded board and retry instead of ejecting the student.
+        let metaCheckSucceeded=false,accessMeta=null;
+        try{accessMeta=await shareRead(boardShareToken,'meta');metaCheckSucceeded=true}catch{}
+        if(metaCheckSucceeded&&(!accessMeta||accessMeta.boardId!==id)){
+          pollStopped=true;guest=true;clearTimeout(cloudPollTimer);r.close();call?.stop();callRoom?.close();
+          root.replaceChildren(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доступ к доске закрыт'}))));
+        }else if(!disposed){
+          pollFailures++;pollDelay=Math.min(basePollDelay*Math.pow(1.7,Math.min(pollFailures,4)),30000);
+          say('Связь временно потеряна. Доска остаётся открытой; повторяем подключение…');
+        }
       }else if(!disposed){pollFailures++;pollDelay=Math.min(basePollDelay*Math.pow(1.7,Math.min(pollFailures,4)),30000);say('Доска сохранена на устройстве. Повторяем подключение…')}
     }finally{polling=false;if(!disposed&&!pollStopped){clearTimeout(cloudPollTimer);cloudPollTimer=setTimeout(()=>void pollBoard(),pollDelay)}}
   };
