@@ -51,6 +51,45 @@ function linkedWorkspacePanel(kind){
 function contentView(m){
   history.replaceState(null,'',location.pathname+location.search+'#content');
   const prefix='aspace:content:'+currentUser.uid+':';
+  if(!document.getElementById('vintage-content-calendar-style')){
+    const css=E('style',{id:'vintage-content-calendar-style'});
+    css.textContent=`
+      .vintage-content-planner{--v-wine:#642b38;--v-wine2:#7b3b49;--v-cream:#f5ecdc;--v-paper:#fbf6eb;--v-ink:#342a2a;--v-gold:#b18a55;color:var(--v-ink)}
+      .vintage-planner-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:8px 0 22px;padding:22px 26px;border:1px solid #d9c6a8;border-radius:18px;background:radial-gradient(ellipse at 82% 18%,#fff7e8 0,#f4e8d8 48%,#ead8c8 100%);box-shadow:inset 0 0 0 4px #fff9,0 8px 22px #4b293012;position:relative;overflow:hidden}
+      .vintage-planner-heading:after{content:'✧  ·  ✦  ·  ✧';position:absolute;right:22px;bottom:10px;color:#a88765;letter-spacing:9px;font-size:13px}
+      .vintage-kicker{font:700 10px/1.4 Georgia,serif;letter-spacing:.2em;color:var(--v-gold)}
+      .vintage-heading-copy h2{font:600 clamp(25px,3vw,36px)/1.15 Georgia,serif;color:var(--v-wine);margin:7px 0}
+      .vintage-heading-copy p{margin:0;color:#75645a;font:14px Georgia,serif}
+      .vintage-heading-art{display:flex;align-items:center;gap:8px;color:var(--v-gold);font-size:32px;filter:sepia(.35);padding:0 14px}
+      .vintage-heading-art span:nth-child(2n){font-size:17px}
+      .vintage-content-planner .planner-actions{gap:8px;align-items:center}
+      .vintage-content-planner .planner-actions button,.vintage-content-planner .planner-index>button{background:var(--v-wine);color:#fff;border:1px solid #4e202d;border-radius:8px}
+      .vintage-content-planner .planner-actions button:hover,.vintage-content-planner .planner-index>button:hover{background:var(--v-wine2);color:#fff}
+      .vintage-content-planner .planner-index{background:linear-gradient(145deg,#fffaf1,#f7efe3);border:1px solid #dfcfb8;border-radius:16px;padding:16px;box-shadow:0 7px 22px #4b29300d}
+      .vintage-content-planner .planner-index input,.vintage-content-planner .planner-index select{background:#fffaf2;border-color:#d9c6a8;color:var(--v-ink);border-radius:8px}
+      .planner-month-nav{display:flex;align-items:center;justify-content:center;gap:18px;padding:10px;margin:8px 0 12px;border-bottom:1px solid #ddcbb3}
+      .planner-month-nav button{width:34px;height:34px;padding:0;border-radius:50%;background:#eadcc8;color:var(--v-wine);font-size:23px;line-height:1}
+      .planner-month-label{text-transform:capitalize;font:600 21px Georgia,serif;color:var(--v-wine);min-width:190px;text-align:center}
+      .vintage-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;min-width:0}
+      .vintage-weekday{text-align:center;padding:8px 3px;color:#795a50;font:600 12px Georgia,serif;letter-spacing:.06em}
+      .vintage-day{min-height:118px;min-width:0;padding:7px;background:linear-gradient(145deg,#fffdf7,#f7efe3);border:1px solid #e3d4c1;border-radius:9px;box-shadow:inset 0 1px 0 #fff;overflow:hidden}
+      .vintage-day.outside-month{opacity:.45;background:#f1e9de}
+      .vintage-day.today{border:1.5px solid #9b6b57;box-shadow:inset 0 0 0 2px #f1e2d0}
+      .vintage-day-top{display:flex;justify-content:space-between;align-items:center;color:#63483f;font:600 13px Georgia,serif;margin-bottom:5px}
+      .vintage-day-add{width:22px;height:22px;padding:0;border-radius:50%;background:#ead9c3;color:#693443;font-size:16px;line-height:1}
+      .vintage-event{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:6px 7px;margin:4px 0;text-align:left;white-space:normal;overflow-wrap:anywhere;background:#eadfe0;color:#482d32;border:1px solid #d8c1bd;border-radius:6px;box-shadow:none;font-weight:400}
+      .vintage-event:hover{background:#e4d0d0;color:#482d32}
+      .vintage-event.is-scheduled{background:#e9e0cc;border-color:#d8c29a}.vintage-event.is-published{background:#dce5d9;border-color:#b6c7ad}
+      .vintage-event-kind{font-size:10px;color:#8a6249}.vintage-event strong{font:600 11px/1.25 Georgia,serif}.vintage-event small{font-size:9px;color:#77665b}
+      .vintage-empty-mark{display:block;text-align:center;color:#cbb89e;font-size:10px;margin-top:18px}
+      .vintage-empty-note{text-align:center;color:#806d5d;font:14px Georgia,serif;padding:10px}
+      .vintage-content-planner .content-editor{background:#fffaf1;border-color:#dfcfb8}
+      @media(max-width:760px){.vintage-planner-heading{padding:16px}.vintage-heading-art{font-size:23px;padding:0}.vintage-month-grid{gap:2px}.vintage-day{min-height:90px;padding:4px;border-radius:6px}.vintage-weekday{font-size:10px;padding:5px 0}.vintage-event{padding:4px;margin:3px 0}.vintage-event strong{font-size:10px}.vintage-event small{font-size:8px}.planner-month-label{font-size:18px;min-width:160px}}
+      @media(max-width:480px){.vintage-heading-art{display:none}.vintage-day{min-height:72px}.vintage-event-kind{display:none}.vintage-event strong{font-size:9px}.vintage-day-top{font-size:11px}}
+    `;
+    document.head.append(css);
+  }
+
   const platforms=['YouTube','RuTube','Instagram','Telegram','ВКонтакте','MAX'];
   const section=E('section',{className:'content-studio'}),list=E('div',{className:'content-plan'}),editor=E('div',{className:'card content-editor'}),status=E('small',{role:'status'});
   let entry=null,photoUrl='';
@@ -66,7 +105,11 @@ function contentView(m){
   const stages=['Идея','В работе','На проверке','Запланировано','Опубликовано'];
   const planSelect=E('select',{ariaLabel:'Контент-план'}),search=E('input',{type:'search',placeholder:'Найти идею или текст',ariaLabel:'Поиск записей'});
   const channel=E('select',{ariaLabel:'Площадка'},E('option',{value:'',textContent:'Все площадки'}),...platforms.map(textContent=>E('option',{textContent})));
-  const mode=E('select',{ariaLabel:'Вид плана'},...['По этапам','По датам','Неделя'].map(textContent=>E('option',{textContent})));
+  const mode=E('select',{ariaLabel:'Вид плана'},...['Календарь','По этапам','По датам','Неделя'].map(textContent=>E('option',{textContent})));mode.value='Календарь';
+  const monthCursor=new Date();monthCursor.setDate(1);monthCursor.setHours(12,0,0,0);
+  const monthLabel=E('strong',{className:'planner-month-label'});
+  function shiftMonth(delta){monthCursor.setMonth(monthCursor.getMonth()+delta);listPlan()}
+  const monthNav=E('div',{className:'planner-month-nav'},B('‹',()=>shiftMonth(-1)),monthLabel,B('›',()=>shiftMonth(1)));
   let currentPlan=plans.find(p=>p.id===localStorage.getItem(planKey+':selected'))?.id||plans[0]?.id;
   const dateString=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
   const monday=new Date();monday.setHours(12,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
@@ -90,10 +133,37 @@ function contentView(m){
     list.replaceChildren();
     const query=search.value.trim().toLocaleLowerCase();
     const visible=inPlan().filter(item=>(!channel.value||item.platforms.includes(channel.value))&&[item.title,item.text].join(' ').toLocaleLowerCase().includes(query));
-    const byStage=mode.value==='По этапам';
+    const byStage=mode.value==='По этапам',calendarMode=mode.value==='Календарь';
     visible.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||'')||b.created-a.created);
     const groupName=item=>byStage?(item.stage||stages[0]):item.date||'Без даты';
-    const week=mode.value==='Неделя';weekNav.hidden=!week;
+    const week=mode.value==='Неделя';weekNav.hidden=!week;monthNav.hidden=!calendarMode;
+    if(calendarMode){
+      monthLabel.textContent=monthCursor.toLocaleDateString('ru',{month:'long',year:'numeric'});
+      const weekdays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+      const grid=E('div',{className:'vintage-month-grid'});
+      for(const name of weekdays)grid.append(E('div',{className:'vintage-weekday',textContent:name}));
+      const first=new Date(monthCursor);first.setDate(1);
+      const offset=(first.getDay()+6)%7;
+      const start=new Date(first);start.setDate(first.getDate()-offset);
+      for(let i=0;i<42;i++){
+        const day=new Date(start);day.setDate(start.getDate()+i);
+        const key=dateString(day),sameMonth=day.getMonth()===monthCursor.getMonth();
+        const cell=E('div',{className:'vintage-day'+(sameMonth?'':' outside-month')+(key===dateString(new Date())?' today':'')});
+        const top=E('div',{className:'vintage-day-top'},E('span',{textContent:String(day.getDate())}));
+        const add=B('+',()=>create(key));add.className='vintage-day-add';add.title='Добавить публикацию';top.append(add);cell.append(top);
+        const entries=visible.filter(item=>item.date===key);
+        for(const item of entries){
+          const chip=B('',()=>edit(item));chip.className='vintage-event '+(item.stage==='Опубликовано'?'is-published':item.stage==='Запланировано'?'is-scheduled':'');
+          chip.append(E('span',{className:'vintage-event-kind',textContent:item.kind==='Видео'?'▶':item.kind==='Пост'?'✎':'✧'}),E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.time,item.stage].filter(Boolean).join(' · ')}));
+          cell.append(chip);
+        }
+        if(!entries.length&&sameMonth)cell.append(E('span',{className:'vintage-empty-mark',textContent:'✦'}));
+        grid.append(cell);
+      }
+      list.append(grid);
+      if(!visible.length)list.append(E('p',{className:'vintage-empty-note',textContent:'Пока нет публикаций. Нажми «+» в нужной дате, чтобы добавить первую.'}));
+      return;
+    }
     const days=Array.from({length:7},(_,i)=>{const day=new Date(monday);day.setDate(day.getDate()+i);return dateString(day)});
     weekRange.textContent=days[0].slice(8)+'.'+days[0].slice(5,7)+' — '+days[6].slice(8)+'.'+days[6].slice(5,7);
     const groups=week?days:byStage?stages:[...new Set(visible.map(groupName))];
@@ -161,8 +231,12 @@ function contentView(m){
   }
   function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
   const planTools=E('div',{className:'planner-actions'},planSelect,B('＋ План',newPlan),B('Скачать план',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)}),B('Удалить план',removePlan));
-  section.append(E('aside',{className:'planner-index'},B('＋ Новая запись',create),search,E('div',{className:'planner-actions'},mode,channel),weekNav,list),editor);
-  const planner=E('div',{},planTools,section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
+  section.append(E('aside',{className:'planner-index'},B('＋ Новая запись',create),search,E('div',{className:'planner-actions'},mode,channel),monthNav,weekNav,list),editor);
+  const planner=E('div',{className:'vintage-content-planner'},
+    E('div',{className:'vintage-planner-heading'},
+      E('div',{className:'vintage-heading-copy'},E('span',{className:'vintage-kicker',textContent:'✦ МОЯ РЕЧЕВАЯ МАСТЕРСКАЯ ✦'}),E('h2',{textContent:'Календарь контента'}),E('p',{textContent:'Мысли, которые обретают голос. Публикации, которые находят свой день.'})),
+      E('div',{className:'vintage-heading-art','aria-hidden':'true'},E('span',{textContent:'🗝'}),E('span',{textContent:'✧'}),E('span',{textContent:'🎙'}),E('span',{textContent:'✧'}),E('span',{textContent:'▤'}))),
+    planTools,section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
   const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),start=>{
     const name='Мысли есть · '+start;
     const existing=plans.find(p=>p.seasonStart===start);
