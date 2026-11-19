@@ -693,7 +693,7 @@ const usageTracker=AspaceUsage.create({scope:CFG.ownerUid,
  enabled:()=>currentUser?.uid===CFG.ownerUid,firebaseURL:DB(),
  cloudflareURL:CFG.reserve?.url||'https://aspace-fallback-api.anncodes001.workers.dev'});
 // One automatic transport for the existing owner and student board UI.
-const standbyOptIn=()=>CFG.reserve?.enabled!==false&&new URLSearchParams(location.search).get('standby')!=='off';
+const standbyOptIn=()=>CFG.reserve?.enabled===true&&new URLSearchParams(location.search).get('standby')!=='off';
 const standbyKey=p=>/^boards\/[A-Za-z0-9_-]+$/.test(p);
 let boardRuntimePromise=null;const syncStates=new Map();
 function getBoardRuntime(){
@@ -824,7 +824,9 @@ const revokeShare=async token=>{
  await shareWrite(token,'meta',{...meta,role:'viewer'});
  await syncStandbyShare(meta.boardId,token,null,true);
  const runtime=await getBoardRuntime();
- const result=runtime?await (await runtime.shared(token)).read():{value:await shareRead(token,'board')};
+ // Owner deletion uses the authenticated Firebase path directly. Do not route
+  // this critical cleanup through the optional standby runtime.
+  const result={value:await shareRead(token,'board')};
  if(result.conflict)throw Error('Есть конфликт версий. Доски сохранены, но сначала нужно разрешить конфликт.');
  const path=DB()+'/docs/boards/'+encodeURIComponent(meta.boardId)+'.json';
  const before=await fetch(path,{headers:{'X-Firebase-ETag':'true'},cache:'no-store'});
