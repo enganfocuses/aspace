@@ -118,6 +118,9 @@ function contentView(m){
       .vintage-event{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:6px 7px;margin:4px 0;text-align:left;white-space:normal;overflow-wrap:anywhere;background:#eadfe0;color:#482d32;border:1px solid #d8c1bd;border-radius:6px;box-shadow:none;font-weight:400}
       .vintage-event:hover{background:#e4d0d0;color:#482d32}
       .vintage-event.is-scheduled{background:#e9e0cc;border-color:#d8c29a}.vintage-event.is-published{background:#dce5d9;border-color:#b6c7ad}
+      .vintage-content-planner .vintage-event[data-format]{border:0;border-radius:8px;background:#f5dce2;color:#382733;padding:8px}
+      .vintage-content-planner .vintage-event:is([data-format="Карусель"],[data-format="Яппинг"]){background:#e6e1f5}
+      .vintage-content-planner .vintage-event:is([data-format="Видео"],[data-format="Ролик"]){background:#fae8ca}
       .vintage-event-kind{font-size:10px;color:#8a6249}.vintage-event strong{font:600 11px/1.25 Georgia,serif}.vintage-event small{font-size:9px;color:#77665b}
       .vintage-empty-mark{display:block;text-align:center;color:#cbb89e;font-size:10px;margin-top:18px}
       .vintage-empty-note{text-align:center;color:#806d5d;font:14px Georgia,serif;padding:10px}
@@ -143,7 +146,7 @@ function contentView(m){
   const stages=['Идея','В работе','На проверке','Запланировано','Опубликовано'];
   const planSelect=E('select',{ariaLabel:'Контент-план'}),search=E('input',{type:'search',placeholder:'Найти идею или текст',ariaLabel:'Поиск записей'});
   const channel=E('select',{ariaLabel:'Площадка'},E('option',{value:'',textContent:'Все площадки'}),...platforms.map(textContent=>E('option',{textContent})));
-  const mode=E('select',{ariaLabel:'Вид плана'},...['Календарь','По этапам','По датам','Неделя'].map(textContent=>E('option',{textContent})));mode.value='Календарь';
+  const mode=E('select',{ariaLabel:'Вид плана'},...['Календарь','По этапам','По датам','Неделя','Блоки'].map(textContent=>E('option',{textContent})));mode.value='Календарь';
   const monthCursor=new Date();monthCursor.setDate(1);monthCursor.setHours(12,0,0,0);
   const monthLabel=E('strong',{className:'planner-month-label'});
   function shiftMonth(delta){monthCursor.setMonth(monthCursor.getMonth()+delta);listPlan()}
@@ -151,6 +154,7 @@ function contentView(m){
   let currentPlan=plans.find(p=>p.id===localStorage.getItem(planKey+':selected'))?.id||plans[0]?.id;
   const dateString=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
   const monday=new Date();monday.setHours(12,0,0,0);monday.setDate(monday.getDate()-(monday.getDay()+6)%7);
+
   const weekRange=E('strong');
   function shiftWeek(days){monday.setDate(monday.getDate()+days);listPlan()}
   const weekNav=E('div',{className:'planner-week',hidden:true},B('←',()=>shiftWeek(-7)),weekRange,B('→',()=>shiftWeek(7)));
@@ -173,6 +177,22 @@ function contentView(m){
     const visible=inPlan().filter(item=>(!channel.value||item.platforms.includes(channel.value))&&[item.title,item.text].join(' ').toLocaleLowerCase().includes(query));
     const byStage=mode.value==='По этапам',calendarMode=mode.value==='Календарь';
     visible.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||'')||b.created-a.created);
+    const gridMode=mode.value==='Блоки';
+    section.classList.toggle('plan-wide',gridMode);
+    if(gridMode){
+      weekNav.hidden=monthNav.hidden=true;
+      const card=item=>{
+        const b=B(item.title||'Без названия',()=>{edit(item);editor.scrollIntoView({block:'nearest'})},'plan-tile');
+        b.append(E('small',{textContent:[item.date,item.time,item.kind].filter(Boolean).join(' · ')}));b.setAttribute('aria-pressed',String(entry===item));return b;
+      };
+        const blocks=E('div',{className:'plan-blocks'});
+        for(const stage of stages){
+          const rows=visible.filter(item=>(item.stage||stages[0])===stage);
+          blocks.append(E('section',{},E('h4',{textContent:stage+' · '+rows.length}),...rows.map(card)));
+        }
+        list.append(blocks);
+      return;
+    }
     const groupName=item=>byStage?(item.stage||stages[0]):item.date||'Без даты';
     const week=mode.value==='Неделя';weekNav.hidden=!week;monthNav.hidden=!calendarMode;
     if(calendarMode){
@@ -191,8 +211,8 @@ function contentView(m){
         const add=B('+',()=>create(key));add.className='vintage-day-add';add.title='Добавить публикацию';top.append(add);cell.append(top);
         const entries=visible.filter(item=>item.date===key);
         for(const item of entries){
-          const chip=B('',()=>edit(item));chip.className='vintage-event '+(item.stage==='Опубликовано'?'is-published':item.stage==='Запланировано'?'is-scheduled':'');
-          chip.append(E('span',{className:'vintage-event-kind',textContent:item.kind==='Видео'?'▶':item.kind==='Пост'?'✎':'✧'}),E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.time,item.stage].filter(Boolean).join(' · ')}));
+          const chip=B('',()=>{edit(item);editor.scrollIntoView({block:'nearest'})});chip.dataset.format=item.storyFormat||item.kind;chip.className='vintage-event '+(item.stage==='Опубликовано'?'is-published':item.stage==='Запланировано'?'is-scheduled':'');
+          chip.append(E('span',{className:'vintage-event-kind',textContent:item.storyFormat||item.kind}),E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.time,item.stage].filter(Boolean).join(' · ')}));
           cell.append(chip);
         }
         if(!entries.length&&sameMonth)cell.append(E('span',{className:'vintage-empty-mark',textContent:'✦'}));
@@ -264,15 +284,16 @@ function contentView(m){
     function show(blob){if(entry!==item||!photo.isConnected)return;release();photoUrl=URL.createObjectURL(blob);photo.src=photoUrl;photo.hidden=false}
     file.onchange=async()=>{const blob=file.files[0];if(!blob)return;try{await localPut('assets',{key:assetKey,value:blob});show(blob);status.textContent='Скрин сохранён на устройстве'}catch(error){status.textContent=error.message}};
     editor.append(field('Название','title',E('input')),field('Формат','kind',kind),E('div',{className:'planner-schedule'},field('Этап','stage',E('select',{},...stages.map(textContent=>E('option',{textContent})))),field('Дата публикации','date',E('input',{type:'date'})),field('Время','time',E('input',{type:'time'}))),field('Идея или текст','text',E('textarea',{rows:9})),targets,E('label',{},'Скрин видео',file),photo,...(plans.length>1?[E('label',{},'План публикации',destination)]:[]),status,E('div',{className:'planner-actions'},B('Скачать запись',()=>exportRecords([item],item.title||item.kind)),B('Удалить запись',async()=>{if(confirm('Удалить запись «'+(item.title||item.kind)+'» с устройства?')){await removeItems([item]);changePlan()}})));
+    editor.append(bufferScheduler(item,prefix));
+    if(item.explanation)editor.prepend(E('p',{textContent:item.explanation}));
     if(item.storyFormat)editor.append(E('details',{},E('summary',{textContent:item.storyFormat+' · '+item.rubric}),field('Съёмка','shoot',E('textarea',{rows:3})),field('Что измерить','measure',E('textarea',{rows:2})),field('Результат и следующий тест','result',E('textarea',{rows:2}))));
     localGet('assets',assetKey).then(saved=>{if(saved?.value)show(saved.value)}).catch(error=>status.textContent=error.message);
   }
   function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
-  const planTools=E('div',{className:'planner-actions'},planSelect,B('＋ План',newPlan),B('Скачать план',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)}),B('Удалить план',removePlan));
-  const viewTabs=E('div',{className:'planner-view-tabs'},...['Календарь','Список','Недели'].map((label,i)=>{const b=B(label,()=>{mode.value=['Календарь','По датам','Неделя'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
+  const viewTabs=E('div',{className:'planner-view-tabs'},...['Календарь','Список','Недели','Блоки'].map((label,i)=>{const b=B(label,()=>{mode.value=['Календарь','По датам','Неделя','Блоки'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
   const exportButton=B('↓ Экспорт',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)});
   const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,exportButton));
-  const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create));
+  const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create),B('Удалить план',removePlan));
   const annaCard=E('section',{className:'planner-lower-card'},
     E('div',{className:'planner-lower-head'},E('span',{textContent:'☆  Редакция Анны'}),B('Все материалы →',()=>selectTab(editorial))),
     E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo',textContent:'✦  Авторский сезон'}),E('div',{},E('strong',{textContent:(annaSeason[0]?.title||'Авторский сезон о мышлении и речи')}),E('p',{textContent:annaSeason.length+' материалов, сценарии и готовый план публикаций'}),B('Открыть материалы',()=>selectTab(editorial)))));
@@ -285,7 +306,7 @@ function contentView(m){
   const statPublished=E('strong',{textContent:'0'}),statPlanned=E('strong',{textContent:'0'}),statIdeas=E('strong',{textContent:'0'});
   for(const [num,label,cls] of [[statPublished,'Публикаций',''],[statPlanned,'Запланировано','planner-stat-growth'],[statIdeas,'Идей','']])stats.append(E('div',{className:'planner-stat'},Object.assign(E('span'),{textContent:''}),num,E('small',{textContent:label})));
   const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея'||x.kind==='Идея').length)};
-  statsCard.append(stats,E('svg',{className:'planner-mini-chart',viewBox:'0 0 320 70',role:'img','aria-label':'Динамика публикаций'},E('path',{d:'M4 58 L42 43 L82 44 L120 25 L160 38 L201 21 L240 16 L278 5 L316 5',fill:'none',stroke:'#8a294b','stroke-width':'2'}),...[[4,58],[42,43],[82,44],[120,25],[160,38],[201,21],[240,16],[278,5],[316,5]].map(([cx,cy])=>E('circle',{cx,cy,r:'3',fill:'#8a294b'}))));
+  statsCard.append(stats);
   const lower=E('div',{className:'planner-lower'},annaCard,ideaCard,statsCard);
   section.append(E('aside',{className:'planner-index'},toolbar,monthTools,E('div',{className:'planner-actions'},channel),weekNav,list),editor,lower);
   const planner=E('div',{className:'vintage-content-planner'},
@@ -293,25 +314,25 @@ function contentView(m){
       E('div',{className:'vintage-heading-copy'},E('span',{className:'vintage-kicker',textContent:'✦ МОЯ РЕЧЕВАЯ МАСТЕРСКАЯ ✦'}),E('h2',{textContent:'Календарь контента'}),E('p',{textContent:'Мысли, которые обретают голос. Публикации, которые находят свой день.'})),
       E('div',{className:'vintage-heading-art','aria-hidden':'true'},E('span',{textContent:'🗝'}),E('span',{textContent:'✧'}),E('span',{textContent:'🎙'}),E('span',{textContent:'✧'}),E('span',{textContent:'▤'}))),
     section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
-  const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),start=>{
-    const name='Мысли есть · '+start;
-    const existing=plans.find(p=>p.seasonStart===start);
+  const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),(start,season)=>{
+    const name=(season==='second'?'Слушаю, говорите':'Мысли есть')+' · '+start;
+    const existing=plans.find(p=>p.seasonStart===start&&(p.season||'first')===season);
     if(existing){currentPlan=existing.id}
     else{
-      const plan={id:uid(),name,seasonStart:start},added=[];
+      const plan={id:uid(),name,seasonStart:start,season},added=[];
       try{
-        for(const story of annaSeason){
+        for(const story of (season==='second'?secondSeason:annaSeason)){
           const day=new Date(start+'T12:00:00');day.setDate(day.getDate()+story.day);
           const item={id:uid(),plan:plan.id,title:story.title,kind:['Ролик','Яппинг'].includes(story.format)?'Видео':'Пост',
             stage:stages[0],date:dateString(day),time:'',created:Date.now(),platforms:[...story.channels],
-            text:story.script,shoot:story.shot,measure:story.metric,rubric:story.rubric,storyFormat:story.format,goal:story.goal};
+            explanation:story.why||firstSeasonNotes[annaSeason.indexOf(story)],text:story.script,shoot:story.shot,measure:story.metric,rubric:story.rubric,storyFormat:story.format,goal:story.goal};
           localStorage.setItem(prefix+item.id,JSON.stringify(item));added.push(item);
         }
         localStorage.setItem(planKey,JSON.stringify([...plans,plan]));
       }catch(error){for(const item of added)localStorage.removeItem(prefix+item.id);alert('Не удалось сохранить сезон: '+error.message);return}
       plans.push(plan);for(const item of added)records.set(item.id,item);currentPlan=plan.id;
     }
-    refreshPlans();mode.value='По датам';search.value='';channel.value='';changePlan();selectTab(planner);
+    refreshPlans();monthCursor.setTime(new Date(start+'T12:00:00').getTime());monthCursor.setDate(1);mode.value='Календарь';search.value='';channel.value='';changePlan();selectTab(planner);
   });
   const tabs=E('nav',{className:'builder-tabs',ariaLabel:'Разделы контента'});
   const views=[editorial,planner,resources];
@@ -320,7 +341,7 @@ function contentView(m){
     if(view===resources&&!resources.childElementCount)resourceEditor(resources);
   }
   for(const [i,title] of ['Редакция Анны','Контент-план','Мои ресурсы'].entries())tabs.append(B(title,()=>selectTab(views[i])));
-  selectTab(editorial);
+  selectTab(planner);
   m.append(E('h2',{textContent:'Контент'}),tabs,...views);
   changePlan();refreshIdeas();refreshStats();
   const originalStore=store;
@@ -408,4 +429,38 @@ function resourceEditor(host){
   host.append(E('section',{className:'card'},E('h3',{textContent:'Мои соцсети'}),socials));
   host.append(E('section',{className:'card resource-editor'},E('h3',{textContent:'Мои ресурсы'}),tabs,live,E('label',{},'Открыть HTML с устройства',upload),E('label',{},'Исходный HTML',code),E('div',{className:'row'},preview,download),status,frame));
   void openSite(sites[0]);
+}
+
+function bufferScheduler(item,prefix){
+  const key=prefix.replace('aspace:content:','aspace:delivery:')+item.id;
+  const receipt=()=>JSON.parse(localStorage.getItem(key)||'null');
+  const info=E('p',{role:'status'}),target=E('select',{ariaLabel:'Канал Buffer'}),media=E('input',{type:'url',placeholder:'Публичная HTTPS-ссылка на медиа'});
+  const kind=E('select',{ariaLabel:'Вложение'},...['Только текст','Изображение','Видео'].map(textContent=>E('option',{textContent})));
+  const panel=E('details',{},E('summary',{textContent:'Автопостинг через Buffer'}));
+  const queue=E('a',{href:'https://publish.buffer.com',target:'_blank',rel:'noopener noreferrer',textContent:'Проверить очередь в Buffer ↗'});
+  async function api(method,body){
+    const r=await fetch(CFG.reserve.url+'/v1/publishing',{method,headers:{Authorization:'Bearer '+await currentUser.getIdToken(),'Content-Type':'application/json'},body:body&&JSON.stringify(body)});
+    if(r.status===404||r.status===503)throw Error('Автопостинг ещё не подключён. Для Worker нужны BUFFER_API_KEY и BUFFER_ORGANIZATION_ID.');
+    const data=await r.json();if(!r.ok)throw Error(data.error||'Не удалось связаться с Buffer');return data;
+  }
+  const load=B('Загрузить мои каналы',async()=>{
+    load.disabled=true;try{const channels=await api('GET');target.replaceChildren(...channels.map(c=>E('option',{value:c.id,textContent:c.name+' · '+c.service})));info.textContent=channels.length?'Выбери канал назначения.':'В Buffer нет подключённых каналов.'}catch(e){info.textContent=e.message}finally{load.disabled=false}
+  });
+  const send=B('Поставить в очередь',async()=>{
+    const time=new Date(item.date+'T'+item.time),channel=target.selectedOptions[0];
+    if(!channel||!(item.text||'').trim()||!Number.isFinite(+time)||time<=new Date()){info.textContent='Нужны канал, текст и будущая дата со временем.';return}
+    const asset=kind.selectedIndex?{type:kind.selectedIndex===1?'image':'video',url:media.value}:null;
+    if(asset&&!/^https:\/\//.test(asset.url)){info.textContent='Укажи HTTPS-ссылку на файл.';return}
+    if(receipt())return;
+    if(!confirm('Запланировать публикацию в '+channel.textContent+' на '+time.toLocaleString('ru')+' по времени этого устройства?'))return;
+    const label=channel.textContent+' · '+time.toLocaleString('ru');send.disabled=true;
+    try{
+      localStorage.setItem(key,JSON.stringify({label,pending:true}));
+      const data=await api('POST',{channelId:channel.value,dueAt:time.toISOString(),text:item.text,asset});
+      localStorage.setItem(key,JSON.stringify({label,id:data.id}));info.textContent='В очереди Buffer: '+label;
+    }catch(e){info.textContent=e.message+' Проверь очередь перед повтором.'}
+  });
+  const saved=receipt();if(saved){info.textContent=(saved.id?'В очереди Buffer: ':'Требует сверки с Buffer: ')+saved.label;send.disabled=true}
+  const clear=B('Сбросить отметку после сверки',()=>{if(receipt()&&confirm('Запись проверена в Buffer? Сбросить локальную отметку? Это не отменяет публикацию в Buffer.')){localStorage.removeItem(key);send.disabled=false;info.textContent='Можно планировать заново.'}});
+  panel.append(E('p',{textContent:'В очередь уйдёт текущий текст записи. Дата и время — местные. После отправки изменения и отмена выполняются в Buffer.'}),E('div',{className:'planner-actions'},load,target,kind,media,send),info,queue,clear);return panel;
 }
