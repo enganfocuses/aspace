@@ -681,13 +681,12 @@ const themeIsDark=()=>currentTheme()==='dark';
 function applyTheme(){
   const theme=currentTheme();document.documentElement.dataset.theme=theme;
   document.querySelectorAll('.theme-select').forEach(select=>select.value=theme);
-  document.querySelectorAll('iframe').forEach(frame=>{try{frame.contentWindow.postMessage({type:'aspace-theme',theme},'*')}catch{}});
+  document.querySelectorAll('iframe').forEach(frame=>{try{const origin=new URL(frame.src||location.href,location.href).origin;if(origin===location.origin)frame.contentWindow.postMessage({type:'aspace-theme',theme},origin)}catch{}});
 }
 function themeControl(){return E('label',{className:'theme-control'},E('span',{textContent:'Тема'}),E('select',{className:'theme-select',ariaLabel:'Оформление Aspace',value:currentTheme(),onchange:event=>{ls.s('aspace-theme',event.target.value);applyTheme()}},...THEMES.map(([value,textContent])=>E('option',{value,textContent,selected:value===currentTheme()}))))}
 
 applyTheme();
 if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Aspace offline shell:',e)));}
-const CAPS=Promise.resolve();
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
 const usageTracker=AspaceUsage.create({scope:CFG.ownerUid,
@@ -708,16 +707,52 @@ function getBoardRuntime(){
 }
 async function boardProvider(id,token=null,{knownOwner=false}={}){const runtime=await getBoardRuntime();
  if(!runtime)return null;return token&&!knownOwner?runtime.shared(token):runtime.provider(id,token)}
-const guestStandbyEnabled=standbyOptIn;
 const MAX_UPLOAD_BYTES=6*1024*1024;
 // Keep D1 share permissions aligned with
 // the same Firebase token. Never ship the raw token to Cloudflare D1.
 const shareOpChains=new Map();
+const shareLockOwner=uid()+uid();
+async function acquireShareLease(key){
+ const db=await localDB(),lockKey='__lock__:'+key;
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction('shareOps','readwrite'),store=tx.objectStore('shareOps'),request=store.get(lockKey);
+  let acquired=false;
+  request.onsuccess=()=>{
+   const lease=request.result;
+   if(!lease||lease.expiresAt<=Date.now()||lease.owner===shareLockOwner){
+    store.put({key:lockKey,owner:shareLockOwner,expiresAt:Date.now()+60000});acquired=true;
+   }
+  };
+  tx.oncomplete=()=>resolve(acquired);
+  tx.onabort=tx.onerror=()=>reject(tx.error||new Error('Не удалось заблокировать синхронизацию доступа'));
+ });
+}
+async function releaseShareLease(key){
+ const db=await localDB(),lockKey='__lock__:'+key;
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction('shareOps','readwrite'),store=tx.objectStore('shareOps'),request=store.get(lockKey);
+  request.onsuccess=()=>{if(request.result?.owner===shareLockOwner)store.delete(lockKey)};
+  tx.oncomplete=()=>resolve(true);
+  tx.onabort=tx.onerror=()=>reject(tx.error||new Error('Не удалось освободить блокировку доступа'));
+ });
+}
+async function withIndexedDBShareLock(key,run){
+ const deadline=Date.now()+65000;
+ while(Date.now()<deadline){
+  if(await acquireShareLease(key)){
+   try{return await run()}finally{await releaseShareLease(key).catch(()=>{})}
+  }
+  await new Promise(resolve=>setTimeout(resolve,120));
+ }
+ throw new Error('Изменение доступа выполняется в другой вкладке. Повтори попытку через минуту.');
+}
 async function sendStandbyShareOp(op){
  const previous=shareOpChains.get(op.key)||Promise.resolve();
  const work=previous.catch(()=>{}).then(()=>{
   const run=()=>applyStandbyShareOp(op);
-  return navigator.locks?navigator.locks.request('aspace-share:'+op.ownerUid+':'+op.key,run):run();
+  return navigator.locks
+   ?navigator.locks.request('aspace-share:'+op.ownerUid+':'+op.key,run)
+   :withIndexedDBShareLock(op.key,run);
  });
  shareOpChains.set(op.key,work);
  try{return await work}finally{if(shareOpChains.get(op.key)===work)shareOpChains.delete(op.key)}
@@ -730,7 +765,7 @@ async function applyStandbyShareOp(op){
  const base=CFG.reserve?.url||'https://aspace-fallback-api.anncodes001.workers.dev';
  const send=async(path,method='GET',body=null)=>{
   const res=await rawFetch(base+path,{method,headers:{Authorization:'Bearer '+await currentUser.getIdToken(),
-   ...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store',referrerPolicy:'no-referrer'});
+   ...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(8000)});
   if(!res.ok)throw Error('Cloudflare HTTP '+res.status);return res.json();
  };
  const current=await send('/v1/shares?docKey='+encodeURIComponent('boards/'+op.boardId));
@@ -765,17 +800,13 @@ async function retryStandbyShareOps(){
 }
 addEventListener('online',()=>{void retryStandbyShareOps()});
 setInterval(()=>{void retryStandbyShareOps()},30000);
-const notifyStandbyGrantError=error=>{
-  alert('Firebase обновлён, но резервный доступ Cloudflare НЕ подтверждён: '+
-    error.message+'. Ссылку нельзя считать полностью синхронизированной. '+
-    'Проверь раздел «Резерв Cloudflare».');
-};
+const notifyStandbyGrantError=error=>say2('Firebase обновлён, но резервный доступ Cloudflare не подтверждён: '+error.message+'. Проверь раздел «Резерв Cloudflare».');
 const shareURL=token=>DB()+'/shares/'+encodeURIComponent(token);
 const shareRead=async(token,part)=>{
  const runtime=await getBoardRuntime();
  if(runtime&&part==='meta')return runtime.shareMeta(token);
  if(runtime&&part==='board')return (await (await runtime.shared(token)).read()).value;
- const response=await fetch(shareURL(token)+'/'+part+'.json',{cache:'no-store'});
+ const response=await fetch(shareURL(token)+'/'+part+'.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});
  if(!response.ok)throw Object.assign(new Error('Ссылка недоступна (Firebase HTTP '+response.status+')'),{status:response.status});
  return response.json();
 };
@@ -783,7 +814,7 @@ const shareWrite=async(token,part,value,method='PUT',expectedEtag=null)=>{
  const runtime=await getBoardRuntime();
  if(runtime&&part==='board'&&method==='PUT')return (await runtime.shared(token)).write(value);
  const response=await fetch(shareURL(token)+'/'+part+'.json',{method,
-  headers:expectedEtag?{'if-match':expectedEtag}:{},body:value===null?null:JSON.stringify(value)});
+  headers:expectedEtag?{'if-match':expectedEtag}:{},body:value===null?null:JSON.stringify(value),signal:AbortSignal.timeout(8000)});
  if(!response.ok)throw Object.assign(new Error('Firebase не разрешил операцию '+part+' (HTTP '+response.status+')'),{status:response.status});
  return {source:'firebase'};
 };
@@ -810,11 +841,11 @@ const revokeShare=async token=>{
  }
 };
 
-const dbUrl=async url=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/')||new URL(url).searchParams.has('auth'))return url;try{const token=await auth.currentUser.getIdToken();return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
+const dbUrl=async(url,forceRefresh=false)=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/')||new URL(url).searchParams.has('auth'))return url;try{const token=await auth.currentUser.getIdToken(forceRefresh);return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
 const nativeFetch=window.fetch.bind(window);
 const rawFetch=(input,init)=>usageTracker.observe(nativeFetch,input,init);
 window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
-const eventUrl=async url=>dbUrl(url);
+const eventUrl=async(url,forceRefresh=false)=>dbUrl(url,forceRefresh);
 /* Локальное хранилище Aspace: IndexedDB + очередь синхронизации */
 const LOCAL_DB='aspace-local-v1';let localDbPromise=null;
 function localDB(){
@@ -904,7 +935,7 @@ const room0={async join(name,customPath,onData=()=>{}){
   // Messages already present before this participant joined belong to older sessions.
   const baseline=await preflight.json();
   const seen=new Set(Object.keys(baseline||{}));
-  let closed=false,es=null,gc=null,pollTimer=null,polling=false,hideRegistered=false;
+  let closed=false,es=null,gc=null,pollTimer=null,polling=false,hideRegistered=false,renewTimer=null;
   function receive(key,value){
     if(!value){seen.delete(key);return}
     if(!value.t||seen.has(key))return;
@@ -927,8 +958,10 @@ const room0={async join(name,customPath,onData=()=>{}){
   function stopPolling(){clearInterval(pollTimer);pollTimer=null}
   const flush=()=>{
     if(!dead.length)return;
-    const data={};dead.splice(0).forEach(key=>data[key]=null);
-    fetch(base+'.json',{method:'PATCH',body:JSON.stringify(data),keepalive:true}).catch(()=>{});
+    const keys=dead.splice(0),data={};keys.forEach(key=>data[key]=null);
+    fetch(base+'.json',{method:'PATCH',body:JSON.stringify(data),keepalive:true})
+      .then(response=>{if(!response.ok)throw new Error('HTTP '+response.status)})
+      .catch(()=>{if(!closed)dead.unshift(...keys)});
   };
   const onPageHide=event=>{if(!event.persisted)api.close()};
   const deliver=value=>{
@@ -940,16 +973,17 @@ const room0={async join(name,customPath,onData=()=>{}){
   };
   const api={
     id:me,
-    emit:(type,data)=>fetch(base+'.json',{
-      method:'POST',body:JSON.stringify({t:type,d:JSON.stringify(data),s:me})
-    }).then(async response=>{
+    emit:(type,data)=>{
+      const body=JSON.stringify({t:type,d:JSON.stringify(data),s:me});
+      return fetch(base+'.json',{method:'POST',body,keepalive:new TextEncoder().encode(body).byteLength<=60000}).then(async response=>{
       if(!response.ok){console.warn('Aspace signal rejected',type,response.status);return false}
       const result=await response.json();
       if(!result?.name)return false;
       if(closed)fetch(base+'.json',{method:'PATCH',body:JSON.stringify({[result.name]:null}),keepalive:true}).catch(()=>{});
       else dead.push(result.name);
       return true;
-    }).catch(error=>{console.warn('Aspace signal failed',type,error);return false}),
+      }).catch(error=>{console.warn('Aspace signal failed',type,error);return false});
+    },
     on:(type,listener)=>{
       (handlers[type]=handlers[type]||[]).push(listener);
       return()=>{handlers[type]=handlers[type].filter(fn=>fn!==listener)};
@@ -958,30 +992,33 @@ const room0={async join(name,customPath,onData=()=>{}){
       if(closed)return;
       closed=true;
       if(hideRegistered)removeEventListener('pagehide',onPageHide);
-      es?.close();stopPolling();if(gc)clearInterval(gc);flush();
+      es?.close();stopPolling();if(gc)clearInterval(gc);if(renewTimer)clearInterval(renewTimer);flush();
     }
   };
   try{
     es=new EventSource(await eventUrl(base+'.json'));
-    es.addEventListener('put',event=>{
-      try{onData(event.data)}catch{}
-      try{
-        const message=JSON.parse(event.data);
-        if(message.path==='/'){
-          const values=message.data||{};
-          for(const key of Object.keys(values).sort())receive(key,values[key]);
-          for(const key of seen)if(!(key in values))seen.delete(key);
-        }else if(message.path.split('/').length===2)receive(message.path.slice(1),message.data);
-      }catch(error){console.warn('Aspace signal parse:',error)}
-    });
-    es.addEventListener('patch',event=>{
-      try{
-        const message=JSON.parse(event.data);
-        if(message.path==='/')for(const [key,value] of Object.entries(message.data||{}))receive(key,value);
-      }catch(error){console.warn('Aspace signal patch:',error)}
-    });
-    es.addEventListener('error',startPolling);
-    es.addEventListener('open',stopPolling);
+    const bindStream=stream=>{
+      stream.addEventListener('put',event=>{
+        try{onData(event.data)}catch{}
+        try{
+          const message=JSON.parse(event.data);
+          if(message.path==='/'){
+            const values=message.data||{};
+            for(const key of Object.keys(values).sort())receive(key,values[key]);
+            for(const key of seen)if(!(key in values))seen.delete(key);
+          }else if(message.path.split('/').length===2)receive(message.path.slice(1),message.data);
+        }catch(error){console.warn('Aspace signal parse:',error)}
+      });
+      stream.addEventListener('patch',event=>{
+        try{
+          const message=JSON.parse(event.data);
+          if(message.path==='/')for(const [key,value] of Object.entries(message.data||{}))receive(key,value);
+        }catch(error){console.warn('Aspace signal patch:',error)}
+      });
+      stream.addEventListener('error',startPolling);
+      stream.addEventListener('open',stopPolling);
+    };
+    bindStream(es);
     await new Promise(resolve=>{
       const timer=setTimeout(()=>{startPolling();resolve()},2500);
       const success=()=>{clearTimeout(timer);es.removeEventListener('error',failure);resolve()};
@@ -989,6 +1026,19 @@ const room0={async join(name,customPath,onData=()=>{}){
       es.addEventListener('open',success,{once:true});
       es.addEventListener('error',failure,{once:true});
     });
+    // Refresh the Firebase REST stream before its ID token expires. Keep the
+    // old stream until the replacement opens; polling remains the fallback.
+    const renewStream=async()=>{
+      if(closed)return;
+      const previous=es;
+      try{
+        const next=new EventSource(await eventUrl(base+'.json',true));
+        es=next;bindStream(next);
+        next.addEventListener('open',()=>{if(closed){next.close();return}previous?.close();stopPolling()},{once:true});
+        next.addEventListener('error',()=>{if(next.readyState===EventSource.CLOSED){if(es===next)es=previous;next.close();startPolling()}},{once:true});
+      }catch{startPolling()}
+    };
+    renewTimer=setInterval(()=>void renewStream(),45*60*1000);
     // Test write authorization once; a readable SSE stream alone cannot
     // guarantee that callers are able to send offers/answers.
     const probe=await fetch(base+'.json',{method:'POST',body:JSON.stringify({t:'ready',d:'{}',s:me}),signal:AbortSignal.timeout(6000)});
@@ -997,11 +1047,11 @@ const room0={async join(name,customPath,onData=()=>{}){
     if(!ping?.name)throw new Error('Сервер сигналинга не принял тестовое сообщение');
     dead.push(ping.name);
     gc=setInterval(flush,10000);
+    flush();
     addEventListener('pagehide',onPageHide);hideRegistered=true;
     return api;
   }catch(error){api.close();throw error}
 }};
-const isLocal=false;
 const link=(k,id)=>location.origin+location.pathname+'#'+k+'-'+id;
 const boardLink=(id,mode='view')=>location.origin+location.pathname+'#b-'+id+'-'+mode;
 const icsEsc=t=>String(t||'').replace(/[\\;,]/g,m=>'\\'+m).replace(/\n/g,'\\n');
