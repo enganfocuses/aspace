@@ -675,7 +675,7 @@ const E=(t,p={},...k)=>{const e=document.createElement(t);Object.assign(e,p);e.a
 const B=(t,f,c='')=>E('button',{textContent:t,onclick:f,className:c});
 const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
-const THEMES=[['beige','Бежевая'],['dark','Тёмная · винная']];
+const THEMES=[['beige','Бежевая'],['white','Белая'],['dark','Тёмная · винная']];
 const currentTheme=()=>{const value=ls.g('aspace-theme','beige');return THEMES.some(([key])=>key===value)?value:'beige'};
 const themeIsDark=()=>currentTheme()==='dark';
 function applyTheme(){

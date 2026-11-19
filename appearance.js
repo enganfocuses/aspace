@@ -1,6 +1,6 @@
 /* Appearance only: no content or journal data is read. */
 (()=>{
-  const valid=value=>['beige','dark'].includes(value);
+  const valid=value=>['beige','white','dark'].includes(value);
   const apply=value=>{document.documentElement.dataset.theme=valid(value)?value:'beige'};
   let saved;try{saved=JSON.parse(localStorage.getItem('aspace-theme'))}catch{}
   apply(new URLSearchParams(location.search).get('theme')||saved);
