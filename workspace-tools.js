@@ -275,7 +275,7 @@ function contentView(m){
   const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create));
   const annaCard=E('section',{className:'planner-lower-card'},
     E('div',{className:'planner-lower-head'},E('span',{textContent:'☆  Редакция Анны'}),B('Все материалы →',()=>selectTab(editorial))),
-    E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo',textContent:'✦  Авторский сезон'}),E('div',{},E('strong',{textContent:'Авторский сезон о мышлении и речи'}),E('p',{textContent:'Сценарии, идеи и готовый план публикаций'}),B('Открыть материалы',()=>selectTab(editorial)))));
+    E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo',textContent:'✦  Авторский сезон'}),E('div',{},E('strong',{textContent:(annaSeason[0]?.title||'Авторский сезон о мышлении и речи')}),E('p',{textContent:annaSeason.length+' материалов, сценарии и готовый план публикаций'}),B('Открыть материалы',()=>selectTab(editorial)))));
   const ideaCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head'},E('span',{textContent:'♧  Идеи'}),B('Все идеи →',()=>{mode.value='По этапам';listPlan();selectTab(planner)})));
   const ideaList=E('ul',{className:'planner-idea-list'});
   const refreshIdeas=()=>{ideaList.replaceChildren();const ideas=inPlan().filter(x=>x.stage==='Идея'||x.kind==='Идея').slice(0,5);for(const item of ideas)ideaList.append(E('li',{textContent:item.title||'Новая идея',onclick:()=>{edit(item);selectTab(planner)}}));if(!ideas.length)ideaList.append(E('li',{textContent:'Добавьте первую идею через календарь'}) )};
@@ -285,14 +285,14 @@ function contentView(m){
   const statPublished=E('strong',{textContent:'0'}),statPlanned=E('strong',{textContent:'0'}),statIdeas=E('strong',{textContent:'0'});
   for(const [num,label,cls] of [[statPublished,'Публикаций',''],[statPlanned,'Запланировано','planner-stat-growth'],[statIdeas,'Идей','']])stats.append(E('div',{className:'planner-stat'},Object.assign(E('span'),{textContent:''}),num,E('small',{textContent:label})));
   const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея'||x.kind==='Идея').length)};
-  statsCard.append(stats);
+  statsCard.append(stats,E('svg',{className:'planner-mini-chart',viewBox:'0 0 320 70',role:'img','aria-label':'Динамика публикаций'},E('path',{d:'M4 58 L42 43 L82 44 L120 25 L160 38 L201 21 L240 16 L278 5 L316 5',fill:'none',stroke:'#8a294b','stroke-width':'2'}),...[[4,58],[42,43],[82,44],[120,25],[160,38],[201,21],[240,16],[278,5],[316,5]].map(([cx,cy])=>E('circle',{cx,cy,r:'3',fill:'#8a294b'}))));
   const lower=E('div',{className:'planner-lower'},annaCard,ideaCard,statsCard);
   section.append(E('aside',{className:'planner-index'},toolbar,monthTools,E('div',{className:'planner-actions'},channel),weekNav,list),editor,lower);
   const planner=E('div',{className:'vintage-content-planner'},
     E('div',{className:'vintage-planner-heading'},
       E('div',{className:'vintage-heading-copy'},E('span',{className:'vintage-kicker',textContent:'✦ МОЯ РЕЧЕВАЯ МАСТЕРСКАЯ ✦'}),E('h2',{textContent:'Календарь контента'}),E('p',{textContent:'Мысли, которые обретают голос. Публикации, которые находят свой день.'})),
       E('div',{className:'vintage-heading-art','aria-hidden':'true'},E('span',{textContent:'🗝'}),E('span',{textContent:'✧'}),E('span',{textContent:'🎙'}),E('span',{textContent:'✧'}),E('span',{textContent:'▤'}))),
-    planTools,section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
+    section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
   const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),start=>{
     const name='Мысли есть · '+start;
     const existing=plans.find(p=>p.seasonStart===start);
