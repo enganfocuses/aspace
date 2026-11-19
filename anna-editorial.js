@@ -48,8 +48,28 @@ function annaEditorialView(start,onAdd){
   const para=text=>E('p',{textContent:text});
   function details(label,...children){return E('details',{className:'anna-details'},E('summary',{textContent:label}),...children)}
   const link=(name,href)=>E('a',{href,textContent:name,target:'_blank',rel:'noopener noreferrer'});
+  const seasonKey='aspace:editorial-seasons:'+currentUser.uid;
+  const defaults=[
+    {id:'first',name:'Мысли есть, а сказать не могу',stories:annaSeason.map((story,i)=>({...story,why:firstSeasonNotes[i]}))},
+    {id:'second',name:'Слушаю, говорите',stories:secondSeason}
+  ];
+  let saved={};
+  try{saved=JSON.parse(localStorage.getItem(seasonKey)||'{}')||{}}catch{}
+  let seasons=[...defaults.map(item=>saved[item.id]||item),...Object.values(saved).filter(item=>!defaults.some(base=>base.id===item.id))];
+  const status=E('small',{role:'status'});
+  function save(updated){
+    try{
+      const next={...saved,[updated.id]:updated};
+      localStorage.setItem(seasonKey,JSON.stringify(next));
+      saved=next;
+      seasons=seasons.some(item=>item.id===updated.id)?seasons.map(item=>item.id===updated.id?updated:item):[...seasons,updated];
+      refresh(updated.id);
+      status.textContent='Сезон сохранён на устройстве.';
+      return true;
+    }catch(error){status.textContent='Не удалось сохранить сезон: '+error.message;return false}
+  }
   const date=E('input',{type:'date',value:start,required:true,ariaLabel:'Дата первой публикации'});
-  const add=B('Добавить сезон в мой календарь',()=>{if(date.reportValidity())onAdd(date.value,season.value)});
+  const add=B('Добавить сезон в мой календарь',()=>{if(date.reportValidity()){const item=selected();onAdd(date.value,item.id,item.name,item.stories)}});
   const content=E('section',{className:'anna-edition'},
     E('div',{className:'anna-cover'},E('h2',{textContent:'Мысли есть, а сказать не могу'}),para('Редакция Анны Нестеровны · четыре недели о мышлении и речи'),E('div',{className:'planner-actions'},E('label',{},'Начало сезона ',date),add)),
     details('Кому я помогаю и с чем приходят',
@@ -74,20 +94,108 @@ function annaEditorialView(start,onAdd){
       para('Методичка к уроку 11 — повод для передачи и начальное распространение. Минасов, Водопьянов и Шатилов (2026) — триггеры, социальная ценность, эмоции, история и практическая польза. Квашина и соавторы (2024) — короткий срок всплеска внимания и отдельная оценка влияния на продажи и репутацию.'),
       para('Из SMM-карточек взяты рубрики, движение от знакомства к предложению, ответы на сомнения и один следующий шаг. Список готовых хуков адаптирован в реальные речевые ситуации. Профиль и сетка публикаций дали названия рубрик, цвет, предметы в кадре и тему пересказа.'),
       E('div',{className:'planner-actions'},link('Услуги Анны','https://anesterovna.ru'),link('Урок HARIZMA','https://harizma.deploya.ru'),link('Анна о харизме','https://t.me/anfocuses/144'),link('Канал Анны','https://t.me/s/anfocuses'),link('Минасов и соавторы','https://doi.org/10.26794/2226-7867-2026-16-1-113-123'),link('Как читать удержание YouTube','https://support.google.com/youtube/answer/9314415?hl=ru'))));
-  const season=E('select',{ariaLabel:'Выбрать сезон'},E('option',{value:'first',textContent:'Мысли есть, а сказать не могу'}),E('option',{value:'second',textContent:'Слушаю, говорите'}));
+  const season=E('select',{ariaLabel:'Выбрать сезон'});
+  const selected=()=>seasons.find(item=>item.id===season.value);
   const deck=E('div',{className:'idea-deck'}),cover=content.querySelector('.anna-cover');
-  cover.prepend(season);content.append(deck);
+  const controls=E('div',{className:'planner-actions'});
+  const settings=E('div');
+  const nameInput=E('input',{required:true,ariaLabel:'Название сезона'});
+  function nameForm(create){
+    nameInput.value=create?'':selected().name;
+    settings.replaceChildren(E('form',{className:'season-fields',onsubmit:event=>{
+      event.preventDefault();
+      const name=nameInput.value.trim();
+      if(!name)return;
+      const item=create?{id:uid(),stories:[]}:selected();
+      if(save({...item,name}))settings.replaceChildren();
+    }},E('label',{},'Название сезона',nameInput),E('div',{className:'planner-actions'},
+      E('button',{type:'submit',textContent:'Сохранить сезон'}),
+      E('button',{type:'button',textContent:'Отмена',onclick:()=>settings.replaceChildren()}))));
+    nameInput.focus();
+  }
+  controls.append(season,B('＋ Новый сезон',()=>nameForm(true)),B('Переименовать',()=>nameForm(false)),
+    B('PDF',()=>printAnnaSeason(selected())));
+  cover.prepend(controls);
+  cover.append(settings,status);
+  const addStory=B('＋ Материал',()=>{
+    content.querySelector(':scope > .season-fields')?.remove();
+    const form=storyForm(null,selected().stories.length);
+    deck.before(form);
+    form.querySelector('input').focus();
+  });
+  content.append(addStory,deck);
+  function refresh(id){
+    season.replaceChildren(...seasons.map(item=>E('option',{value:item.id,textContent:item.name})));
+    season.value=id;
+    renderDeck();
+  }
+  function storyForm(story,index){
+    const current=selected();
+    const draft=story?{...story}:{title:'',format:'Пост',day:index*2,channels:[],why:'',shot:'',script:'',metric:''};
+    const title=E('input',{required:true,value:draft.title});
+    const format=E('select',{},...['Пост','Карусель','Ролик','Яппинг','Видео'].map(textContent=>E('option',{textContent})));
+    format.value=draft.format;
+    const day=E('input',{type:'number',min:1,max:365,required:true,value:draft.day+1});
+    const platforms=E('fieldset',{},E('legend',{textContent:'Площадки'}));
+    const checks=['YouTube','RuTube','Instagram','Telegram','ВКонтакте','MAX'].map(name=>{
+      const input=E('input',{type:'checkbox',value:name,checked:draft.channels.includes(name)});
+      platforms.append(E('label',{className:'season-platform'},input,name));
+      return input;
+    });
+    const fields=[['why','Замысел'],['shot','Съёмка'],['script','Сценарий'],['metric','Что измерить']];
+    const editors=fields.map(([key,label])=>[key,label,E('textarea',{value:draft[key]||'',rows:key==='script'?5:2})]);
+    const form=E('form',{className:'season-fields',onsubmit:event=>{
+      event.preventDefault();
+      if(!title.value.trim())return;
+      const stories=current.stories.slice();
+      stories[index]={...draft,title:title.value.trim(),format:format.value,day:day.valueAsNumber-1,channels:checks.filter(input=>input.checked).map(input=>input.value)};
+      for(const [key,,input] of editors)stories[index][key]=input.value;
+      save({...current,stories});
+    }},E('label',{},'Название материала',title),E('label',{},'Формат',format),E('label',{},'День сезона',day),platforms,
+      ...editors.map(([,label,input])=>E('label',{},label,input)),
+      E('div',{className:'planner-actions'},E('button',{type:'submit',textContent:'Сохранить материал'}),
+        E('button',{type:'button',textContent:'Отмена',onclick:()=>form.remove()})));
+    return form;
+  }
   function renderDeck(){
-    const second=season.value==='second',stories=second?secondSeason:annaSeason;
-    cover.querySelector('h2').textContent=season.selectedOptions[0].text;
+    const item=selected();
+    cover.querySelector('h2').textContent=item.name;
+    add.disabled=!item.stories.length;
+    content.querySelectorAll(':scope > .season-fields').forEach(form=>form.remove());
     deck.replaceChildren();
-    stories.forEach((story,i)=>{
-      const why=story.why||firstSeasonNotes[i];
-      const card=E('article',{className:'idea-card tone-'+i%3},E('small',{textContent:'Неделя '+(Math.floor(i/3)+1)+' · '+story.format}),heading(story.title),para(why),
-        details('Сценарий и съёмка',para(story.shot),E('p',{style:'white-space:pre-line',textContent:story.script}),para(story.metric)));
+    item.stories.forEach((story,i)=>{
+      const actions=E('div',{className:'planner-actions'});
+      const card=E('article',{className:'idea-card tone-'+i%3},
+        E('small',{textContent:'День '+(story.day+1)+' · '+story.format}),heading(story.title),para(story.why||''),
+        details('Сценарий и съёмка',para(story.shot),E('p',{style:'white-space:pre-line',textContent:story.script}),para(story.metric)),actions);
+      actions.append(B('Редактировать',()=>{card.querySelector('form')?.remove();card.append(storyForm(story,i))}),
+        B('Удалить',()=>{if(confirm('Удалить материал «'+story.title+'» из сезона?'))save({...item,stories:item.stories.filter((_,index)=>index!==i)})}));
       deck.append(card);
     });
   }
-  season.onchange=renderDeck;renderDeck();
+  season.onchange=()=>{settings.replaceChildren();status.textContent='';renderDeck()};
+  refresh(seasons[0].id);
   return content;
+}
+
+function printAnnaSeason(season){
+  const frame=E('iframe',{title:'Печатная версия сезона',style:'position:fixed;width:1px;height:1px;border:0;opacity:0;pointer-events:none'});
+  frame.srcdoc='<!doctype html><html lang="ru"><meta charset="utf-8"><style>@page{margin:17mm}body{font:11pt Georgia,serif;color:#301e25}h1,h2{color:#642b38}h2,h3{break-after:avoid}article{border-top:2px solid #ad8396;margin-top:20px}p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.4}</style><body></body></html>';
+  frame.onload=()=>{
+    const doc=frame.contentDocument;
+    doc.title=season.name;
+    doc.body.append(E('h1',{textContent:season.name}));
+    for(const story of [...season.stories].sort((a,b)=>a.day-b.day)){
+      const article=E('article',{},E('h2',{textContent:story.title}),E('p',{textContent:'День '+(story.day+1)+' · '+[story.format,...story.channels].join(' · ')}));
+      for(const [label,text] of [['Замысел',story.why],['Съёмка',story.shot],['Сценарий',story.script],['Что измерить',story.metric]]){
+        if(text)article.append(E('h3',{textContent:label}),E('p',{textContent:text}));
+      }
+      doc.body.append(article);
+    }
+    const win=frame.contentWindow;
+    win.addEventListener('afterprint',()=>frame.remove(),{once:true});
+    win.focus();
+    win.print();
+  };
+  document.body.append(frame);
 }

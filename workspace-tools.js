@@ -50,6 +50,7 @@ function linkedWorkspacePanel(kind){
 }
 function contentView(m){
   history.replaceState(null,'',location.pathname+location.search+'#content');
+  m.classList.add('content-workspace');
   const prefix='aspace:content:'+currentUser.uid+':';
   if(!document.getElementById('vintage-content-calendar-style')){
     const css=E('style',{id:'vintage-content-calendar-style'});
@@ -93,13 +94,6 @@ function contentView(m){
       @media(max-width:900px){.vintage-content-planner .planner-lower{grid-template-columns:1fr 1fr}.vintage-content-planner .planner-lower-card:first-child{grid-column:1/-1}}
       @media(max-width:620px){.vintage-content-planner .planner-lower{grid-template-columns:1fr}.vintage-content-planner .planner-lower-card:first-child{grid-column:auto}.vintage-content-planner .vintage-day{min-height:88px;padding:4px}.vintage-content-planner .planner-anna-preview{grid-template-columns:1fr 1.2fr}.vintage-content-planner .planner-anna-preview img{height:110px}}
 
-      .vintage-planner-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:8px 0 22px;padding:22px 26px;border:1px solid #d9c6a8;border-radius:18px;background:radial-gradient(ellipse at 82% 18%,#fff7e8 0,#f4e8d8 48%,#ead8c8 100%);box-shadow:inset 0 0 0 4px #fff9,0 8px 22px #4b293012;position:relative;overflow:hidden}
-      .vintage-planner-heading:after{content:'✧  ·  ✦  ·  ✧';position:absolute;right:22px;bottom:10px;color:#a88765;letter-spacing:9px;font-size:13px}
-      .vintage-kicker{font:700 10px/1.4 Georgia,serif;letter-spacing:.2em;color:var(--v-gold)}
-      .vintage-heading-copy h2{font:600 clamp(25px,3vw,36px)/1.15 Georgia,serif;color:var(--v-wine);margin:7px 0}
-      .vintage-heading-copy p{margin:0;color:#75645a;font:14px Georgia,serif}
-      .vintage-heading-art{display:flex;align-items:center;gap:8px;color:var(--v-gold);font-size:32px;filter:sepia(.35);padding:0 14px}
-      .vintage-heading-art span:nth-child(2n){font-size:17px}
       .vintage-content-planner .planner-actions{gap:8px;align-items:center}
       .vintage-content-planner .planner-actions button,.vintage-content-planner .planner-index>button{background:var(--v-wine);color:#fff;border:1px solid #4e202d;border-radius:8px}
       .vintage-content-planner .planner-actions button:hover,.vintage-content-planner .planner-index>button:hover{background:var(--v-wine2);color:#fff}
@@ -127,12 +121,44 @@ function contentView(m){
       .vintage-content-planner .content-editor{background:#fffaf1;border-color:#dfcfb8}
       @media(max-width:760px){.vintage-planner-heading{padding:16px}.vintage-heading-art{font-size:23px;padding:0}.vintage-month-grid{gap:2px}.vintage-day{min-height:90px;padding:4px;border-radius:6px}.vintage-weekday{font-size:10px;padding:5px 0}.vintage-event{padding:4px;margin:3px 0}.vintage-event strong{font-size:10px}.vintage-event small{font-size:8px}.planner-month-label{font-size:18px;min-width:160px}}
       @media(max-width:480px){.vintage-heading-art{display:none}.vintage-day{min-height:72px}.vintage-event-kind{display:none}.vintage-event strong{font-size:9px}.vintage-day-top{font-size:11px}}
+
+      #main.content-workspace{padding:12px clamp(8px,2vw,24px)}
+      .content-workspace .anna-edition{max-width:none}
+      .content-workspace .builder-tabs{padding-bottom:10px;border-bottom:2px solid #b291a1}
+      .content-workspace :is(select,input[type="search"]){min-height:42px;border:2px solid #ad8396;border-radius:10px;padding:8px 10px;max-width:100%;font-size:1rem}
+      .content-workspace select{padding-right:14px}
+      .content-workspace .planner-filter{display:flex;gap:5px;flex-direction:column;font-size:.8rem;min-width:0}
+      .content-workspace .planner-utility{flex:1;justify-content:flex-end}
+      .content-workspace .planner-utility input{width:min(100%,245px);min-width:0}
+      .content-workspace .planner-view-tabs{flex-wrap:wrap}
+      .content-workspace .vintage-day,.content-workspace .vintage-weekday,.content-workspace .planner-lower-card,.content-workspace .anna-details{border-width:2px;border-color:#baa0a8}
+      .content-workspace .vintage-day{min-height:84px}
+      .content-workspace .planner-lower-head{flex-wrap:wrap}
+      .content-workspace .planner-idea-list li{display:flex;border-bottom:2px solid #e0c9ce}
+      .content-workspace .planner-idea-list li:before{content:none}
+      .planner-idea-list button{flex:1;text-align:left;white-space:normal;overflow-wrap:anywhere}
+      .content-workspace .quick-idea{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+      .content-workspace .quick-idea input{flex:1;min-width:100px}
+      .content-workspace .planner-anna-photo{background:#592a40 url('./assets/home/anna-studio.webp') center/cover}
+      .content-workspace .content-dialog{max-width:min(560px,calc(100vw - 20px));max-height:calc(100dvh - 28px);width:100%;box-sizing:border-box;border:2px solid #ad8396;border-radius:16px;background:var(--card,#fff9ef);color:var(--text,#342331);padding:12px}
+      .content-dialog::backdrop{background:#2613248c}
+      .content-dialog .content-editor{width:100%;box-sizing:border-box}
+      .season-fields{display:grid;gap:8px;margin:8px 0}
+      .season-fields label{display:grid;gap:4px}
+      .season-fields .season-platform{display:inline-flex;align-items:center;gap:5px;margin:3px 8px 3px 0}
+      .content-workspace .planner-index select{border-color:#ad8396;max-width:min(240px,100%)}
+      .content-workspace .planner-utility>button,.content-workspace .quick-idea>button{background:#642b38;color:#fff;border:2px solid #642b38}
+      .content-workspace .planner-lower-head,.content-workspace .planner-stat small{overflow-wrap:anywhere}
+      .season-fields textarea{width:100%;box-sizing:border-box}
+      @media(max-width:620px){.content-workspace .planner-utility{justify-content:flex-start}.content-workspace .vintage-day{min-height:64px}.content-workspace .vintage-event{padding:4px}}
     `;
     document.head.append(css);
   }
 
   const platforms=['YouTube','RuTube','Instagram','Telegram','ВКонтакте','MAX'];
   const section=E('section',{className:'content-studio'}),list=E('div',{className:'content-plan'}),editor=E('div',{className:'card content-editor'}),status=E('small',{role:'status'});
+  const dialog=E('dialog',{className:'content-dialog',ariaLabel:'Редактор записи'});
+  dialog.append(B('Закрыть',()=>dialog.close()),editor);
   let entry=null,photoUrl='';
   const records=new Map();
   for(let i=0;i<localStorage.length;i++){
@@ -146,6 +172,7 @@ function contentView(m){
   const stages=['Идея','В работе','На проверке','Запланировано','Опубликовано'];
   const planSelect=E('select',{ariaLabel:'Контент-план'}),search=E('input',{type:'search',placeholder:'Найти идею или текст',ariaLabel:'Поиск записей'});
   const channel=E('select',{ariaLabel:'Площадка'},E('option',{value:'',textContent:'Все площадки'}),...platforms.map(textContent=>E('option',{textContent})));
+  const stageFilter=E('select',{ariaLabel:'Статус'},E('option',{value:'',textContent:'Все статусы'}),...stages.map(textContent=>E('option',{textContent})));
   const mode=E('select',{ariaLabel:'Вид плана'},...['Календарь','По этапам','По датам','Неделя','Блоки'].map(textContent=>E('option',{textContent})));mode.value='Календарь';
   const monthCursor=new Date();monthCursor.setDate(1);monthCursor.setHours(12,0,0,0);
   const monthLabel=E('strong',{className:'planner-month-label'});
@@ -164,8 +191,9 @@ function contentView(m){
     planSelect.replaceChildren(...plans.map(plan=>E('option',{value:plan.id,textContent:plan.name})));planSelect.value=currentPlan||'';
   }
   function changePlan(){
-    localStorage.setItem(planKey+':selected',currentPlan||'');entry=null;release();editor.replaceChildren();editor.hidden=true;listPlan();
-    const first=inPlan().sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||b.created-a.created)[0];if(first)edit(first);
+    localStorage.setItem(planKey+':selected',currentPlan||'');
+    if(dialog.open)dialog.close();
+    entry=null;release();editor.replaceChildren();listPlan();refreshIdeas();refreshStats();
   }
   function newPlan(){
     const name=prompt('Название контент-плана')?.trim();if(!name)return false;
@@ -174,7 +202,7 @@ function contentView(m){
   function listPlan(){
     list.replaceChildren();
     const query=search.value.trim().toLocaleLowerCase();
-    const visible=inPlan().filter(item=>(!channel.value||item.platforms.includes(channel.value))&&[item.title,item.text].join(' ').toLocaleLowerCase().includes(query));
+    const visible=inPlan().filter(item=>(!channel.value||item.platforms.includes(channel.value))&&(!stageFilter.value||item.stage===stageFilter.value)&&[item.title,item.text].join(' ').toLocaleLowerCase().includes(query));
     const byStage=mode.value==='По этапам',calendarMode=mode.value==='Календарь';
     visible.sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999')||(a.time||'').localeCompare(b.time||'')||b.created-a.created);
     const gridMode=mode.value==='Блоки';
@@ -182,7 +210,7 @@ function contentView(m){
     if(gridMode){
       weekNav.hidden=monthNav.hidden=true;
       const card=item=>{
-        const b=B(item.title||'Без названия',()=>{edit(item);editor.scrollIntoView({block:'nearest'})},'plan-tile');
+        const b=B(item.title||'Без названия',()=>{edit(item)},'plan-tile');
         b.append(E('small',{textContent:[item.date,item.time,item.kind].filter(Boolean).join(' · ')}));b.setAttribute('aria-pressed',String(entry===item));return b;
       };
         const blocks=E('div',{className:'plan-blocks'});
@@ -203,7 +231,9 @@ function contentView(m){
       const first=new Date(monthCursor);first.setDate(1);
       const offset=(first.getDay()+6)%7;
       const start=new Date(first);start.setDate(first.getDate()-offset);
-      for(let i=0;i<42;i++){
+      const daysInMonth=new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+      const gridDays=Math.ceil((offset+daysInMonth)/7)*7;
+      for(let i=0;i<gridDays;i++){
         const day=new Date(start);day.setDate(start.getDate()+i);
         const key=dateString(day),sameMonth=day.getMonth()===monthCursor.getMonth();
         const cell=E('div',{className:'vintage-day'+(sameMonth?'':' outside-month')+(key===dateString(new Date())?' today':'')});
@@ -211,12 +241,11 @@ function contentView(m){
         const add=B('+',()=>create(key));add.className='vintage-day-add';add.title='Добавить публикацию';top.append(add);cell.append(top);
         const entries=visible.filter(item=>item.date===key);
         for(const item of entries){
-          const chip=B('',()=>{edit(item);editor.scrollIntoView({block:'nearest'})});chip.dataset.format=item.storyFormat||item.kind;chip.className='vintage-event '+(item.stage==='Опубликовано'?'is-published':item.stage==='Запланировано'?'is-scheduled':'');
+          const chip=B('',()=>{edit(item)});chip.dataset.format=item.storyFormat||item.kind;chip.className='vintage-event '+(item.stage==='Опубликовано'?'is-published':item.stage==='Запланировано'?'is-scheduled':'');
           chip.append(E('span',{className:'vintage-event-kind',textContent:item.storyFormat||item.kind}),E('strong',{textContent:item.title||'Без названия'}),E('small',{textContent:[item.time,item.stage].filter(Boolean).join(' · ')}));
           cell.append(chip);
         }
-        if(!entries.length&&sameMonth)cell.append(E('span',{className:'vintage-empty-mark',textContent:'✦'}));
-        grid.append(cell);
+            grid.append(cell);
       }
       list.append(grid);
       if(!visible.length)list.append(E('p',{className:'vintage-empty-note',textContent:'Пока нет публикаций. Нажми «+» в нужной дате, чтобы добавить первую.'}));
@@ -260,13 +289,14 @@ function contentView(m){
     await removeItems(items);plans.splice(plans.indexOf(plan),1);localStorage.setItem(planKey,JSON.stringify(plans));
     currentPlan=plans[0]?.id;refreshPlans();changePlan();
   }
-  planSelect.onchange=()=>{currentPlan=planSelect.value;changePlan()};search.oninput=channel.onchange=mode.onchange=listPlan;refreshPlans();
+  planSelect.onchange=()=>{currentPlan=planSelect.value;changePlan()};search.oninput=channel.onchange=stageFilter.onchange=mode.onchange=listPlan;refreshPlans();
   function store(){
     try{localStorage.setItem(prefix+entry.id,JSON.stringify(entry));records.set(entry.id,entry);status.textContent='Сохранено на устройстве';listPlan()}
     catch(error){status.textContent='Ошибка записи на устройстве: '+error.message}
   }
   function edit(item){
-    release();entry=item;editor.hidden=false;listPlan();editor.replaceChildren();
+    release();entry=item;listPlan();editor.replaceChildren();
+    if(!dialog.open)dialog.showModal();
     function field(label,key,node){
       node.value=item[key]||(key==='stage'?stages[0]:'');node.oninput=()=>{item[key]=node.value;store()};return E('label',{},label,node);
     }
@@ -292,58 +322,79 @@ function contentView(m){
   function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
   const viewTabs=E('div',{className:'planner-view-tabs'},...['Календарь','Список','Недели','Блоки'].map((label,i)=>{const b=B(label,()=>{mode.value=['Календарь','По датам','Неделя','Блоки'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
   const exportButton=B('↓ Экспорт',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)});
-  const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,exportButton));
-  const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create),B('Удалить план',removePlan));
+  const filter=(label,input)=>E('label',{className:'planner-filter'},label,input);
+  const tools=E('details',{},E('summary',{textContent:'Действия с планом'}),E('div',{className:'planner-actions'},B('＋ Новый план',newPlan),exportButton,B('Удалить план',removePlan)));
+  const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,B('＋ Запись',create)));
+  const filters=E('div',{className:'planner-toolbar'},monthNav,
+    filter('План',planSelect),filter('Площадка',channel),filter('Статус',stageFilter),
+    B('Сбросить фильтры',()=>{search.value=channel.value=stageFilter.value='';listPlan()}),tools);
   const annaCard=E('section',{className:'planner-lower-card'},
-    E('div',{className:'planner-lower-head'},E('span',{textContent:'☆  Редакция Анны'}),B('Все материалы →',()=>selectTab(editorial))),
-    E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo',textContent:'✦  Авторский сезон'}),E('div',{},E('strong',{textContent:(annaSeason[0]?.title||'Авторский сезон о мышлении и речи')}),E('p',{textContent:annaSeason.length+' материалов, сценарии и готовый план публикаций'}),B('Открыть материалы',()=>selectTab(editorial)))));
-  const ideaCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head'},E('span',{textContent:'♧  Идеи'}),B('Все идеи →',()=>{mode.value='По этапам';listPlan();selectTab(planner)})));
+    E('div',{className:'planner-lower-head'},E('span',{textContent:'☆ Редакция Анны'})),
+    E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo'}),
+      B('Открыть редакцию',()=>selectTab(editorial))));
+  const ideaInput=E('input',{required:true,placeholder:'Название идеи',ariaLabel:'Название идеи'});
+  const ideaForm=E('form',{className:'quick-idea',onsubmit:event=>{
+    event.preventDefault();
+    const title=ideaInput.value.trim();
+    if(!title)return;
+    if(!currentPlan&&!newPlan())return;
+    const item={id:uid(),plan:currentPlan,stage:'Идея',kind:'Идея',title,text:'',date:'',platforms:[],created:Date.now()};
+    try{
+      localStorage.setItem(prefix+item.id,JSON.stringify(item));
+      records.set(item.id,item);
+      ideaInput.value='';
+      ideaStatus.textContent='';
+      listPlan();refreshIdeas();refreshStats();
+    }catch(error){ideaStatus.textContent='Не удалось сохранить идею: '+error.message}
+  }},ideaInput,E('button',{type:'submit',textContent:'＋ Добавить'}));
+  const ideaStatus=E('small',{role:'status'});
   const ideaList=E('ul',{className:'planner-idea-list'});
-  const refreshIdeas=()=>{ideaList.replaceChildren();const ideas=inPlan().filter(x=>x.stage==='Идея'||x.kind==='Идея').slice(0,5);for(const item of ideas)ideaList.append(E('li',{textContent:item.title||'Новая идея',onclick:()=>{edit(item);selectTab(planner)}}));if(!ideas.length)ideaList.append(E('li',{textContent:'Добавьте первую идею через календарь'}) )};
-  ideaCard.append(ideaList);
+  const ideaCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head',textContent:'Банк идей'}),ideaForm,ideaStatus,ideaList);
+  function refreshIdeas(){
+    const ideas=inPlan().filter(item=>item.stage==='Идея').sort((a,b)=>b.created-a.created);
+    ideaList.replaceChildren(...ideas.map(item=>E('li',{},B(item.title||'Без названия',()=>edit(item)))));
+    if(!ideas.length)ideaList.append(E('li',{textContent:'Здесь появятся идеи этого плана.'}));
+  }
   const statsCard=E('section',{className:'planner-lower-card'},E('div',{className:'planner-lower-head'},E('span',{textContent:'▥  Статистика'}),E('small',{textContent:'За всё время'})));
   const stats=E('div',{className:'planner-stat-row'});
   const statPublished=E('strong',{textContent:'0'}),statPlanned=E('strong',{textContent:'0'}),statIdeas=E('strong',{textContent:'0'});
   for(const [num,label,cls] of [[statPublished,'Публикаций',''],[statPlanned,'Запланировано','planner-stat-growth'],[statIdeas,'Идей','']])stats.append(E('div',{className:'planner-stat'},Object.assign(E('span'),{textContent:''}),num,E('small',{textContent:label})));
-  const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея'||x.kind==='Идея').length)};
+  const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея').length)};
   statsCard.append(stats);
-  const lower=E('div',{className:'planner-lower'},annaCard,ideaCard,statsCard);
-  section.append(E('aside',{className:'planner-index'},toolbar,monthTools,E('div',{className:'planner-actions'},channel),weekNav,list),editor,lower);
-  const planner=E('div',{className:'vintage-content-planner'},
-    E('div',{className:'vintage-planner-heading'},
-      E('div',{className:'vintage-heading-copy'},E('span',{className:'vintage-kicker',textContent:'✦ МОЯ РЕЧЕВАЯ МАСТЕРСКАЯ ✦'}),E('h2',{textContent:'Календарь контента'}),E('p',{textContent:'Мысли, которые обретают голос. Публикации, которые находят свой день.'})),
-      E('div',{className:'vintage-heading-art','aria-hidden':'true'},E('span',{textContent:'🗝'}),E('span',{textContent:'✧'}),E('span',{textContent:'🎙'}),E('span',{textContent:'✧'}),E('span',{textContent:'▤'}))),
-    section,linkedWorkspacePanel('document')),resources=E('div',{hidden:true,className:'personal-resources'});
-  const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),(start,season)=>{
-    const name=(season==='second'?'Слушаю, говорите':'Мысли есть')+' · '+start;
+  const lower=E('div',{className:'planner-lower'},ideaCard,statsCard,annaCard);
+  section.append(E('aside',{className:'planner-index'},toolbar,filters,weekNav,list),lower,dialog);
+  const planner=E('div',{className:'vintage-content-planner'},section);
+  const resources=E('div',{className:'personal-resources'}),googleDoc=linkedWorkspacePanel('document');
+  const editorial=annaEditorialView(dateString(monday>=new Date()?monday:new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()+7)),(start,season,seasonName,stories)=>{
+    const name=seasonName+' · '+start;
     const existing=plans.find(p=>p.seasonStart===start&&(p.season||'first')===season);
     if(existing){currentPlan=existing.id}
     else{
       const plan={id:uid(),name,seasonStart:start,season},added=[];
       try{
-        for(const story of (season==='second'?secondSeason:annaSeason)){
+        for(const story of stories){
           const day=new Date(start+'T12:00:00');day.setDate(day.getDate()+story.day);
-          const item={id:uid(),plan:plan.id,title:story.title,kind:['Ролик','Яппинг'].includes(story.format)?'Видео':'Пост',
+          const item={id:uid(),plan:plan.id,title:story.title,kind:['Ролик','Яппинг','Видео'].includes(story.format)?'Видео':'Пост',
             stage:stages[0],date:dateString(day),time:'',created:Date.now(),platforms:[...story.channels],
-            explanation:story.why||firstSeasonNotes[annaSeason.indexOf(story)],text:story.script,shoot:story.shot,measure:story.metric,rubric:story.rubric,storyFormat:story.format,goal:story.goal};
+            explanation:story.why,text:story.script,shoot:story.shot,measure:story.metric,rubric:story.rubric,storyFormat:story.format,goal:story.goal};
           localStorage.setItem(prefix+item.id,JSON.stringify(item));added.push(item);
         }
         localStorage.setItem(planKey,JSON.stringify([...plans,plan]));
       }catch(error){for(const item of added)localStorage.removeItem(prefix+item.id);alert('Не удалось сохранить сезон: '+error.message);return}
       plans.push(plan);for(const item of added)records.set(item.id,item);currentPlan=plan.id;
     }
-    refreshPlans();monthCursor.setTime(new Date(start+'T12:00:00').getTime());monthCursor.setDate(1);mode.value='Календарь';search.value='';channel.value='';changePlan();selectTab(planner);
+    refreshPlans();monthCursor.setTime(new Date(start+'T12:00:00').getTime());monthCursor.setDate(1);mode.value='Календарь';search.value='';channel.value=stageFilter.value='';viewTabs.firstChild.click();changePlan();selectTab(planner);
   });
   const tabs=E('nav',{className:'builder-tabs',ariaLabel:'Разделы контента'});
-  const views=[editorial,planner,resources];
+  const views=[planner,editorial,googleDoc,resources];
   function selectTab(view){
     views.forEach((section,i)=>{section.hidden=section!==view;tabs.children[i].setAttribute('aria-pressed',String(section===view))});
     if(view===resources&&!resources.childElementCount)resourceEditor(resources);
   }
-  for(const [i,title] of ['Редакция Анны','Контент-план','Мои ресурсы'].entries())tabs.append(B(title,()=>selectTab(views[i])));
+  for(const [i,title] of ['Контент-план','Редакция Анны','Google Документ','Мои ресурсы'].entries())tabs.append(B(title,()=>selectTab(views[i])));
   selectTab(planner);
-  m.append(E('h2',{textContent:'Контент'}),tabs,...views);
-  changePlan();refreshIdeas();refreshStats();
+  m.append(tabs,...views);
+  changePlan();
   const originalStore=store;
   store=function(){originalStore();refreshIdeas();refreshStats()};
 }
