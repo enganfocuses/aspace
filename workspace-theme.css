@@ -245,3 +245,49 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 :root .home-footer,:root .home-footer .theme-control{color:var(--shell-ink)!important}
 :root .home-footer button{background:var(--shell-button)!important;color:#fff!important}
 :root[data-theme=white] .workspace-view .board-preview{filter:saturate(.82)}
+
+/* Final Aspace palette override: wine buttons across every section and board. */
+:root{
+  --lav:#71384f;
+  --lav-deep:#54283c;
+  --btn:#71384f;
+  --wine:#71384f;
+  --wine-dark:#54283c;
+  --shell-button:#71384f;
+  --shell-button-hover:#54283c;
+  --shell-button-ink:#fff8f4;
+}
+:root[data-theme=dark]{
+  --lav:#71384f;
+  --lav-deep:#54283c;
+  --btn:#71384f;
+  --wine:#71384f;
+  --wine-dark:#54283c;
+  --shell-button:#71384f;
+  --shell-button-hover:#54283c;
+  --shell-button-ink:#fff8f4;
+}
+/* Lavender is no longer used for button fills; keep actual color swatches intact. */
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]){
+  background-color:#71384f!important;
+  color:#fff8f4!important;
+  border-color:#71384f!important;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]):hover{
+  background-color:#54283c!important;
+  color:#fff!important;
+  border-color:#54283c!important;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]) :is(span,strong,b,small,em){
+  color:inherit!important;
+}
+:root .personal-resources .resource-socials a,
+:root .personal-resources .resource-link{
+  background:#71384f!important;
+  color:#fff8f4!important;
+  border-color:#71384f!important;
+}
+:root .personal-resources :is(.resource-link,.resource-socials a):hover{
+  background:#54283c!important;
+  color:#fff!important;
+}
