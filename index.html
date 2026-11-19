@@ -711,11 +711,48 @@ const MAX_UPLOAD_BYTES=6*1024*1024;
 // Keep D1 share permissions aligned with
 // the same Firebase token. Never ship the raw token to Cloudflare D1.
 const shareOpChains=new Map();
+const shareLockOwner=uid()+uid();
+async function acquireShareLease(key){
+ const db=await localDB(),lockKey='__lock__:'+key;
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction('shareOps','readwrite'),store=tx.objectStore('shareOps'),request=store.get(lockKey);
+  let acquired=false;
+  request.onsuccess=()=>{
+   const lease=request.result;
+   if(!lease||lease.expiresAt<=Date.now()||lease.owner===shareLockOwner){
+    store.put({key:lockKey,owner:shareLockOwner,expiresAt:Date.now()+60000});acquired=true;
+   }
+  };
+  tx.oncomplete=()=>resolve(acquired);
+  tx.onabort=tx.onerror=()=>reject(tx.error||new Error('Не удалось заблокировать синхронизацию доступа'));
+ });
+}
+async function releaseShareLease(key){
+ const db=await localDB(),lockKey='__lock__:'+key;
+ return new Promise((resolve,reject)=>{
+  const tx=db.transaction('shareOps','readwrite'),store=tx.objectStore('shareOps'),request=store.get(lockKey);
+  request.onsuccess=()=>{if(request.result?.owner===shareLockOwner)store.delete(lockKey)};
+  tx.oncomplete=()=>resolve(true);
+  tx.onabort=tx.onerror=()=>reject(tx.error||new Error('Не удалось освободить блокировку доступа'));
+ });
+}
+async function withIndexedDBShareLock(key,run){
+ const deadline=Date.now()+65000;
+ while(Date.now()<deadline){
+  if(await acquireShareLease(key)){
+   try{return await run()}finally{await releaseShareLease(key).catch(()=>{})}
+  }
+  await new Promise(resolve=>setTimeout(resolve,120));
+ }
+ throw new Error('Изменение доступа выполняется в другой вкладке. Повтори попытку через минуту.');
+}
 async function sendStandbyShareOp(op){
  const previous=shareOpChains.get(op.key)||Promise.resolve();
  const work=previous.catch(()=>{}).then(()=>{
   const run=()=>applyStandbyShareOp(op);
-  return navigator.locks?navigator.locks.request('aspace-share:'+op.ownerUid+':'+op.key,run):run();
+  return navigator.locks
+   ?navigator.locks.request('aspace-share:'+op.ownerUid+':'+op.key,run)
+   :withIndexedDBShareLock(op.key,run);
  });
  shareOpChains.set(op.key,work);
  try{return await work}finally{if(shareOpChains.get(op.key)===work)shareOpChains.delete(op.key)}
@@ -728,7 +765,7 @@ async function applyStandbyShareOp(op){
  const base=CFG.reserve?.url||'https://aspace-fallback-api.anncodes001.workers.dev';
  const send=async(path,method='GET',body=null)=>{
   const res=await rawFetch(base+path,{method,headers:{Authorization:'Bearer '+await currentUser.getIdToken(),
-   ...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store',referrerPolicy:'no-referrer'});
+   ...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(8000)});
   if(!res.ok)throw Error('Cloudflare HTTP '+res.status);return res.json();
  };
  const current=await send('/v1/shares?docKey='+encodeURIComponent('boards/'+op.boardId));
