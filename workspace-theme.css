@@ -291,3 +291,21 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
   background:#54283c!important;
   color:#fff!important;
 }
+
+
+/* Ornate vintage key used as the global sidebar collapse control. */
+#app>header .sidebar-toggle{
+  width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;
+  padding:4px!important;border-radius:50%!important;
+  display:grid!important;place-items:center!important;
+  background:linear-gradient(145deg,#7d4058,#54283c)!important;
+  border:1px solid #b99570!important;
+  box-shadow:inset 0 0 0 2px #71384f,inset 0 0 0 3px #d5b88f,0 3px 9px #2b0b1840!important;
+}
+#app>header .sidebar-toggle:hover{background:linear-gradient(145deg,#8b4a63,#54283c)!important}
+#app>header .sidebar-toggle .sidebar-key{display:block;width:35px;height:35px;overflow:visible;transition:transform .28s ease}
+#app>header .sidebar-toggle .key-bow,
+#app>header .sidebar-toggle .key-shaft{fill:none;stroke:#f7e7c9;stroke-width:2.8;stroke-linejoin:round;stroke-linecap:round}
+#app>header .sidebar-toggle .key-ornament{fill:none;stroke:#d8b77f;stroke-width:1.8;stroke-linecap:round}
+#app.sidebar-collapsed>header .sidebar-toggle .sidebar-key{transform:rotate(180deg)}
+@media(max-width:760px){#app>header .sidebar-toggle{width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important}#app>header .sidebar-toggle .sidebar-key{width:32px;height:32px}}
