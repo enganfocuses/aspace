@@ -12,10 +12,10 @@
  font:500 .875rem/1.25 system-ui,sans-serif;cursor:pointer;
 }
 :root .heritage-page button.primary{background:#71384f;color:#fff6ed}
-:root .heritage-page button.quiet-button:not(:hover):not(:focus-visible){background:transparent!important;box-shadow:inset 0 0 0 1px var(--shell-line,#cbb5c6)}
+:root .heritage-page button.quiet-button:not(:hover):not(:focus-visible){background:var(--shell-card,#fffaf3)!important;color:#3b2934!important;box-shadow:inset 0 0 0 1px var(--shell-line,#cbb5c6)}
 :root .heritage-page button:not(:disabled):hover{filter:brightness(.94)}
 :root .heritage-page :is(button,select,summary,input):focus-visible{outline:2px solid #926697;outline-offset:2px}
-#catalog .shelves button[aria-pressed=true]{background:#71384f!important;color:#fff5e7!important;border-color:#71384f}
+#catalog .shelves button[aria-pressed=true]{background:#71384f!important;color:#fff!important;border-color:#71384f}
 .search{display:grid;gap:5px;max-width:380px;margin:18px 0;font-size:.9rem}
 .search input{font:inherit;padding:10px 12px;border:1px solid #b7a28c;background:#fff9ef;color:#382935}
 .shelf-title{margin:23px 0 11px;font:600 25px Georgia,serif}
@@ -120,7 +120,7 @@
 
 #export-notes:disabled{opacity:.55}
 .remove-pdf{font-size:.875rem}
-.remove-pdf summary{cursor:pointer}
+.remove-pdf summary{cursor:pointer;color:#3b2934}
 .remove-pdf p{margin-block:6px}
 
 #rename-book{box-sizing:border-box;width:min(420px,calc(100% - 28px));padding:22px;border:1px solid var(--shell-line,#cbb5c6);border-radius:22px;background:var(--shell-bg,#fff7ea);color:var(--shell-ink,#382935)}

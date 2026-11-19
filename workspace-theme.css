@@ -158,10 +158,10 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .planner-index>input{display:block;width:100%;margin-top:10px}.planner-index h4{margin:12px 0 0}.planner-schedule>label{flex:1 1 120px;min-width:0;display:grid;gap:4px}.content-editor[hidden]{display:none}.content-entry{width:100%;overflow-wrap:anywhere;padding:10px 12px;border-radius:12px}
 
 :root :is(#main.workspace-view,.heritage-page,#app>header,.bfull) :is(button.primary,button.active,button.current,button.is-current,button.on,button[aria-selected="true"],.builder-tabs button[aria-pressed="true"],.content-entry[aria-pressed="true"]):not(.sw):not(.vbar button){
-  background-color:#69405a!important;color:#fff8f4!important
+  background-color:#69405a!important;color:#fff!important
 }
 :root :is(#main.workspace-view,.heritage-page,#app>header,.bfull) :is(button.primary,button.active,button.current,button.is-current,button.on,button[aria-selected="true"],.builder-tabs button[aria-pressed="true"],.content-entry[aria-pressed="true"]) :is(span,strong,b,small,em,.meta,.mut){
-  color:#fff8f4!important
+  color:inherit!important
 }
 .planner-week{display:flex;align-items:center;justify-content:space-between;gap:8px}.planner-week[hidden]{display:none}.content-plan h4{display:flex;align-items:center;justify-content:space-between;gap:8px}.content-plan h4 button{padding:3px 10px;border-radius:9px}
 
@@ -178,7 +178,7 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .it.retro-timer .timer-controls button::before{font-size:min(7cqw,18cqh)!important}
 .bfull .it.note{min-height:0}
 .bfull .fbar .format-main{gap:3px}
-.bfull .layer-picker{position:relative;display:grid;place-items:center;width:32px;height:34px;flex:none;border-radius:9px;background:var(--btn,#c8b8e8);color:#49354f;cursor:pointer}
+.bfull .layer-picker{position:relative;display:grid;place-items:center;width:32px;height:34px;flex:none;border-radius:9px;background:var(--btn,#5a1f38);color:var(--shell-button-ink,#fff);cursor:pointer}
 .bfull .layer-picker select{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .layer-picker:focus-within{outline:2px solid #8b6195;outline-offset:1px}
 .bfull .format-main .object-color-control>span{display:none}
@@ -241,7 +241,7 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 :root #app>header .nav-item.is-current{background:var(--shell-button-hover)!important;color:#fff!important;border-color:var(--shell-button-hover)!important;box-shadow:inset 0 0 0 3px var(--shell-button-hover),inset 0 0 0 4px #c49aaa!important}
 :root #app>header .nav-home:after{filter:brightness(0) invert(1);opacity:.9}
 :root #app>header .theme-control select{background:var(--shell-control)!important;color:var(--shell-ink)!important;border-color:var(--shell-line)!important}
-:root .home-sections .section-copy,:root .home-sections .section-usage{background-color:var(--shell-card)!important;color:var(--shell-ink)!important}
+:root .home-sections .section-copy,:root .home-sections .section-usage{background-color:var(--shell-card)!important;color:#3b2934!important}
 :root .home-footer,:root .home-footer .theme-control{color:var(--shell-ink)!important}
 :root .home-footer button{background:var(--shell-button)!important;color:#fff!important}
 :root[data-theme=white] .workspace-view .board-preview{filter:saturate(.82)}
@@ -278,13 +278,10 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
   color:#fff!important;
   border-color:#54283c!important;
 }
-:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]) :is(span,strong,b,small,em){
-  color:inherit!important;
-}
 :root .personal-resources .resource-socials a,
 :root .personal-resources .resource-link{
   background:#71384f!important;
-  color:#fff8f4!important;
+  color:#fff!important;
   border-color:#71384f!important;
 }
 :root .personal-resources :is(.resource-link,.resource-socials a):hover{
@@ -332,8 +329,8 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
   color:#fff!important;
   border-color:#421329!important;
 }
-:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]) :is(span,strong,b,small,em){
-  color:#fff!important;
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]) :is(span,strong,b,small,em):not(:where(.section-copy,.section-copy *)){
+  color:inherit!important;
 }
 :root #app>header .sidebar-toggle{
   width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important;

@@ -663,11 +663,12 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .idea-deck,.plan-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:16px;margin:20px 0;align-items:start}
 .idea-card{padding:22px;border:4px double #b59a72;border-radius:14px;box-shadow:0 5px 14px #30202c22;background:#f5e6cd;color:#3c2928}
 .idea-card.tone-1{background:#283642;color:#fff3d9}.idea-card.tone-2{background:#602338;color:#fff2db}
-#main.workspace-view .idea-card :is(h3,p,small,summary){color:inherit}.idea-card h3{font:600 1.45rem/1.15 Georgia,serif;margin:14px 0}.idea-card .anna-details{padding:8px 0;border:0;border-top:1px solid #b59a72;border-radius:0}.idea-card p{line-height:1.5}
+#main.workspace-view .idea-card :is(h3,p,small,summary){color:inherit}
+#main.workspace-view .idea-card.tone-2 summary{color:#fff}.idea-card h3{font:600 1.45rem/1.15 Georgia,serif;margin:14px 0}.idea-card .anna-details{padding:8px 0;border:0;border-top:1px solid #b59a72;border-radius:0}.idea-card p{line-height:1.5}
 .plan-wide{grid-template-columns:minmax(0,1fr)}.plan-blocks section,.month-day{border:1px solid #baa88e;border-radius:10px;padding:8px}.plan-tile{display:grid;gap:5px;text-align:left;width:100%;white-space:normal;overflow-wrap:anywhere;margin:4px 0}.plan-tile small{font-size:.75rem}.month-scroll{max-width:100%;overflow:auto}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(90px,1fr));gap:4px}.month-day{min-height:76px}.month-day>button:first-child{padding:3px 8px}.month-day .plan-tile{padding:6px;border-radius:6px;font-size:.82rem}
 .anna-edition .anna-cover{background:#51172b url('./assets/home/anna-studio.webp') center right/cover no-repeat;position:relative;isolation:isolate;overflow:hidden}.anna-cover:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#391021f5,#391021db 40%,transparent 90%)}.anna-cover select{max-width:100%}.anna-cover h2{max-width:18ch}
 </style>
-<link rel="stylesheet" href="workspace-theme.css?v=6"></head><body>
+<link rel="stylesheet" href="workspace-theme.css?v=7"></head><body>
 <div id="root"></div>
 <script>
 const $=s=>document.querySelector(s);
