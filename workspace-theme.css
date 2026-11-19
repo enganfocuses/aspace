@@ -209,3 +209,39 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
   #app.sidebar-collapsed>header b:before{display:none}
   #app.sidebar-collapsed>header .theme-control{display:flex!important}
 }
+
+
+/* Theme-wide surfaces: every workspace and panel follows the selected appearance. */
+:root{--shell-card:#fffaf3;--shell-paper:#f6efdf;--shell-panel:#eee4d8;--shell-control:#fffaf3;--shell-button:#71384f;--shell-button-hover:#54283c;--shell-button-ink:#fff8f4}
+:root[data-theme=white]{--shell-bg:#fff;--shell-ink:#29252a;--shell-muted:#68636a;--shell-line:#d8d4d8;--shell-header:#fff;--shell-card:#fff;--shell-paper:#fff;--shell-panel:#f6f6f7;--shell-control:#fff;--shell-button:#71384f;--shell-button-hover:#54283c;--shell-button-ink:#fff}
+:root[data-theme=beige]{--shell-card:#fffaf3;--shell-paper:#f6efdf;--shell-panel:#eee4d8;--shell-control:#fffaf3}
+:root[data-theme=dark]{--shell-card:#f6efdf;--shell-paper:#f6efdf;--shell-panel:#eee4d8;--shell-control:#fff9ef}
+:root #app>header,:root #main,:root #main.home-menu,:root #main.workspace-view,
+:root .workspace-view,:root .heritage-page,:root .heritage-page main,
+:root .heritage-page>.wrap{background-color:var(--shell-bg)!important;color:var(--shell-ink)}
+:root #app>header{background:var(--shell-header)!important;border-color:var(--shell-line)!important}
+:root #main.workspace-view .card,:root #main.workspace-view .usage-card,
+:root #main.workspace-view .usage-notice,:root #main.workspace-view pre,
+:root #main.workspace-view .usage-table-wrap,
+:root .heritage-page :is(.card,.hero,.stat,.entry,.book,.notice,.example,.question,.side,.content,article,.empty,.lesson,.task,.verbatim,.option,.answer,.panel){
+ background:var(--shell-card)!important;color:var(--shell-ink)!important;border-color:var(--shell-line)!important
+}
+:root #main.workspace-view input,:root #main.workspace-view select,:root #main.workspace-view textarea,
+:root .heritage-page :is(input,select,textarea){background:var(--shell-control)!important;color:var(--shell-ink)!important;border-color:var(--shell-line)!important}
+:root .section-breadcrumb{background:var(--shell-panel)!important;color:var(--shell-ink)!important;border-color:var(--shell-line)!important}
+:root .heritage-page :is(.lesson,.task,.source-page details,.verbatim){background:var(--shell-paper)!important;color:var(--shell-ink)!important}
+:root #app>header button,
+:root #app>header button.nav-home,
+:root #app>header .sidebar-toggle,
+:root #app>header .section-nav button{
+ background:var(--shell-button)!important;color:var(--shell-button-ink)!important;border:1px solid var(--shell-button)!important
+}
+:root #app>header button:hover{background:var(--shell-button-hover)!important;color:#fff!important}
+:root #app>header .nav-index{color:#f4dfe7!important}
+:root #app>header .nav-item.is-current{background:var(--shell-button-hover)!important;color:#fff!important;border-color:var(--shell-button-hover)!important;box-shadow:inset 0 0 0 3px var(--shell-button-hover),inset 0 0 0 4px #c49aaa!important}
+:root #app>header .nav-home:after{filter:brightness(0) invert(1);opacity:.9}
+:root #app>header .theme-control select{background:var(--shell-control)!important;color:var(--shell-ink)!important;border-color:var(--shell-line)!important}
+:root .home-sections .section-copy,:root .home-sections .section-usage{background-color:var(--shell-card)!important;color:var(--shell-ink)!important}
+:root .home-footer,:root .home-footer .theme-control{color:var(--shell-ink)!important}
+:root .home-footer button{background:var(--shell-button)!important;color:#fff!important}
+:root[data-theme=white] .workspace-view .board-preview{filter:saturate(.82)}
