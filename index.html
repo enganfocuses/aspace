@@ -2082,7 +2082,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const stopUsage=isOwner?usageTracker.trackBoard('boards/'+id,boardShareToken):()=>{};
   if(localGuestDraft?.value&&!guest)d0=cloneBoard(localGuestDraft.value);
   const d=d0;
-  const W=4096,H=3072;
+  const W=8192,H=6144;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
   const cvM=E('canvas',{width:W,height:H,className:'cm'}),ink=E('canvas',{width:W,height:H,className:'ink'}),cv=E('div',{className:'board-input'}),ctx=ink.getContext('2d'),ctxM=cvM.getContext('2d');
