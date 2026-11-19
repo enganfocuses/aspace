@@ -80,3 +80,18 @@ and network dependencies. Local browser storage can be cleared. Conflicting
 edits need review. Anonymous links are bearer capabilities, and revocation
 cannot erase a copy somebody already downloaded. No unlimited-free or
 uninterrupted-video guarantee is implied.
+
+### Автопостинг из контент-плана
+
+Подключите нужный профиль в Buffer и проверьте, поддерживает ли Buffer автоматическую публикацию для этого типа аккаунта и материала. Получите ключ API Buffer с правом планирования. ID своей организации можно узнать запросом viewer → organizations в [руководстве Buffer](https://developers.buffer.com/).
+
+Из каталога cloudflare актуальной версии main выполните команды для Worker aspace-fallback-api. Значения вводятся по запросу Wrangler.
+
+```sh
+npm install
+npx wrangler secret put BUFFER_API_KEY
+npx wrangler secret put BUFFER_ORGANIZATION_ID
+npm run deploy
+```
+
+В Aspace укажите текст, дату и местное время публикации. Откройте «Автопостинг через Buffer», загрузите каналы, выберите один канал и при необходимости добавьте публичную HTTPS-ссылку на изображение или видео. Подтвердите постановку в очередь. Отредактировать или отменить уже переданную публикацию можно в Buffer. После сетевого сбоя сначала сверьтесь с очередью.

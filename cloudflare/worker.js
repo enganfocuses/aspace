@@ -189,6 +189,28 @@ export default {
     const uid = await requireOwner(request, env);
     if (!uid) return json({ error: "unauthorized" }, 401);
 
+    if(url.pathname==='/v1/publishing'){
+      if(!env.BUFFER_API_KEY||!env.BUFFER_ORGANIZATION_ID)return json({error:'Buffer не подключён'},503);
+      async function query(query,variables){
+        const result=await fetch('https://api.buffer.com',{method:'POST',headers:{Authorization:'Bearer '+env.BUFFER_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({query,variables})});
+        if(!result.ok)throw Error('Buffer HTTP '+result.status);
+        const body=await result.json();if(body.errors?.length)throw Error(body.errors[0].message);return body.data;
+      }
+      try{
+        const channels=(await query('query($input:ChannelsInput!){channels(input:$input){id name service}}',{input:{organizationId:env.BUFFER_ORGANIZATION_ID}})).channels;
+        if(request.method==='GET')return json(channels);
+        if(request.method!=='POST')return json({error:'method'},405);
+        const {channelId,dueAt,text,asset}=await request.json();
+        if(!channels.some(c=>c.id===channelId)||!Number.isFinite(Date.parse(dueAt))||Date.parse(dueAt)<=Date.now()||typeof text!=='string'||!text.trim())return json({error:'Проверь канал, дату и текст'},400);
+        const input={channelId,text,dueAt,mode:'customScheduled',schedulingType:'automatic'};
+        if(asset){
+          if(!['image','video'].includes(asset.type)||new URL(asset.url).protocol!=='https:')return json({error:'Недопустимое вложение'},400);
+          input.assets=[{[asset.type]:{url:asset.url}}];
+        }
+        const result=(await query('mutation($input:CreatePostInput!){createPost(input:$input){... on PostActionSuccess{post{id dueAt}} ... on MutationError{message}}}',{input})).createPost;
+        return result.post?json(result.post):json({error:result.message||'Buffer не подтвердил публикацию'},422);
+      }catch(error){return json({error:error.message},502)}
+    }
     // List hashes and status, never raw link secrets, so links can be revoked on any owner's device.
     if (url.pathname === "/v1/shares" && request.method === "GET") {
       const docKey = url.searchParams.get("docKey") || "";

@@ -118,6 +118,9 @@ function contentView(m){
       .vintage-event{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:6px 7px;margin:4px 0;text-align:left;white-space:normal;overflow-wrap:anywhere;background:#eadfe0;color:#482d32;border:1px solid #d8c1bd;border-radius:6px;box-shadow:none;font-weight:400}
       .vintage-event:hover{background:#e4d0d0;color:#482d32}
       .vintage-event.is-scheduled{background:#e9e0cc;border-color:#d8c29a}.vintage-event.is-published{background:#dce5d9;border-color:#b6c7ad}
+      .vintage-content-planner .vintage-event[data-format]{border:0;border-radius:8px;background:#f5dce2;color:#382733;padding:8px}
+      .vintage-content-planner .vintage-event:is([data-format="Карусель"],[data-format="Яппинг"]){background:#e6e1f5}
+      .vintage-content-planner .vintage-event:is([data-format="Видео"],[data-format="Ролик"]){background:#fae8ca}
       .vintage-event-kind{font-size:10px;color:#8a6249}.vintage-event strong{font:600 11px/1.25 Georgia,serif}.vintage-event small{font-size:9px;color:#77665b}
       .vintage-empty-mark{display:block;text-align:center;color:#cbb89e;font-size:10px;margin-top:18px}
       .vintage-empty-note{text-align:center;color:#806d5d;font:14px Georgia,serif;padding:10px}
@@ -287,11 +290,10 @@ function contentView(m){
     localGet('assets',assetKey).then(saved=>{if(saved?.value)show(saved.value)}).catch(error=>status.textContent=error.message);
   }
   function create(date=''){if(!currentPlan&&!newPlan())return;const item={id:uid(),plan:currentPlan,stage:stages[0],created:Date.now(),title:'',kind:'Идея',text:'',date:typeof date==='string'?date:'',platforms:[]};edit(item);store();editor.querySelector('input').focus()}
-  const planTools=E('div',{className:'planner-actions'},planSelect,B('＋ План',newPlan),B('Скачать план',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)}),B('Удалить план',removePlan));
   const viewTabs=E('div',{className:'planner-view-tabs'},...['Календарь','Список','Недели','Блоки'].map((label,i)=>{const b=B(label,()=>{mode.value=['Календарь','По датам','Неделя','Блоки'][i];listPlan();[...viewTabs.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});b.setAttribute('aria-pressed',String(i===0));return b}));
   const exportButton=B('↓ Экспорт',()=>{const plan=plans.find(p=>p.id===currentPlan);if(plan)exportRecords(inPlan(),plan.name)});
   const toolbar=E('div',{className:'planner-toolbar'},viewTabs,E('div',{className:'planner-utility'},search,exportButton));
-  const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create));
+  const monthTools=E('div',{className:'planner-toolbar'},monthNav,planSelect,B('＋ План',newPlan),B('＋ Запись',create),B('Удалить план',removePlan));
   const annaCard=E('section',{className:'planner-lower-card'},
     E('div',{className:'planner-lower-head'},E('span',{textContent:'☆  Редакция Анны'}),B('Все материалы →',()=>selectTab(editorial))),
     E('div',{className:'planner-anna-preview'},E('div',{className:'planner-anna-photo',textContent:'✦  Авторский сезон'}),E('div',{},E('strong',{textContent:(annaSeason[0]?.title||'Авторский сезон о мышлении и речи')}),E('p',{textContent:annaSeason.length+' материалов, сценарии и готовый план публикаций'}),B('Открыть материалы',()=>selectTab(editorial)))));
@@ -304,7 +306,7 @@ function contentView(m){
   const statPublished=E('strong',{textContent:'0'}),statPlanned=E('strong',{textContent:'0'}),statIdeas=E('strong',{textContent:'0'});
   for(const [num,label,cls] of [[statPublished,'Публикаций',''],[statPlanned,'Запланировано','planner-stat-growth'],[statIdeas,'Идей','']])stats.append(E('div',{className:'planner-stat'},Object.assign(E('span'),{textContent:''}),num,E('small',{textContent:label})));
   const refreshStats=()=>{const all=inPlan();statPublished.textContent=String(all.filter(x=>x.stage==='Опубликовано').length);statPlanned.textContent=String(all.filter(x=>x.stage==='Запланировано').length);statIdeas.textContent=String(all.filter(x=>x.stage==='Идея'||x.kind==='Идея').length)};
-  statsCard.append(stats,E('svg',{className:'planner-mini-chart',viewBox:'0 0 320 70',role:'img','aria-label':'Динамика публикаций'},E('path',{d:'M4 58 L42 43 L82 44 L120 25 L160 38 L201 21 L240 16 L278 5 L316 5',fill:'none',stroke:'#8a294b','stroke-width':'2'}),...[[4,58],[42,43],[82,44],[120,25],[160,38],[201,21],[240,16],[278,5],[316,5]].map(([cx,cy])=>E('circle',{cx,cy,r:'3',fill:'#8a294b'}))));
+  statsCard.append(stats);
   const lower=E('div',{className:'planner-lower'},annaCard,ideaCard,statsCard);
   section.append(E('aside',{className:'planner-index'},toolbar,monthTools,E('div',{className:'planner-actions'},channel),weekNav,list),editor,lower);
   const planner=E('div',{className:'vintage-content-planner'},
@@ -427,4 +429,38 @@ function resourceEditor(host){
   host.append(E('section',{className:'card'},E('h3',{textContent:'Мои соцсети'}),socials));
   host.append(E('section',{className:'card resource-editor'},E('h3',{textContent:'Мои ресурсы'}),tabs,live,E('label',{},'Открыть HTML с устройства',upload),E('label',{},'Исходный HTML',code),E('div',{className:'row'},preview,download),status,frame));
   void openSite(sites[0]);
+}
+
+function bufferScheduler(item,prefix){
+  const key=prefix.replace('aspace:content:','aspace:delivery:')+item.id;
+  const receipt=()=>JSON.parse(localStorage.getItem(key)||'null');
+  const info=E('p',{role:'status'}),target=E('select',{ariaLabel:'Канал Buffer'}),media=E('input',{type:'url',placeholder:'Публичная HTTPS-ссылка на медиа'});
+  const kind=E('select',{ariaLabel:'Вложение'},...['Только текст','Изображение','Видео'].map(textContent=>E('option',{textContent})));
+  const panel=E('details',{},E('summary',{textContent:'Автопостинг через Buffer'}));
+  const queue=E('a',{href:'https://publish.buffer.com',target:'_blank',rel:'noopener noreferrer',textContent:'Проверить очередь в Buffer ↗'});
+  async function api(method,body){
+    const r=await fetch(CFG.reserve.url+'/v1/publishing',{method,headers:{Authorization:'Bearer '+await currentUser.getIdToken(),'Content-Type':'application/json'},body:body&&JSON.stringify(body)});
+    if(r.status===404||r.status===503)throw Error('Автопостинг ещё не подключён. Для Worker нужны BUFFER_API_KEY и BUFFER_ORGANIZATION_ID.');
+    const data=await r.json();if(!r.ok)throw Error(data.error||'Не удалось связаться с Buffer');return data;
+  }
+  const load=B('Загрузить мои каналы',async()=>{
+    load.disabled=true;try{const channels=await api('GET');target.replaceChildren(...channels.map(c=>E('option',{value:c.id,textContent:c.name+' · '+c.service})));info.textContent=channels.length?'Выбери канал назначения.':'В Buffer нет подключённых каналов.'}catch(e){info.textContent=e.message}finally{load.disabled=false}
+  });
+  const send=B('Поставить в очередь',async()=>{
+    const time=new Date(item.date+'T'+item.time),channel=target.selectedOptions[0];
+    if(!channel||!(item.text||'').trim()||!Number.isFinite(+time)||time<=new Date()){info.textContent='Нужны канал, текст и будущая дата со временем.';return}
+    const asset=kind.selectedIndex?{type:kind.selectedIndex===1?'image':'video',url:media.value}:null;
+    if(asset&&!/^https:\/\//.test(asset.url)){info.textContent='Укажи HTTPS-ссылку на файл.';return}
+    if(receipt())return;
+    if(!confirm('Запланировать публикацию в '+channel.textContent+' на '+time.toLocaleString('ru')+' по времени этого устройства?'))return;
+    const label=channel.textContent+' · '+time.toLocaleString('ru');send.disabled=true;
+    try{
+      localStorage.setItem(key,JSON.stringify({label,pending:true}));
+      const data=await api('POST',{channelId:channel.value,dueAt:time.toISOString(),text:item.text,asset});
+      localStorage.setItem(key,JSON.stringify({label,id:data.id}));info.textContent='В очереди Buffer: '+label;
+    }catch(e){info.textContent=e.message+' Проверь очередь перед повтором.'}
+  });
+  const saved=receipt();if(saved){info.textContent=(saved.id?'В очереди Buffer: ':'Требует сверки с Buffer: ')+saved.label;send.disabled=true}
+  const clear=B('Сбросить отметку после сверки',()=>{if(receipt()&&confirm('Запись проверена в Buffer? Сбросить локальную отметку? Это не отменяет публикацию в Buffer.')){localStorage.removeItem(key);send.disabled=false;info.textContent='Можно планировать заново.'}});
+  panel.append(E('p',{textContent:'В очередь уйдёт текущий текст записи. Дата и время — местные. После отправки изменения и отмена выполняются в Buffer.'}),E('div',{className:'planner-actions'},load,target,kind,media,send),info,queue,clear);return panel;
 }
