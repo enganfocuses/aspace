@@ -2671,6 +2671,32 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const formatTabs={};
   const chooseFormat=tab=>{formatTab=formatTab===tab?null:tab;updateFormatSections();queueFormatPosition()};
   for(const [key,label,title] of [['text','Aa','Текст и шрифт'],['fill','Цвет','Заливка'],['links','↗','Связи и стрелки']])formatTabs[key]=E('button',{textContent:label,title,ariaLabel:title,ariaExpanded:'false',onclick:()=>chooseFormat(key)});
+  let copiedBoardItems=[];
+  const copySelected=()=>{
+    if(guest||!selectedItems.length)return false;
+    copiedBoardItems=selectedItems.map(n=>cloneBoard(n));
+    say('Скопировано объектов: '+copiedBoardItems.length);
+    return true;
+  };
+  let pasteOffset=0;
+  const pasteCopied=()=>{
+    if(guest||!copiedBoardItems.length)return false;
+    const idMap=new Map(copiedBoardItems.map(n=>[n.id,uid()]));
+    const groupMap=new Map();
+    const pasted=copiedBoardItems.map(source=>{
+      const n=cloneBoard(source),oldId=n.id;
+      n.id=idMap.get(oldId);n.x=Math.max(0,(Number(n.x)||0)+24*(++pasteOffset));
+      n.y=Math.max(0,(Number(n.y)||0)+24*pasteOffset);n.locked=false;
+      if(n.group){if(!groupMap.has(n.group))groupMap.set(n.group,uid());n.group=groupMap.get(n.group)}
+      n.arrows=(n.arrows||[]).filter(a=>idMap.has(a.to)).map(a=>({...a,to:idMap.get(a.to)}));
+      return n;
+    });
+    for(const n of pasted){items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})}
+    fit();selectMany(pasted);persistNow();say('Вставлено объектов: '+pasted.length);
+    return true;
+  };
+  const copyButton=E('button',{textContent:'⧉',title:'Копировать (Ctrl+C)',ariaLabel:'Копировать',onclick:copySelected});
+  const pasteButton=E('button',{textContent:'▣',title:'Вставить (Ctrl+V)',ariaLabel:'Вставить',onclick:pasteCopied});
   const duplicateSelected=E('button',{textContent:'⧉',title:'Дублировать',ariaLabel:'Дублировать',onclick:()=>{for(const n of [...selectedItems])dup(n)}});
   const deleteSelected=E('button',{textContent:'×',title:'Удалить',ariaLabel:'Удалить',onclick:()=>{for(const n of [...selectedItems])delItem(n)}});
   const objectColor=E('input',{type:'color',value:'#800020',title:'Изменить цвет стикера, фигуры или символа',ariaLabel:'Изменить цвет объекта',className:'object-color-picker',oninput:e=>fmt('c',e.target.value.toLowerCase())});
@@ -2688,7 +2714,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       (action==='front'?[...others,...moved]:[...moved,...others]).forEach((n,i)=>{if(n.layer!==i+2){n.layer=i+2;geom(els[n.id],n);push(n)}});
     }else for(const n of selectedItems){n.group=group;push(n)}
   };
-  fbar.append(E('div',{className:'format-main'},E('label',{className:'layer-picker',title:'Слои и группы'},ic('layers'),arrange),lockButton,formatTabs.text,formatTabs.fill,objectColorLabel,formatTabs.links,duplicateSelected,deleteSelected),formatBody);
+  fbar.append(E('div',{className:'format-main'},E('label',{className:'layer-picker',title:'Слои и группы'},ic('layers'),arrange),lockButton,formatTabs.text,formatTabs.fill,objectColorLabel,formatTabs.links,copyButton,pasteButton,duplicateSelected,deleteSelected),formatBody);
   function updateFormatSections(){
     const editable=selectedItems.length===1&&!sel?.locked;
     const allowed={text:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='txt'),fill:editable&&!sel.deadline&&(FILLK.includes(sel.k)||sel.k==='emo'),links:editable};
@@ -3018,8 +3044,11 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   mb.addEventListener('click',()=>{if(mp.classList.contains('open'))for(const panel of [participants,vtop,chat])panel.open=false});
   renderAnnouncement();m.append(root);
   const key=e=>{const t=e.target;if(t.isContentEditable||t.closest('.board-access-dialog')||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
-    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
-    else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo()}
+    const mod=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
+    if(mod&&key==='c'&&selectedItems.length){if(copySelected())e.preventDefault()}
+    else if(mod&&key==='v'&&copiedBoardItems.length){if(pasteCopied())e.preventDefault()}
+    else if(mod&&key==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
+    else if(mod&&key==='y'){e.preventDefault();doRedo()}
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
     else if(e.key==='Escape'){mp.classList.remove('open');mb.setAttribute('aria-expanded','false');saveMenu.open=false;wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
