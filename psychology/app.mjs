@@ -32,6 +32,7 @@ const standaloneUrl=new URL(location.href);
 let currentView='sections';
 if(standaloneUrl.searchParams.has('embed')){
  standaloneUrl.searchParams.delete('embed');
+ document.querySelector('.brand').addEventListener('click',event=>{event.preventDefault();show('sections')});
  $('nav').append(B('Открыть в отдельном окне',()=>{
   standaloneUrl.searchParams.set('theme',document.documentElement.dataset.theme);
   if(courseViews.has(currentView))standaloneUrl.searchParams.set('section','cpt');

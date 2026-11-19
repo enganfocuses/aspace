@@ -155,7 +155,7 @@ function annaEditorialView(start,onAdd){
       B('＋ Новый сезон',()=>{seasonActions.open=false;nameForm(true)}),
       B('Переименовать',()=>{seasonActions.open=false;nameForm(false)}),
       B('PDF',()=>{seasonActions.open=false;printAnnaSeason(selected())})));
-  controls.append(E('label',{className:'anna-season-select'},'Сезон',season),addStory,calendar,seasonActions);
+  controls.append(E('label',{className:'anna-season-select'},E('span',{textContent:'Сезон'}),season),addStory,calendar,seasonActions);
   cover.append(controls,settings,status);
   content.append(deck);
   function refresh(id){

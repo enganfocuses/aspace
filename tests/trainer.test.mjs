@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
-const view=html.slice(html.indexOf('async function trainerView(m){'),html.indexOf('async function psychologyView(m){'));
+const view=html.slice(html.indexOf('async function trainerView(m){'),html.indexOf('function rhetoricView('));
 function setup(user){
  function E(tag,props={},...children){return {tag,...props,children,dataset:{},attributes:{},append(...items){this.children.push(...items)},setAttribute(k,v){this.attributes[k]=v},querySelectorAll(){return this.children.filter(x=>x.dataset?.tool)}}}
  const history={replaceState(...args){this.url=args[2]}};

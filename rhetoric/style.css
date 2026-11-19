@@ -134,3 +134,5 @@
 #import-section,#book-section-input{max-width:100%;padding:8px 10px;border:1px solid var(--shell-line,#cbb5c6);font:inherit}
 #book-section-input{box-sizing:border-box;width:100%}
 #rename-book label[for=book-section-input]{margin-top:12px}
+
+.psychology-frame{display:block;width:100%;height:max(600px,80dvh);margin-block:8px 16px;border:1px solid var(--shell-line,#cbb5c6);border-radius:14px;background:var(--shell-card,#fffaf3)}
