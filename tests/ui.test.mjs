@@ -53,7 +53,7 @@ test('anonymous student video access is checked before opening the call',()=>{
  assert.match(index,/testGuestCallAccess\(id\)/);
  assert.match(index,/const read=await rawFetch\(base\+'\.json\?shallow=true'/);
  assert.match(index,/const probe=await fetch\(base\+'\.json'/);
- assert.match(index,/await new Promise\(\(resolve,reject\)=>/);
+ assert.match(index,/if\(!probe\.ok\)throw new Error/);
 });
 test('quota-safe board sync does not post oversized catch-up snapshots',()=>{
  assert.match(index,/if\(size>120000\)return/);

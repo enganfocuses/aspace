@@ -25,7 +25,7 @@ function createHarness({readStatus=200,writeStatus=200,open=true}={}){
       return {ok:writeStatus===200,status:writeStatus,json:async()=>({name:'k'+sent.length})};
     }
     if(options.method==='PATCH')return{ok:true,status:200};
-    return {ok:readStatus===200,status:readStatus};
+    return {ok:readStatus===200,status:readStatus,json:async()=>({})};
   };
   const listeners=new Map();
   const addEventListener=(name,fn)=>listeners.set(name,fn);
@@ -91,4 +91,17 @@ test('shared drafts persist without replacing pending local edits',()=>{
   assert.match(html,/if\(got\|\|!x.data\|\|unsyncedShareDraft\)return/);
   assert.match(html,/shareSyncChain=shareSyncChain.then/);
   assert.match(html,/activeShareToken=boardShareToken/);
+});
+
+test('reconnecting to an existing room does not replay a board edit twice',async()=>{
+  const app=createHarness();
+  const room=await app.room0.join('b-test');
+  let edits=0;
+  room.on('i',()=>{edits++});
+  const message={t:'i',s:'peer',d:'{}'};
+  for(const event of [{path:'/k1',data:message},{path:'/',data:{k1:message}}]){
+    app.streams[0].dispatch('put',{data:JSON.stringify(event)});
+  }
+  assert.equal(edits,1);
+  room.close();
 });

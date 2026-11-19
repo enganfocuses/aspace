@@ -901,13 +901,36 @@ const room0={async join(name,customPath,onData=()=>{}){
     base=DB()+(customPath||('/rooms/'+encodeURIComponent(name)));
   const preflight=await fetch(base+'.json?shallow=true',{cache:'no-store',signal:AbortSignal.timeout(6000)});
   if(!preflight.ok)throw new Error('Нет доступа к каналу видеозвонка (Firebase HTTP '+preflight.status+'). Проверь права гостевого доступа.');
-  let closed=false,es=null,gc=null,hideRegistered=false;
+  // Messages already present before this participant joined belong to older sessions.
+  const baseline=await preflight.json();
+  const seen=new Set(Object.keys(baseline||{}));
+  let closed=false,es=null,gc=null,pollTimer=null,polling=false,hideRegistered=false;
+  function receive(key,value){
+    if(!value){seen.delete(key);return}
+    if(!value.t||seen.has(key))return;
+    seen.add(key);deliver(value);
+  }
+  async function poll(){
+    if(closed||polling)return;
+    polling=true;
+    try{
+      const response=await fetch(base+'.json?orderBy=%22%24key%22&limitToLast=128',{cache:'no-store',signal:AbortSignal.timeout(6000)});
+      if(!response.ok)return;
+      const values=await response.json()||{};
+      if(closed)return;
+      for(const key of Object.keys(values).sort())receive(key,values[key]);
+    }catch{}finally{polling=false}
+  }
+  function startPolling(){
+    if(!closed&&!pollTimer){pollTimer=setInterval(poll,1500);void poll()}
+  }
+  function stopPolling(){clearInterval(pollTimer);pollTimer=null}
   const flush=()=>{
     if(!dead.length)return;
     const data={};dead.splice(0).forEach(key=>data[key]=null);
     fetch(base+'.json',{method:'PATCH',body:JSON.stringify(data),keepalive:true}).catch(()=>{});
   };
-  const onPageHide=()=>{closed=true;flush()};
+  const onPageHide=event=>{if(!event.persisted)api.close()};
   const deliver=value=>{
     if(value&&value.s&&value.s!==me&&value.t)
       (handlers[value.t]||[]).forEach(listener=>{
@@ -935,7 +958,7 @@ const room0={async join(name,customPath,onData=()=>{}){
       if(closed)return;
       closed=true;
       if(hideRegistered)removeEventListener('pagehide',onPageHide);
-      es?.close();if(gc)clearInterval(gc);flush();
+      es?.close();stopPolling();if(gc)clearInterval(gc);flush();
     }
   };
   try{
@@ -944,16 +967,25 @@ const room0={async join(name,customPath,onData=()=>{}){
       try{onData(event.data)}catch{}
       try{
         const message=JSON.parse(event.data);
-        if(message.data==null)return;
         if(message.path==='/'){
-          Object.values(message.data).forEach(value=>value&&typeof value==='object'&&deliver(value));
-        }else if(message.path.split('/').length===2)deliver(message.data);
+          const values=message.data||{};
+          for(const key of Object.keys(values).sort())receive(key,values[key]);
+          for(const key of seen)if(!(key in values))seen.delete(key);
+        }else if(message.path.split('/').length===2)receive(message.path.slice(1),message.data);
       }catch(error){console.warn('Aspace signal parse:',error)}
     });
-    await new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{es.removeEventListener('open',success);es.removeEventListener('error',failure);reject(new Error('Не удалось подключить канал звонка за 9 секунд'))},9000);
+    es.addEventListener('patch',event=>{
+      try{
+        const message=JSON.parse(event.data);
+        if(message.path==='/')for(const [key,value] of Object.entries(message.data||{}))receive(key,value);
+      }catch(error){console.warn('Aspace signal patch:',error)}
+    });
+    es.addEventListener('error',startPolling);
+    es.addEventListener('open',stopPolling);
+    await new Promise(resolve=>{
+      const timer=setTimeout(()=>{startPolling();resolve()},2500);
       const success=()=>{clearTimeout(timer);es.removeEventListener('error',failure);resolve()};
-      const failure=()=>{if(es.readyState!==EventSource.CLOSED)return;clearTimeout(timer);es.removeEventListener('open',success);reject(new Error('Канал видеозвонка заблокирован или недоступен'))};
+      const failure=()=>{if(es.readyState!==EventSource.CLOSED)return;clearTimeout(timer);es.removeEventListener('open',success);startPolling();resolve()};
       es.addEventListener('open',success,{once:true});
       es.addEventListener('error',failure,{once:true});
     });
@@ -965,9 +997,9 @@ const room0={async join(name,customPath,onData=()=>{}){
     if(!ping?.name)throw new Error('Сервер сигналинга не принял тестовое сообщение');
     dead.push(ping.name);
     gc=setInterval(flush,10000);
-    addEventListener('pagehide',onPageHide,{once:true});hideRegistered=true;
+    addEventListener('pagehide',onPageHide);hideRegistered=true;
     return api;
-  }catch(error){es?.close();if(gc)clearInterval(gc);throw error}
+  }catch(error){api.close();throw error}
 }};
 const isLocal=false;
 const link=(k,id)=>location.origin+location.pathname+'#'+k+'-'+id;
@@ -1142,7 +1174,7 @@ function compactCallControls(vbar,mic,cam,nz,cams,mics,speakers,fullscreen,leave
   vbar.append(mic,cam,settings,fullscreen,leave);
 }
 function Call(r,box){
-  const me=uid(),pcs={},tiles={},offs=[];let st=null;const reconnectTimers=new Map();
+  const me=uid(),pcs={},tiles={},offs=[];let st=null,helloTimer=null;const reconnectTimers=new Map();
   const tile=(id,s,l)=>{let w=tiles[id];if(!w){const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w}w.v.srcObject=s;const resume=()=>{if(w.v.srcObject!==s)w.v.srcObject=s;const p=w.v.play();if(p?.catch)p.catch(()=>{})};for(const track of s.getVideoTracks())track.addEventListener('unmute',resume);};
   // Browsers may suspend video-element rendering while a tab is in the background.
   // Resume playback when the page becomes visible; never stop or replace live tracks.
@@ -1159,7 +1191,11 @@ function Call(r,box){
       if(track.kind==='video')await videoSender.replaceTrack(track);
     }
     pc.onicecandidate=e=>e.candidate&&r.emit('sig',{to:id,from:me,k:'ice',d:e.candidate});
-    pc.ontrack=e=>tile(id,e.streams[0],'Участник');
+    const remoteStream=new MediaStream();
+    pc.ontrack=e=>{
+      if(!remoteStream.getTrackById(e.track.id))remoteStream.addTrack(e.track);
+      tile(id,remoteStream,'Участник');
+    };
     pc.oniceconnectionstatechange=()=>{
       clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);
       if(!init||!['failed','disconnected'].includes(pc.iceConnectionState))return;
@@ -1170,7 +1206,12 @@ function Call(r,box){
     };
     if(init){const o=await pc.createOffer();await pc.setLocalDescription(o);r.emit('sig',{to:id,from:me,k:'offer',d:o})}
     return pc};
-  offs.push(r.on('hello',m=>{const x=m.data;if(x&&x.from!==me&&!pcs[x.from])mk(x.from,me<x.from)}));
+  offs.push(r.on('hello',m=>{
+    const x=m.data;
+    if(!st||!x?.from||x.from===me||(x.to&&x.to!==me))return;
+    if(!x.to)void r.emit('hello',{from:me,to:x.from});
+    if(!pcs[x.from])void mk(x.from,me<x.from).catch(error=>console.warn('Call negotiation failed',error));
+  }));
   offs.push(r.on('bye',m=>m.data&&drop(m.data.from)));
   const iceQueue={};
   const flushIce=async id=>{const pc=pcs[id],q=iceQueue[id]||[];if(!pc?.remoteDescription)return;delete iceQueue[id];for(const c of q)try{await pc.addIceCandidate(c)}catch(e){console.warn('ICE candidate rejected',e)}};
@@ -1190,7 +1231,8 @@ function Call(r,box){
       // Audio/video transceivers are created for each peer; the user can grant
       // device access later with the microphone or camera controls.
       st=new MediaStream();
-      tile('me',st,'Вы');r.emit('hello',{from:me})},
+      tile('me',st,'Вы');r.emit('hello',{from:me});
+      helloTimer=setInterval(()=>{if(!Object.values(pcs).some(pc=>pc.connectionState==='connected'))void r.emit('hello',{from:me})},5000)},
     async mic(){
       let t=st?.getAudioTracks()[0];
       if(t){
@@ -1247,7 +1289,7 @@ function Call(r,box){
     zoomCaps(){const t=st?.getVideoTracks()[0];const c=t?.getCapabilities?.();return c?.zoom||null},
     async zoom(value){const t=st?.getVideoTracks()[0];if(!t||!t.getCapabilities)return null;const c=t.getCapabilities();if(!c.zoom)return null;await t.applyConstraints({advanced:[{zoom:Math.max(c.zoom.min,Math.min(c.zoom.max,value))}]});return c.zoom},
     async noise(on){await st?.getAudioTracks()[0]?.applyConstraints({noiseSuppression:on,echoCancellation:true,autoGainControl:true})},
-    stop(){document.removeEventListener('visibilitychange',resumeVideo);window.removeEventListener('pageshow',resumeVideo);r.emit('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
+    stop(){clearInterval(helloTimer);document.removeEventListener('visibilitychange',resumeVideo);window.removeEventListener('pageshow',resumeVideo);r.emit('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
   };
 }
 function devicePicker(call,kind,title){
@@ -2903,23 +2945,30 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   if(localGuestDraft)setTimeout(retrySharedDraft,500);
   if(isOwner&&boardShareToken&&!shareMeta)void shareRead(boardShareToken,'meta').then(meta=>{if(!disposed)shareMeta=meta}).catch(()=>{});
   if(openedFromCache||localGuestDraft)setTimeout(()=>{void pollBoard()},0);
-  void room0.join('b-'+id,boardShareToken?('/shares/'+encodeURIComponent(boardShareToken)+'/room'):null,
+  let roomRetry=null,roomAttempts=0;
+  function connectBoardRoom(){
+    if(disposed)return;
+    void room0.join('b-'+id,boardShareToken?('/shares/'+encodeURIComponent(boardShareToken)+'/room'):null,
     isOwner?data=>usageTracker.recordStream('boards/'+id,data):undefined).then(channel=>{
       if(!r.attach(channel))return;
+      roomWarning='';
       chatStatus.textContent='Чат текущего урока';chatInput.disabled=chatSend.disabled=false;
       announce();void r.emit('req',{from:r.id});queueViewport();
     }).catch(error=>{
       if(disposed)return;
       roomWarning=String(error.message||error);
       chatStatus.textContent='Чат пока недоступен.';
-      say('Синхронизация участников пока недоступна. Доска открыта.');
+      say('Восстанавливаем связь с участниками…');
+      roomRetry=setTimeout(connectBoardRoom,Math.min(30000,3000*++roomAttempts));
     });
+  }
+  connectBoardRoom();
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
     formatObserver.disconnect();cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
     call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
-    r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
+    clearTimeout(roomRetry);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
     window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;
   };
 
