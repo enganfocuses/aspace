@@ -372,3 +372,35 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
   :root .grid>.board-list-card .board-preview{height:64px!important;min-height:64px!important}
   :root .grid>.board-list-card .board-card-title{font-size:15px!important}
 }
+
+
+/* Darker wine palette and optically centered heart control. */
+:root{
+  --wine:#451327;
+  --wine-dark:#310b1b;
+  --lav:#451327;
+  --lav-deep:#310b1b;
+  --btn:#451327;
+  --shell-button:#451327;
+  --shell-button-hover:#310b1b;
+  --shell-button-ink:#ffffff;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]){
+  background-color:#451327!important;color:#fff!important;border-color:#451327!important;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]):hover{
+  background-color:#310b1b!important;color:#fff!important;border-color:#310b1b!important;
+}
+:root #app>header .sidebar-toggle{
+  box-sizing:border-box!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  flex:0 0 42px!important;width:42px!important;min-width:42px!important;max-width:42px!important;
+  height:42px!important;min-height:42px!important;
+  padding:0!important;margin:0!important;
+  text-align:center!important;text-indent:0!important;
+  line-height:1!important;letter-spacing:0!important;
+  color:#e32645!important;
+}
+:root #app>header .sidebar-toggle::before,
+:root #app>header .sidebar-toggle::after{content:none!important;display:none!important}
+:root #app>header .sidebar-toggle:hover{color:#c91435!important}
