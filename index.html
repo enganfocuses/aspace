@@ -3117,5 +3117,18 @@ async function eduView(m){
 
 }
 
+
+async function contentView(m){
+  if(currentUser?.uid!==CFG.ownerUid){m.append(E('p',{textContent:'Контент-план доступен владельцу пространства.'}));return}
+  history.replaceState(null,'',location.pathname+location.search+'#content');
+  try{
+    const {renderContentPlan}=await import('./content-plan.js?v=1');
+    const stop=await renderContentPlan(m,{load,save});
+    if(m.isConnected)cleanup=stop;else stop();
+  }catch(error){
+    m.append(E('div',{className:'warn',textContent:'Не удалось открыть контент-план: '+error.message}));
+  }
+}
+
 start();
 </script></body></html>
