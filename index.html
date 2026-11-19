@@ -1841,7 +1841,6 @@ async function boardsView(m){
           await fetch(DB()+'/docs/boards/'+encodeURIComponent(b.id)+'.json',{method:'DELETE'});
           await localDelete('docs','boards/'+b.id);
           await localDelete('pending','boards/'+b.id);
-          ls.d('boards/'+b.id);
         }catch(cleanupError){console.warn('Board content cleanup:',cleanupError)}
         if(standbyOptIn())try{void getBoardRuntime().then(runtime=>runtime?.mirrorIndex(latest)).catch(error=>console.warn('Standby index cleanup:',error))}
           catch(error){console.warn('Standby index cleanup:',error)}
