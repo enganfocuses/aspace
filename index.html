@@ -1182,14 +1182,15 @@ function Call(r,box){
   document.addEventListener('visibilitychange',resumeVideo);
   window.addEventListener('pageshow',resumeVideo);
   const drop=id=>{clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);pcs[id]?.close();delete pcs[id];tiles[id]?.remove();delete tiles[id]};
+  async function attachMedia(pc){
+    for(const tr of pc.getTransceivers()){
+      tr.direction='sendrecv';
+      const track=st?.getTracks().find(track=>track.kind===tr.receiver.track.kind);
+      if(track)await tr.sender.replaceTrack(track);
+    }
+  }
   const mk=async(id,init)=>{
     const pc=new RTCPeerConnection({iceServers:ICE});pcs[id]=pc;
-    const audioSender=pc.addTransceiver('audio',{direction:'sendrecv'}).sender;
-    const videoSender=pc.addTransceiver('video',{direction:'sendrecv'}).sender;
-    for(const track of st.getTracks()){
-      if(track.kind==='audio')await audioSender.replaceTrack(track);
-      if(track.kind==='video')await videoSender.replaceTrack(track);
-    }
     pc.onicecandidate=e=>e.candidate&&r.emit('sig',{to:id,from:me,k:'ice',d:e.candidate});
     const remoteStream=new MediaStream();
     pc.ontrack=e=>{
@@ -1204,7 +1205,11 @@ function Call(r,box){
         if(pcs[id]===pc&&['failed','disconnected'].includes(pc.iceConnectionState))reconnectTimers.set(id,setTimeout(retry,8000));
       };reconnectTimers.set(id,setTimeout(retry,pc.iceConnectionState==='failed'?1000:4000));
     };
-    if(init){const o=await pc.createOffer();await pc.setLocalDescription(o);r.emit('sig',{to:id,from:me,k:'offer',d:o})}
+    if(init){
+      pc.addTransceiver('audio',{direction:'sendrecv'});
+      pc.addTransceiver('video',{direction:'sendrecv'});
+      await attachMedia(pc);
+      const o=await pc.createOffer();await pc.setLocalDescription(o);r.emit('sig',{to:id,from:me,k:'offer',d:o})}
     return pc};
   offs.push(r.on('hello',m=>{
     const x=m.data;
@@ -1217,7 +1222,7 @@ function Call(r,box){
   const flushIce=async id=>{const pc=pcs[id],q=iceQueue[id]||[];if(!pc?.remoteDescription)return;delete iceQueue[id];for(const c of q)try{await pc.addIceCandidate(c)}catch(e){console.warn('ICE candidate rejected',e)}};
   offs.push(r.on('sig',async m=>{const x=m.data;if(!x||x.to!==me)return;
     try{
-      if(x.k==='offer'){const pc=pcs[x.from]||await mk(x.from,false);await pc.setRemoteDescription(x.d);await flushIce(x.from);const a=await pc.createAnswer();await pc.setLocalDescription(a);r.emit('sig',{to:x.from,from:me,k:'answer',d:a})}
+      if(x.k==='offer'){const pc=pcs[x.from]||await mk(x.from,false);await pc.setRemoteDescription(x.d);await attachMedia(pc);await flushIce(x.from);const a=await pc.createAnswer();await pc.setLocalDescription(a);r.emit('sig',{to:x.from,from:me,k:'answer',d:a})}
       else if(x.k==='answer'){const pc=pcs[x.from];if(pc){await pc.setRemoteDescription(x.d);await flushIce(x.from)}}
       else if(x.k==='ice'){const pc=pcs[x.from];if(pc?.remoteDescription)await pc.addIceCandidate(x.d);else(iceQueue[x.from]=iceQueue[x.from]||[]).push(x.d)}
     }catch(e){console.error('WebRTC signaling error',x.k,e)}
