@@ -309,3 +309,66 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 #app>header .sidebar-toggle .key-ornament{fill:none;stroke:#d8b77f;stroke-width:1.8;stroke-linecap:round}
 #app.sidebar-collapsed>header .sidebar-toggle .sidebar-key{transform:rotate(180deg)}
 @media(max-width:760px){#app>header .sidebar-toggle{width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important}#app>header .sidebar-toggle .sidebar-key{width:32px;height:32px}}
+
+
+/* Final requested refinements: deeper wine, white button labels, heart toggle, compact board tiles. */
+:root{
+  --wine:#5a1f38;
+  --wine-dark:#421329;
+  --lav:#5a1f38;
+  --lav-deep:#421329;
+  --btn:#5a1f38;
+  --shell-button:#5a1f38;
+  --shell-button-hover:#421329;
+  --shell-button-ink:#ffffff;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]){
+  background-color:#5a1f38!important;
+  color:#fff!important;
+  border-color:#5a1f38!important;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]):hover{
+  background-color:#421329!important;
+  color:#fff!important;
+  border-color:#421329!important;
+}
+:root :is(#app,#main,.heritage-page,.bfull,.menu,.home-footer) button:not(.sw):not(.vbar button):not(.color-swatch):not(.palette-swatch):not([data-color-swatch]) :is(span,strong,b,small,em){
+  color:#fff!important;
+}
+:root #app>header .sidebar-toggle{
+  width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important;
+  padding:0!important;display:grid!important;place-items:center!important;
+  border:0!important;border-radius:50%!important;
+  background:transparent!important;box-shadow:none!important;
+  color:#e32645!important;font-family:Arial,sans-serif!important;
+  font-size:30px!important;font-weight:700!important;line-height:1!important;
+}
+:root #app>header .sidebar-toggle:hover{
+  background:#e3264512!important;color:#c91435!important;
+}
+:root #app>header .sidebar-toggle:focus-visible{
+  outline:2px solid #e32645!important;outline-offset:2px;
+}
+:root .grid>.board-list-card{
+  padding:12px!important;gap:7px!important;border-radius:12px!important;
+}
+:root .grid>.board-list-card .board-preview{
+  height:76px!important;min-height:76px!important;border-radius:9px!important;
+}
+:root .grid>.board-list-card .board-preview span{
+  width:38px!important;height:44px!important;font-size:20px!important;
+}
+:root .grid>.board-list-card .board-card-title{
+  font-size:16px!important;line-height:1.25!important;
+}
+:root .grid>.board-list-card .row{
+  gap:5px!important;
+}
+:root .grid>.board-list-card .row button{
+  min-height:32px!important;padding:5px 9px!important;font-size:12px!important;border-radius:8px!important;
+}
+@media(max-width:600px){
+  :root .grid>.board-list-card{padding:10px!important}
+  :root .grid>.board-list-card .board-preview{height:64px!important;min-height:64px!important}
+  :root .grid>.board-list-card .board-card-title{font-size:15px!important}
+}
