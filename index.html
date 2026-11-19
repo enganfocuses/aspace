@@ -844,19 +844,7 @@ const revokeShare=async token=>{
 const dbUrl=async(url,forceRefresh=false)=>{if(!auth||!auth.currentUser||!url.startsWith(DB()+'/')||new URL(url).searchParams.has('auth'))return url;try{const token=await auth.currentUser.getIdToken(forceRefresh);return url+(url.includes('?')?'&':'?')+'auth='+encodeURIComponent(token)}catch{return url}};
 const nativeFetch=window.fetch.bind(window);
 const rawFetch=(input,init)=>usageTracker.observe(nativeFetch,input,init);
-// Firebase REST accepts the ID token in Authorization. Keep it out of ordinary
-// request URLs; only EventSource needs the query-string form because it has no headers API.
-window.fetch=async(input,init)=>{
- const url=typeof input==='string'?input:input.url;
- if(!auth?.currentUser||!url.startsWith(DB()+'/')||new URL(url).searchParams.has('auth'))return rawFetch(input,init);
- try{
-  const token=await auth.currentUser.getIdToken();
-  const headers=new Headers(input instanceof Request?input.headers:undefined);
-  new Headers(init?.headers||{}).forEach((value,key)=>headers.set(key,value));
-  headers.set('Authorization','Bearer '+token);
-  return rawFetch(input,{...init,headers});
- }catch{return rawFetch(input,init)}
-};
+window.fetch=async(input,init)=>{const url=typeof input==='string'?input:input.url;return rawFetch(await dbUrl(url),init)};
 const eventUrl=async(url,forceRefresh=false)=>dbUrl(url,forceRefresh);
 /* Локальное хранилище Aspace: IndexedDB + очередь синхронизации */
 const LOCAL_DB='aspace-local-v1';let localDbPromise=null;
