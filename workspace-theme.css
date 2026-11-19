@@ -69,7 +69,6 @@ html:has(#app),body:has(#app),#app,html:has(>body.heritage-page){background:#360
 @media print{body.heritage-page,body.heritage-page main,.heritage-page .reading{background:white;color:black}.heritage-page .hero:before{display:none}}
 /* Three solid themes; paper surfaces always carry dark ink. */
 :root{--shell-bg:#f2e9dc;--shell-ink:#392a33;--shell-muted:#64515d;--shell-line:#bca697;--shell-header:#e9ddce;color-scheme:light}
-:root[data-theme=lavender]{--shell-bg:#e9e0f2;--shell-ink:#392b46;--shell-muted:#65516f;--shell-line:#b4a1c6;--shell-header:#ddd0e9}
 :root[data-theme=dark]{--shell-bg:#360b16;--shell-ink:#f6efdf;--shell-muted:#d9c6ba;--shell-line:#96756d;--shell-header:#2b0b18;--wine:#71384f;--wine-dark:#54283c;--lav:#c8b8e8;--btn:#c8b8e8}
 html:has(#app),body:has(#app),#app,html:has(>body.heritage-page),:root #main.home-menu,:root #main.workspace-view,body.heritage-page{background-color:var(--shell-bg);background-image:none;color:var(--shell-ink)}
 :root #app>header{background:var(--shell-header);border-color:var(--shell-line)}:root #app>header b{color:var(--shell-ink)}
@@ -124,7 +123,6 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .bfull .fbar .row.nw{flex-wrap:wrap;gap:7px}.bfull .fbar select{max-width:145px;padding:5px 8px;font-size:13px}
 .bfull .it .sb{display:none!important}
 :root[data-theme=beige] .bfull .bscroll{background-color:#fdfcf9}
-:root[data-theme=lavender] .bfull .bscroll{background-color:#fcfaff}
 .retro-timer .tw{display:none}.retro-timer>i{top:-12px}.retro-timer .timer-value{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 14%;color:#54283c;cursor:grab;container-type:inline-size;user-select:none}
 .retro-timer .bgl{border-radius:50%!important;background:#fcf8ed!important;border:7px double #94765f!important;box-shadow:0 6px 18px #321a272c,inset 0 0 0 4px #d7c4a4!important}
 .retro-timer .timer-dial{position:absolute;inset:9%;border:1px solid #b7a28c;border-radius:50%;background:repeating-conic-gradient(from -1deg,#94765f 0deg 1deg,transparent 1deg 30deg);mask-image:none}
@@ -184,3 +182,30 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .bfull .layer-picker select{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .layer-picker:focus-within{outline:2px solid #8b6195;outline-offset:1px}
 .bfull .format-main .object-color-control>span{display:none}
+
+
+/* Collapsible global navigation. Lavender remains an accent for controls only. */
+#app>header .sidebar-toggle{width:38px;min-width:38px;height:38px;min-height:38px;padding:0!important;display:grid;place-items:center;font-size:22px;line-height:1;border-radius:12px;background:#c8b8e8!important;color:#49354f!important;border:1px solid #b9a6c7!important}
+#app>header .sidebar-toggle:hover{background:#bba8df!important}
+#app.sidebar-collapsed>header{width:70px;min-width:70px;padding-left:8px;padding-right:8px;align-items:center}
+#app.sidebar-collapsed>header b{font-size:0!important;letter-spacing:0;padding:5px 0 12px!important;margin:0!important}
+#app.sidebar-collapsed>header b:before{content:'A';display:block;font:700 25px Georgia,serif;color:#71384f}
+#app.sidebar-collapsed>header .theme-control{display:none!important}
+#app.sidebar-collapsed>header .nav-home{font-size:0!important;min-height:42px;width:48px;padding:8px!important;display:grid;place-items:center}
+#app.sidebar-collapsed>header .nav-home:before{content:'⌂';font-size:22px;line-height:1}
+#app.sidebar-collapsed>header .nav-home:after{display:none}
+#app.sidebar-collapsed>header .section-nav{width:100%;min-width:0;align-items:center}
+#app.sidebar-collapsed>header .section-nav .nav-item{width:48px;min-height:44px;padding:7px 3px!important;justify-content:center;gap:0}
+#app.sidebar-collapsed>header .section-nav .nav-item>span:last-child{display:none}
+#app.sidebar-collapsed>header .section-nav .nav-index{width:auto;font-size:13px}
+#app.sidebar-collapsed>header .section-nav .nav-signout,#app.sidebar-collapsed>header .section-nav .forgot-password{width:48px;font-size:0!important;padding:7px 3px!important;text-align:center}
+#app.sidebar-collapsed>header .section-nav .nav-signout:before{content:'↪';font-size:19px}
+#app.sidebar-collapsed>header .section-nav .forgot-password:before{content:'?';font-size:17px}
+@media(max-width:760px){
+  #app>header .sidebar-toggle{width:36px;min-width:36px}
+  #app.sidebar-collapsed>header .section-nav{display:none!important}
+  #app.sidebar-collapsed>header{width:100%;min-width:0;align-items:center}
+  #app.sidebar-collapsed>header b{font-size:21px!important;padding:0!important;margin:0 auto 0 0!important}
+  #app.sidebar-collapsed>header b:before{display:none}
+  #app.sidebar-collapsed>header .theme-control{display:flex!important}
+}
