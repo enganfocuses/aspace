@@ -1790,7 +1790,7 @@ const upload=async d=>{
   if(token)await shareWrite(token,'assets/'+id,data);
   return key;
 };
-const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);return imgCache[u]||(imgCache[u]=(async()=>{try{const local=await localGet('assets',u);if(local?.value)return local.value}catch{}const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';const r=await fetch(path);if(!r.ok)throw new Error('Файл недоступен');const value=await r.json();try{await localPut('assets',{key:u,value,updatedAt:Date.now()})}catch{}return value})())};
+const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);if(imgCache[u])return imgCache[u];const task=(async()=>{try{const local=await localGet('assets',u);if(local?.value)return local.value}catch{}const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';const r=await fetch(path);if(!r.ok)throw new Error('Файл недоступен');const value=await r.json();try{await localPut('assets',{key:u,value,updatedAt:Date.now()})}catch{}return value})();imgCache[u]=task;task.then(()=>{if(imgCache[u]===task)delete imgCache[u]},()=>{if(imgCache[u]===task)delete imgCache[u]});return task};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
  layers:'<path d="m3 8 9-5 9 5-9 5zM3 12l9 5 9-5M3 16l9 5 9-5"/>',
@@ -2085,7 +2085,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const persist=(remote=false)=>{if(guest||disposed||remote)return;if(isOwner&&!remote)usageTracker.recordAction('boards/'+id);editEpoch++;clearTimeout(tm);
     tm=setTimeout(()=>{void queueSharedDraft(snapshot())},350);
   };
-  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);const state=snapshot();void r.emit('boardstate',{state});void queueSharedDraft(state)};
+  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);const state=snapshot();void queueSharedDraft(state)};
   const push=n=>{persist();if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},45)};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation='source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke()};
@@ -2170,12 +2170,16 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     while(high-low>.25){const size=(low+high)/2;if(fits(size))low=size;else high=size}
     text.style.fontSize=Math.max(.25,low)+'px';
   }
+  const mediaObserver=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{for(const entry of entries){if(!entry.isIntersecting)continue;const el=entry.target;mediaObserver.unobserve(el);const source=el.dataset.aspaceMediaSource;if(!source)continue;imgSrc(source).then(value=>{if(!el.isConnected||!value)return;if(el.tagName==='IMG'){el.src=value;el.decode?.().catch(()=>{})}else{el.src=value;el.load?.()}}).catch(()=>{el.dataset.aspaceMediaFailed='1';if(el.tagName==='IMG')el.alt='Изображение временно недоступно'})}},{root:sc,rootMargin:'700px 0px',threshold:.01}):null;
+  const loadBoardMedia=(el,url)=>{el.dataset.aspaceMediaSource=url;if(mediaObserver)mediaObserver.observe(el);else imgSrc(url).then(value=>{if(el.isConnected&&value){el.src=value;el.load?.()}}).catch(()=>{el.dataset.aspaceMediaFailed='1'})};
+  const retryFailedBoardMedia=()=>{sc.querySelectorAll('[data-aspace-media-failed="1"]').forEach(el=>{el.removeAttribute('data-aspace-media-failed');loadBoardMedia(el,el.dataset.aspaceMediaSource)})};
+  window.addEventListener('online',retryFailedBoardMedia);
   const upsert=n=>{
     let el=els[n.id];
     if(!el){
       el=E('div',{className:'it '+n.k+(FILLK.includes(n.k)?' fill':'')});els[n.id]=el;el.dataset.itemId=n.id;
       const bgl=E('div',{className:'bgl k-'+n.k});el._bg=bgl;el.append(bgl);let hd=el;
-      if(n.k==='img'){const im=E('img',{draggable:false});imgSrc(n.u).then(v=>im.src=v);bgl.append(im)}
+      if(n.k==='img'){const im=E('img',{draggable:false,loading:'lazy',decoding:'async',fetchPriority:'low',alt:'Изображение на доске'});bgl.append(im);loadBoardMedia(im,n.u)}
       else if(n.k==='embed'){
         const src=externalMedia(n.u);
         if(src?.kind==='embed'&&src.url){
@@ -2185,7 +2189,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
           bgl.append(frame);hd=E('i');el.append(hd);
         }else{bgl.textContent=src?.host||'Недопустимая ссылка на плеер';hd=E('i');el.append(hd)}
       }
-      else if(n.k==='aud'||n.k==='vid'){const media=E(n.k==='aud'?'audio':'video',{controls:true,preload:'metadata',style:'width:100%;height:100%;object-fit:contain'});if(n.k==='vid')media.playsInline=true;bgl.append(media);el._media=media;imgSrc(n.u).then(src=>{if(src)media.src=src}).catch(()=>{media.title='Файл временно недоступен'});hd=E('i');el.append(hd)}
+      else if(n.k==='aud'||n.k==='vid'){const media=E(n.k==='aud'?'audio':'video',{controls:true,preload:'none',style:'width:100%;height:100%;object-fit:contain'});if(n.k==='vid')media.playsInline=true;bgl.append(media);el._media=media;loadBoardMedia(media,n.u);hd=E('i');el.append(hd)}
       else if(n.k==='emo')bgl.textContent=n.t;
       else{hd=E('i');const t=E('div',{className:'t',contentEditable:true,oninput:()=>{if(!guest&&!n.locked){n.t=t.innerText;fitNoteText(el,n);push(n)}}});el._t=t;
         el.ondblclick=e=>{if(!guest&&!n.locked&&!e.target.closest('button,.g')&&!n.poll&&!n.timerDurationMs)t.focus()};el.append(hd,n.k==='frame'?E('div',{className:'fl'},t):E('div',{className:'tw'},t))}
@@ -2280,7 +2284,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   cv.onpointercancel=()=>{endMarquee();pan=null;if(cur){if(!cur.erase){flush();rec({t:'s',s:cur})}cur=null;persistNow()}};
   cv.onpointermove=e=>{if(marquee){updateMarquee(...pt(e));return}if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
     const[x,y]=pt(e);if(cur.erase){eraseAt(x,y);cur.p.push(x,y)}else if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;const px=cur.p[n-2],py=cur.p[n-1];cur.p.push(Math.round(.8*x+.2*px),Math.round(.8*y+.2*py));seg(cur,n-2)}if(Date.now()-lastT>55&&!cur.erase)flush()};
-  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;if(!cur.erase){flush();rec({t:'s',s:cur})}else{r.emit('boardstate',{state:snapshot()})}cur=null;persistNow()};
+  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;if(!cur.erase){flush();rec({t:'s',s:cur})}cur=null;persistNow()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
   // Secondary mouse buttons always pan the viewport regardless of the selected tool.
   // Capture-phase prevents right click on contenteditable objects from moving them.
@@ -2910,20 +2914,23 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     else if(e.key==='Escape'){mp.classList.remove('open');mb.setAttribute('aria-expanded','false');saveMenu.open=false;wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
   setTool('select');fbar.style.display='none';redraw();renderAll();
-  let polling=false;
+  let polling=false,pollFailures=0,pollStopped=false,lastShareMetaCheck=Date.now();
+  const basePollDelay=guest?7000:12000;let pollDelay=basePollDelay;
   const pollBoard=async()=>{
-    if(disposed||polling||document.visibilityState==='hidden')return;
+    if(disposed||pollStopped||polling)return;
+    if(document.visibilityState==='hidden'){clearTimeout(cloudPollTimer);cloudPollTimer=setTimeout(()=>void pollBoard(),15000);return}
     polling=true;const epoch=editEpoch;
     try{
-      if(boardShareToken&&!isOwner){
+      if(boardShareToken&&!isOwner&&Date.now()-lastShareMetaCheck>=30000){
         const meta=await shareRead(boardShareToken,'meta');
-        shareMeta=meta;
+        shareMeta=meta;lastShareMetaCheck=Date.now();
         if(!isOwner){guest=meta.role!=='editor';root.classList.toggle('readonly',guest)}
       }
       if(!guest&&editEpoch!==savedEpoch)return;
       const result=boardTransport?await boardTransport.read():
         boardShareToken?{value:await shareRead(boardShareToken,'board')}:null;
       if(!result)return;
+      pollFailures=0;pollDelay=basePollDelay;
       if(!disposed&&result.value&&!result.conflict&&!result.pending)void storeBoardView(result.value);
       if(!disposed&&editEpoch===epoch&&result.value){
         if(!result.conflict&&JSON.stringify(displayedBase)!==JSON.stringify(result.value)){applySnapshot(result.value);displayedBase=cloneBoard(result.value)}
@@ -2932,12 +2939,16 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       }
     }catch(error){
       if(!isOwner&&[401,403,404].includes(error.status)){
-        guest=true;clearInterval(cloudPollTimer);r.close();call?.stop();callRoom?.close();
+        pollStopped=true;guest=true;clearTimeout(cloudPollTimer);r.close();call?.stop();callRoom?.close();
         root.replaceChildren(E('div',{className:'gate'},E('div',{className:'box'},E('h2',{textContent:'Доступ к доске закрыт'}))));
-      }else if(!disposed)say('Доска сохранена на устройстве. Повторяем подключение…');
-    }finally{polling=false}
+      }else if(!disposed){pollFailures++;pollDelay=Math.min(basePollDelay*Math.pow(1.7,Math.min(pollFailures,4)),30000);say('Доска сохранена на устройстве. Повторяем подключение…')}
+    }finally{polling=false;if(!disposed&&!pollStopped){clearTimeout(cloudPollTimer);cloudPollTimer=setTimeout(()=>void pollBoard(),pollDelay)}}
   };
-  cloudPollTimer=setInterval(()=>{void pollBoard()},guest?2500:4000);
+  const onBoardVisibility=()=>{if(document.visibilityState==='visible'&&!disposed&&!pollStopped){clearTimeout(cloudPollTimer);void pollBoard()}};
+  const onBoardOnline=()=>{retryFailedBoardMedia();if(!disposed&&!pollStopped){clearTimeout(cloudPollTimer);void pollBoard()}};
+  document.addEventListener('visibilitychange',onBoardVisibility);
+  window.addEventListener('online',onBoardOnline);
+  void pollBoard();
   shareRecoveryTimer=setInterval(retrySharedDraft,3000);
   const onSyncStatus=event=>{
     if(event.detail.key!=='boards/'+id||disposed)return;
@@ -2949,7 +2960,6 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   if(!openedFromCache&&syncStates.has('boards/'+id))onSyncStatus({detail:syncStates.get('boards/'+id)});
   if(localGuestDraft)setTimeout(retrySharedDraft,500);
   if(isOwner&&boardShareToken&&!shareMeta)void shareRead(boardShareToken,'meta').then(meta=>{if(!disposed)shareMeta=meta}).catch(()=>{});
-  if(openedFromCache||localGuestDraft)setTimeout(()=>{void pollBoard()},0);
   let roomRetry=null,roomAttempts=0;
   function connectBoardRoom(){
     if(disposed)return;
@@ -2971,9 +2981,9 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
-    formatObserver.disconnect();cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
+    formatObserver.disconnect();mediaObserver?.disconnect();window.removeEventListener('online',retryFailedBoardMedia);document.removeEventListener('visibilitychange',onBoardVisibility);window.removeEventListener('online',onBoardOnline);cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
     call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
-    clearTimeout(roomRetry);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearInterval(cloudPollTimer);
+    clearTimeout(roomRetry);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearTimeout(cloudPollTimer);
     window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;
   };
 
