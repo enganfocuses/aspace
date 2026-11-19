@@ -1884,6 +1884,7 @@ async function boardsView(m){
 const loadScript=src=>new Promise((ok,no)=>{document.head.append(E('script',{src,onload:ok,onerror:no}))});
 const PDFCDN='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 let pdfP=null;const pdfjs=()=>pdfP||(pdfP=loadScript('vendor/pdf.min.js').then(()=>'vendor/pdf.worker.min.js',()=>loadScript(PDFCDN+'pdf.min.js').then(()=>PDFCDN+'pdf.worker.min.js')).then(w=>{pdfjsLib.GlobalWorkerOptions.workerSrc=w;return pdfjsLib}));
+const pdfPageBlob=async page=>{for(const scale of [2,1.75,1.5,1.25,1]){const viewport=page.getViewport({scale}),canvas=E('canvas',{width:Math.ceil(viewport.width),height:Math.ceil(viewport.height)});await page.render({canvasContext:canvas.getContext('2d',{alpha:false}),viewport}).promise;const encode=(type,quality)=>new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Не удалось обработать страницу PDF')),type,quality));let blob=await encode('image/png');if(blob.size>FREE_MEDIA_LIMIT)blob=await encode('image/jpeg',.94);if(blob.size<=FREE_MEDIA_LIMIT)return{blob,viewport};if(scale===1)throw new Error('Страница PDF слишком сложная для лимита хранения даже при высоком качестве. Попробуй разделить PDF на части.');}throw new Error('Не удалось подобрать размер страницы PDF.')};
 const dataUrlBlob=data=>{const m=String(data).match(/^data:([^;,]+)?(;base64)?,(.*)$/s);if(!m)throw new Error('Неверный формат файла');const raw=m[3],bin=m[2]?atob(raw):decodeURIComponent(raw),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new Blob([bytes],{type:m[1]||'application/octet-stream'})};
 // Бесплатное резервное хранение в Realtime Database. Лимит ниже 10 МБ на запись.
 const FREE_MEDIA_LIMIT=MAX_UPLOAD_BYTES;
@@ -2469,10 +2470,9 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     const[cx,cy]=center();let y=cy-150;try{for(const f of fi.files){say('Загрузка картинки…');const s=await prepareImage(f);addImg(await upload(s.u),s.w,s.h,cx-200,y);y+=40}persist()}catch{alert('Не удалось загрузить картинку. Проверьте config.js и правила базы (см. инструкцию).')}say('');fi.value=''}});
   const fp=E('input',{type:'file',accept:'application/pdf',hidden:true,onchange:async()=>{
     const f=fp.files[0];if(!f)return;try{const lib=await pdfjs(),doc=await lib.getDocument({data:await f.arrayBuffer()}).promise,n=Math.min(doc.numPages,40),[cx,cy]=center(),x0=Math.max(20,cx-420);let x=x0,y=Math.max(20,cy-250),rh=0;
-      for(let i=1;i<=n;i++){say(`PDF: страница ${i} из ${n}`);const pg=await doc.getPage(i),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:2}),c=E('canvas',{width:Math.ceil(v.width),height:Math.ceil(v.height)});
-        await pg.render({canvasContext:c.getContext('2d',{alpha:false}),viewport:v}).promise;const u=await upload(c.toDataURL('image/png')),dw=420,dh=dw*v.height/v.width;
+      for(let i=1;i<=n;i++){say(`PDF: страница ${i} из ${n}`);const pg=await doc.getPage(i),{blob,viewport}=await pdfPageBlob(pg),u=await upload(blob),dw=420,dh=dw*viewport.height/viewport.width;
         if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
-      persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
+      persist()}catch(e){alert('Не удалось загрузить PDF: '+(e?.message||'неизвестная ошибка')+'. Проверь подключение и попробуй ещё раз.')}say('');fp.value=''}});
   const addExternalLink=()=>{
     const raw=prompt('Вставь ссылку на Google Диск, Яндекс Диск, YouTube, Vimeo, SoundCloud, изображение или прямую ссылку MP3/MP4 (https://):','');
     if(raw===null)return;
