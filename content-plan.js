@@ -107,7 +107,7 @@ export async function renderContentPlan(host,{load,save}={}){
   #content-plan .cp-save-state{font-size:10px;color:var(--cp-muted);align-self:center}
   :root{--cp-ink:#30283b;--cp-muted:#81778b;--cp-card:#fffcf6;--cp-paper:#fbf7ee;--cp-line:#d9cbd0;--cp-line2:#e7dde2;--cp-wine:#71384f;--cp-wine2:#54283c;--cp-soft:#f1ebf7;--cp-lav:#bba8df}
   [data-theme=dark]{--cp-ink:#eee7f2;--cp-muted:#b6aabd;--cp-card:#241d2b;--cp-paper:#221b28;--cp-line:#493b55;--cp-line2:#332639;--cp-wine:#a87594;--cp-wine2:#8f5d7c;--cp-soft:#302638;--cp-lav:#806a99}
-  @media(max-width:1050px){#content-plan .cp-layout,#content-plan .cp-layout.has-editor{grid-template-columns:minmax(0,1fr)}#content-plan .cp-backlog{display:none}#content-plan .cp-editor{position:fixed;z-index:100;left:0;right:0;bottom:0;height:min(86dvh,760px);border:1px solid var(--cp-line);border-radius:18px 18px 0 0;box-shadow:0 -10px 35px #0002}#content-plan .cp-month{gap:3px}#content-plan .cp-cell{min-height:88px;padding:3px}#content-plan .cp-tile{font-size:10px!important;padding:3px!important}#content-plan .cp-week{grid-template-columns:1fr}#content-plan .cp-week-col{min-height:90px}#content-plan .cp-two{grid-template-columns:1fr}#content-plan .cp-toolbar{gap:5px}#content-plan .cp-brand{font-size:18px}#content-plan .cp-search{max-width:none;flex:1 1 130px}}
+  @media(max-width:1050px){#content-plan .cp-mobile-ideas{display:inline-block!important}#content-plan .cp-backlog.mobile-open{display:flex;position:fixed;z-index:110;left:0;top:0;bottom:0;width:min(290px,84vw);box-shadow:8px 0 30px #0003}#content-plan .cp-layout,#content-plan .cp-layout.has-editor{grid-template-columns:minmax(0,1fr)}#content-plan .cp-backlog{display:none}#content-plan .cp-editor{position:fixed;z-index:100;left:0;right:0;bottom:0;height:min(86dvh,760px);border:1px solid var(--cp-line);border-radius:18px 18px 0 0;box-shadow:0 -10px 35px #0002}#content-plan .cp-month{gap:3px}#content-plan .cp-cell{min-height:88px;padding:3px}#content-plan .cp-tile{font-size:10px!important;padding:3px!important}#content-plan .cp-week{grid-template-columns:1fr}#content-plan .cp-week-col{min-height:90px}#content-plan .cp-two{grid-template-columns:1fr}#content-plan .cp-toolbar{gap:5px}#content-plan .cp-brand{font-size:18px}#content-plan .cp-search{max-width:none;flex:1 1 130px}}
   @media(max-width:600px){#content-plan .cp-month{gap:2px}#content-plan .cp-cell{min-height:74px;padding:2px;border-radius:6px}#content-plan .cp-dow{font-size:8px;padding:3px 0}#content-plan .cp-cell-head{font-size:9px}#content-plan .cp-tile small{display:none}#content-plan .cp-views button{padding:5px 6px;font-size:11px}#content-plan .cp-nav strong{min-width:95px;font-size:12px}#content-plan .cp-coverage{gap:7px}#content-plan .cp-toolbar .cp-filter{display:none}}
   `;
   const root=document.createElement('section');root.id='content-plan';root.append(style);
@@ -115,7 +115,7 @@ export async function renderContentPlan(host,{load,save}={}){
   const shell=document.createElement('div');
   shell.innerHTML=`
     <div class="cp-toolbar">
-      <button class="cp-mobile-ideas" data-action="ideas" style="display:none">≡ Идеи</button>
+      <button class="cp-mobile-ideas" data-action="ideas">≡ Идеи</button>
       <span class="cp-brand">Контент-план</span>
       <div class="cp-views" role="tablist" aria-label="Вид календаря">
         <button data-view="month" class="on">Месяц</button><button data-view="week">Неделя</button><button data-view="day">День</button><button data-view="list">Список</button>
@@ -138,11 +138,12 @@ export async function renderContentPlan(host,{load,save}={}){
     </div>`;
   root.append(shell);
   const $=sel=>root.querySelector(sel);
+  $('[data-filter]').innerHTML='<option value="all">Все площадки</option>'+PLATFORMS.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('');
   const saveNow=async()=>{
     clearTimeout(saveTimer);saveTimer=0;
     if(disposed)return;
     $('[data-save-state]').textContent='Сохраняем…';
-    try{const ok=await save(path,posts);$('[data-save-state]').textContent=ok===false?'Сохранено локально · синхронизация ожидает':'Сохранено'}
+    try{const ok=await save(path,posts);if($('[data-save-state]'))$('[data-save-state]').textContent=ok===false?'Сохранено локально · синхронизация ожидает':'Сохранено'}
     catch(error){$('[data-save-state]').textContent='Ошибка сохранения';console.error('Aspace content plan save:',error)}
   };
   const scheduleSave=()=>{clearTimeout(saveTimer);$('[data-save-state]').textContent='Есть изменения…';saveTimer=setTimeout(saveNow,550)};
@@ -242,6 +243,7 @@ export async function renderContentPlan(host,{load,save}={}){
     const view=e.target.closest('[data-view]');if(view){state.view=view.dataset.view;render();return}
     const nav=e.target.closest('[data-nav]');if(nav){const n=Number(nav.dataset.nav),c=new Date(state.cursor);if(!n)state.cursor=new Date();else if(state.view==='day')c.setDate(c.getDate()+n);else if(state.view==='week')c.setDate(c.getDate()+7*n);else c.setMonth(c.getMonth()+n);if(n)state.cursor=c;render();return}
     const action=e.target.closest('[data-action]')?.dataset.action;
+    if(action==='ideas'){$('.cp-backlog').classList.toggle('mobile-open');return}
     if(action==='new'){createPost(keyOf(state.cursor));return}if(action==='export'){exportICS();return}if(action==='close'){state.selected=null;render();return}
     if(action==='delete'){removePost();return}if(action==='duplicate'){duplicate();return}
     const add=e.target.closest('[data-add]');if(add){createPost(add.dataset.add);return}
@@ -258,13 +260,13 @@ export async function renderContentPlan(host,{load,save}={}){
     const title=$('[data-preview-title]'),caption=$('[data-preview-caption]');if(title&&field==='title')title.textContent=p.title||'Заголовок поста';if(caption&&field==='caption')caption.textContent=p.caption||'Текст поста…';
   });
   function renderCalendarOnly(){$('[data-calendar]').innerHTML=state.view==='month'?renderMonth():state.view==='week'?renderWeek():state.view==='day'?renderDay():renderList();renderCoverage();renderIdeas()}
-  root.addEventListener('change',e=>{const field=e.target.dataset.field;if(!field)return;const p=posts.find(x=>x.id===state.selected);if(!p)return;p[field]=e.target.value;p.updatedAt=Date.now();scheduleSave();render()});
+  root.addEventListener('change',e=>{if(e.target.matches('[data-filter]')){state.platform=e.target.value;render();return}const field=e.target.dataset.field;if(!field)return;const p=posts.find(x=>x.id===state.selected);if(!p)return;p[field]=e.target.value;p.updatedAt=Date.now();scheduleSave();render()});
   root.addEventListener('keydown',e=>{if(e.target.matches('[data-tag-input]')&&(e.key==='Enter'||e.key===',')){e.preventDefault();const tag=e.target.value.trim().replace(/^#/,'');if(tag){changePost(state.selected,p=>{if(!p.tags.includes(tag))p.tags.push(tag)})}}if(e.key==='Escape'&&state.selected){state.selected=null;render()}});
   root.addEventListener('dragstart',e=>{const tileEl=e.target.closest('.cp-tile[draggable="true"]');if(!tileEl)return;dragId=tileEl.dataset.post;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId)});
   root.addEventListener('dragover',e=>{if(!dragId)return;const cell=e.target.closest('[data-date]');if(cell){e.preventDefault();cell.classList.add('dragover')}});
   root.addEventListener('dragleave',e=>{const cell=e.target.closest('[data-date]');if(cell&&!cell.contains(e.relatedTarget))cell.classList.remove('dragover')});
   root.addEventListener('drop',e=>{if(!dragId)return;const cell=e.target.closest('[data-date]');if(!cell)return;e.preventDefault();const id=dragId,date=cell.dataset.date;dragId=null;changePost(id,p=>{p.date=date;if(p.status==='idea')p.status='planned'})});
-  function cleanup(){disposed=true;clearTimeout(saveTimer);if(saveTimer)void saveNow();style.remove();root.remove()}
+  function cleanup(){if(saveTimer){clearTimeout(saveTimer);saveTimer=0;void saveNow()}disposed=true;window.removeEventListener('pagehide',saveNow);style.remove();root.remove()}
   window.addEventListener('pagehide',saveNow);
   render();
   return cleanup;
