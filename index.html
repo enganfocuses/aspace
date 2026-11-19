@@ -4,8 +4,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=Oswald:wght@400;700&family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&family=Merriweather:wght@400;700&family=Playfair+Display:wght@400;700&family=Lobster&family=Pacifico&family=Caveat:wght@400;700&family=Marck+Script&family=Comfortaa:wght@400;700&family=Neucha&subset=cyrillic&display=swap">
 <script src="config.js"></script>
-<script src="./anna-editorial.js?v=1"></script>
-<script src="./workspace-tools.js?v=5"></script>
+<script src="./anna-editorial.js?v=2"></script>
+<script src="./workspace-tools.js?v=6"></script>
 <script src="usage-tracker.js"></script>
 <link rel="stylesheet" href="usage.css">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -659,6 +659,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .workspace-preview{display:block;width:100%;height:min(66vh,720px);border:0;border-radius:14px;margin-top:10px}.content-studio{display:grid;grid-template-columns:minmax(170px,1fr) minmax(0,2fr);gap:16px;margin-bottom:16px}.content-plan,.content-editor,.content-editor>label,.content-entry{display:grid;gap:8px}.content-plan{margin-top:10px}.content-entry{text-align:left}.content-editor img{max-width:100%;max-height:340px}.content-editor textarea{resize:vertical}.content-editor input,.content-editor textarea{box-sizing:border-box;max-width:100%;font:inherit}.content-editor fieldset label{display:flex;align-items:center;gap:4px}.content-editor fieldset{border:1px solid var(--line);border-radius:12px}.card input[type=url]{flex:1;min-width:140px;max-width:100%}@media(max-width:650px){.content-studio{grid-template-columns:1fr}}
 .resource-socials{display:flex;flex-wrap:wrap;gap:8px}.resource-socials a{padding:8px 14px;border:1px solid var(--line);border-radius:18px;text-decoration:none;color:inherit}.resource-socials a:hover,.resource-socials a:focus-visible{background:#eadff2;color:#51263e}.resource-editor{display:grid;gap:12px}.resource-editor textarea{box-sizing:border-box;width:100%;min-height:36vh;resize:vertical;tab-size:2;padding:12px;border-radius:12px;font:14px/1.5 ui-monospace,monospace}.resource-editor .row{flex-wrap:wrap}.resource-editor label{display:grid;gap:6px}.resource-editor iframe[hidden]{display:none}
 .anna-edition{max-width:900px}.anna-cover{padding:clamp(16px,4vw,36px);border-radius:20px;background:#592a40;color:#fff6ef}.anna-cover h2{color:inherit;font-family:Georgia,serif}.anna-cover input{max-width:100%}.anna-details{margin:9px 0;border:1px solid var(--line);border-radius:14px;padding:12px 16px}.anna-details summary{cursor:pointer;font-weight:650}.anna-details p{line-height:1.55;max-width:76ch}.anna-details a{color:inherit}
+
+.idea-deck,.plan-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:16px;margin:20px 0;align-items:start}
+.idea-card{padding:22px;border:4px double #b59a72;border-radius:14px;box-shadow:0 5px 14px #30202c22;background:#f5e6cd;color:#3c2928}
+.idea-card.tone-1{background:#283642;color:#fff3d9}.idea-card.tone-2{background:#602338;color:#fff2db}
+#main.workspace-view .idea-card :is(h3,p,small,summary){color:inherit}.idea-card h3{font:600 1.45rem/1.15 Georgia,serif;margin:14px 0}.idea-card .anna-details{padding:8px 0;border:0;border-top:1px solid #b59a72;border-radius:0}.idea-card p{line-height:1.5}
+.plan-wide{grid-template-columns:minmax(0,1fr)}.plan-blocks section,.month-day{border:1px solid #baa88e;border-radius:10px;padding:8px}.plan-tile{display:grid;gap:5px;text-align:left;width:100%;white-space:normal;overflow-wrap:anywhere;margin:4px 0}.plan-tile small{font-size:.75rem}.month-scroll{max-width:100%;overflow:auto}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(90px,1fr));gap:4px}.month-day{min-height:76px}.month-day>button:first-child{padding:3px 8px}.month-day .plan-tile{padding:6px;border-radius:6px;font-size:.82rem}
+.anna-edition .anna-cover{background:#51172b url('./assets/home/anna-studio.webp') center right/cover no-repeat;position:relative;isolation:isolate;overflow:hidden}.anna-cover:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#391021f5,#391021db 40%,transparent 90%)}.anna-cover select{max-width:100%}.anna-cover h2{max-width:18ch}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=6"></head><body>
 <div id="root"></div>
