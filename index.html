@@ -675,7 +675,7 @@ const E=(t,p={},...k)=>{const e=document.createElement(t);Object.assign(e,p);e.a
 const B=(t,f,c='')=>E('button',{textContent:t,onclick:f,className:c});
 const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
-const THEMES=[['beige','Бежевая'],['lavender','Лавандовая'],['dark','Тёмная · винная']];
+const THEMES=[['beige','Бежевая'],['dark','Тёмная · винная']];
 const currentTheme=()=>{const value=ls.g('aspace-theme','beige');return THEMES.some(([key])=>key===value)?value:'beige'};
 const themeIsDark=()=>currentTheme()==='dark';
 function applyTheme(){
@@ -1126,10 +1126,12 @@ function backToBoards(){
   shell(false);
 }
 function shell(guest){
-  const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
-  const hd=E('header',{},E('b',{textContent:'Aspace'}),themeControl(),B('⌂ Домой',goHome,'nav-home'));
+  const toggleSidebar=()=>{const app=$('#app');if(!app)return;const collapsed=!app.classList.contains('sidebar-collapsed');app.classList.toggle('sidebar-collapsed',collapsed);ls.s('aspace-sidebar-collapsed',collapsed);const control=app.querySelector('.sidebar-toggle');if(control){control.textContent=collapsed?'›':'‹';control.setAttribute('aria-label',collapsed?'Развернуть меню':'Свернуть меню');control.title=collapsed?'Развернуть меню':'Свернуть меню'}};
+  const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',title,onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
+  const sidebarToggle=B('‹',toggleSidebar,'sidebar-toggle');sidebarToggle.setAttribute('aria-label','Свернуть меню');sidebarToggle.title='Свернуть меню';
+  const hd=E('header',{},E('b',{textContent:'Aspace'}),sidebarToggle,themeControl(),B('⌂ Домой',goHome,'nav-home'));
   if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),navButton('Контент',contentView,'IX'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
-  $('#root').replaceChildren(E('div',{id:'app'},hd,E('div',{id:'main'})));
+  const app=E('div',{id:'app'},hd,E('div',{id:'main'}));app.classList.toggle('sidebar-collapsed',ls.g('aspace-sidebar-collapsed',false));$('#root').replaceChildren(app);
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
   else if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
