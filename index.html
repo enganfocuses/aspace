@@ -1804,11 +1804,53 @@ async function boardsView(m){
       }));
     }
     actions.append(B(b.shareToken?'⚙️ Доступ и видеозвонок':'🌐 Создать публичную ссылку',()=>boardAccessDialog(b.id)));
-    actions.append(B('🗑',async()=>{if(!confirm('Удалить доску?'))return;idx.items=idx.items.filter(x=>x.id!==b.id);
-      if(b.shareToken){const oldToken=b.shareToken;await revokeShare(oldToken);
-        try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
+    actions.append(B('🗑',async event=>{
+      const button=event?.currentTarget||actions.querySelector('button:last-child');
+      if(!confirm('Удалить доску «'+b.name+'»? Это удалит её из списка и удалит сохранённые данные доски.'))return;
+      if(button)button.disabled=true;
+      try{
+        // Revoke guest access first. If that fails, keep the board listed so
+        // the owner can retry instead of leaving an active public link behind.
+        if(b.shareToken){
+          const oldToken=b.shareToken;
+          await revokeShare(oldToken);
+          try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
+        }
+        // Read the authoritative index from Firebase, not a possibly stale
+        // IndexedDB/localStorage snapshot captured when this screen was opened.
+        const indexUrl=DB()+'/docs/meta/boards.json';
+        const read=await fetch(indexUrl,{cache:'no-store'});
+        if(!read.ok)throw new Error('Не удалось прочитать список досок (Firebase HTTP '+read.status+').');
+        const raw=await read.json();
+        const latest=raw&&raw.j?JSON.parse(raw.j):(raw||{items:[]});
+        latest.items=Array.isArray(latest.items)?latest.items:[];
+        latest.items=latest.items.filter(item=>item.id!==b.id);
+        const write=await fetch(indexUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({j:JSON.stringify(latest)})});
+        if(!write.ok)throw new Error('Firebase не сохранил удаление из списка (HTTP '+write.status+').');
+        const verify=await fetch(indexUrl,{cache:'no-store'});
+        if(!verify.ok)throw new Error('Не удалось проверить результат удаления (HTTP '+verify.status+').');
+        const checkRaw=await verify.json();
+        const check=checkRaw&&checkRaw.j?JSON.parse(checkRaw.j):checkRaw;
+        if((check?.items||[]).some(item=>item.id===b.id))throw new Error('Firebase всё ещё возвращает эту доску. Она не удалена.');
+        // Refresh every local copy only after the server confirms the change.
+        ls.s('meta/boards',latest);
+        const stamp=Date.now();
+        await localPut('docs',{key:'meta/boards',value:latest,updatedAt:stamp});
+        await localDelete('pending','meta/boards');
+        try{
+          await fetch(DB()+'/docs/boards/'+encodeURIComponent(b.id)+'.json',{method:'DELETE'});
+          await localDelete('docs','boards/'+b.id);
+          await localDelete('pending','boards/'+b.id);
+          ls.d('boards/'+b.id);
+        }catch(cleanupError){console.warn('Board content cleanup:',cleanupError)}
+        if(standbyOptIn())try{void getBoardRuntime().then(runtime=>runtime?.mirrorIndex(latest)).catch(error=>console.warn('Standby index cleanup:',error))}
+          catch(error){console.warn('Standby index cleanup:',error)}
+        go(boardsView);
+      }catch(error){
+        alert('Не удалось удалить доску. '+(error?.message||error)+' Доска оставлена в списке.');
+        if(button)button.disabled=false;
       }
-      await save('meta/boards',idx);go(boardsView)}));
+    }));
     card.append(actions);g.append(card);
   });
   const search=E('input',{className:'board-search',type:'search',placeholder:'Найти доску по названию…',ariaLabel:'Поиск досок',oninput:()=>{for(const card of g.children)if(card!==nw)card.hidden=!card.dataset.name.includes(search.value.trim().toLocaleLowerCase())}});
