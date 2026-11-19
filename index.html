@@ -1790,7 +1790,7 @@ const upload=async d=>{
   if(token)await shareWrite(token,'assets/'+id,data);
   return key;
 };
-const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);if(imgCache[u])return imgCache[u];const task=(async()=>{try{const local=await localGet('assets',u);if(local?.value)return local.value}catch{}const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';const r=await fetch(path,{cache:'force-cache'});if(!r.ok)throw new Error('Файл недоступен');const value=await r.json();try{await localPut('assets',{key:u,value,updatedAt:Date.now()})}catch{}return value})();imgCache[u]=task;task.catch(()=>{if(imgCache[u]===task)delete imgCache[u]});return task};
+const imgCache={};const imgSrc=u=>{if(!u||!u.startsWith('img:'))return Promise.resolve(u);if(imgCache[u])return imgCache[u];const task=(async()=>{try{const local=await localGet('assets',u);if(local?.value)return local.value}catch{}const path=activeShareToken?shareURL(activeShareToken)+'/assets/'+u.slice(4)+'.json':DB()+'/img/'+u.slice(4)+'.json';const r=await fetch(path);if(!r.ok)throw new Error('Файл недоступен');const value=await r.json();try{await localPut('assets',{key:u,value,updatedAt:Date.now()})}catch{}return value})();imgCache[u]=task;task.then(()=>{if(imgCache[u]===task)delete imgCache[u]},()=>{if(imgCache[u]===task)delete imgCache[u]});return task};
 const shrink=(f,max=1100)=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height)),c=E('canvas',{width:im.width*k|0,height:im.height*k|0});c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok({u:c.toDataURL(f.type==='image/png'?'image/png':'image/jpeg',.7),w:c.width,h:c.height})};im.onerror=no;im.src=URL.createObjectURL(f)});
 const ICONS={
  layers:'<path d="m3 8 9-5 9 5-9 5zM3 12l9 5 9-5M3 16l9 5 9-5"/>',
@@ -2085,7 +2085,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const persist=(remote=false)=>{if(guest||disposed||remote)return;if(isOwner&&!remote)usageTracker.recordAction('boards/'+id);editEpoch++;clearTimeout(tm);
     tm=setTimeout(()=>{void queueSharedDraft(snapshot())},350);
   };
-  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);const state=snapshot();void r.emit('boardstate',{state});void queueSharedDraft(state)};
+  const persistNow=()=>{persist();if(guest||disposed)return;clearTimeout(tm);const state=snapshot();void queueSharedDraft(state)};
   const push=n=>{persist();if(pend[n.id])return;pend[n.id]=setTimeout(()=>{delete pend[n.id];r.emit('i',{n})},45)};
   /* штрихи */
   const paint=(c,s,a,er)=>{c.globalCompositeOperation='source-over';c.strokeStyle=c.fillStyle=s.c;c.lineWidth=s.w;c.lineCap=c.lineJoin='round';c.beginPath();c.moveTo(s.p[a],s.p[a+1]);if(s.p.length<=a+2)c.lineTo(s.p[a]+.1,s.p[a+1]);else{let i=a+2;for(;i<s.p.length-2;i+=2){const mx=(s.p[i]+s.p[i+2])/2,my=(s.p[i+1]+s.p[i+3])/2;c.quadraticCurveTo(s.p[i],s.p[i+1],mx,my)}c.lineTo(s.p[s.p.length-2],s.p[s.p.length-1])}c.stroke()};
@@ -2284,7 +2284,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   cv.onpointercancel=()=>{endMarquee();pan=null;if(cur){if(!cur.erase){flush();rec({t:'s',s:cur})}cur=null;persistNow()}};
   cv.onpointermove=e=>{if(marquee){updateMarquee(...pt(e));return}if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
     const[x,y]=pt(e);if(cur.erase){eraseAt(x,y);cur.p.push(x,y)}else if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;const px=cur.p[n-2],py=cur.p[n-1];cur.p.push(Math.round(.8*x+.2*px),Math.round(.8*y+.2*py));seg(cur,n-2)}if(Date.now()-lastT>55&&!cur.erase)flush()};
-  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;if(!cur.erase){flush();rec({t:'s',s:cur})}else{r.emit('boardstate',{state:snapshot()})}cur=null;persistNow()};
+  cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;if(!cur.erase){flush();rec({t:'s',s:cur})}cur=null;persistNow()};
   sc.addEventListener('scroll',queueViewport,{passive:true});
   // Secondary mouse buttons always pan the viewport regardless of the selected tool.
   // Capture-phase prevents right click on contenteditable objects from moving them.
