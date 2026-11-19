@@ -176,7 +176,7 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 
 .it.retro-timer.sel{border-radius:50%}.retro-timer .timer-readout{position:absolute;top:57%}.retro-timer .timer-caption{position:absolute;top:73%;font-size:clamp(8px,4cqw,11px);line-height:1.2}
 
-</style><script>(()=>{const apply=t=>document.documentElement.dataset.theme=['beige','lavender','dark'].includes(t)?t:'beige';apply(new URLSearchParams(location.search).get('theme'));addEventListener('message',e=>{if(e.source===parent&&e.data?.type==='aspace-theme')apply(e.data.theme)})})();</script></head>
+.student-assignment{background:#f7f4fa!important;color:#30243a!important}.student-sheet{max-width:850px;margin:24px auto;padding:20px}.student-sheet .lesson{background:#fff;border:1px solid #e7deeb;border-radius:14px;padding:20px;margin:18px 0;break-inside:avoid}.student-sheet h2{color:#664572}.student-sheet h3{color:#60476b}.student-sheet textarea{display:block;width:100%;margin:8px 0 12px;min-height:58px;background:#fff;border:1px solid #cfc4d5;border-radius:8px;padding:9px;color:#30243a}.student-sheet audio{display:block;width:min(100%,420px);margin:12px 0}.student-intro,.student-end{background:#fff;border-left:4px solid #76527f;padding:13px 16px;border-radius:8px}.student-actions{text-align:right}.student-actions button{background:#76527f;color:white}.student-assignment header{background:linear-gradient(120deg,#49334f,#795779);color:white}.student-assignment header h1{color:white}.student-assignment header p{color:#f0e8f2}@media print{.student-actions{display:none}.student-sheet{margin:0;padding:0}.student-sheet .lesson{break-inside:avoid}.student-assignment header{background:white;color:#30243a;border-bottom:2px solid #76527f}.student-assignment header h1,.student-assignment header p{color:#30243a}}</style><script>(()=>{const apply=t=>document.documentElement.dataset.theme=['beige','lavender','dark'].includes(t)?t:'beige';apply(new URLSearchParams(location.search).get('theme'));addEventListener('message',e=>{if(e.source===parent&&e.data?.type==='aspace-theme')apply(e.data.theme)})})();</script></head>
 <body class="heritage-page">
 <header><h1>Speakout 3rd Edition · B1+</h1><p>Преподавательский сборщик · 32 урока · задания EN/RU · печатные PDF · авторские аудиозадания</p></header>
 <div class="wrap">
@@ -184,14 +184,14 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 <input id="search" placeholder="Поиск по темам, грамматике, словам…">
 <select id="mode"><option value="both">Режим: преподаватель + ученик</option><option value="student">Режим ученика</option><option value="teacher">Режим преподавателя</option></select>
 <select id="language"><option value="both">EN + RU</option><option value="en">English</option><option value="ru">Русский</option></select>
-<button class="primary" onclick="openExport()">Собрать PDF упражнений</button><button onclick="window.print()">Печать текущего юнита</button>
+<button class="primary" onclick="openExport()">Собрать упражнения</button><button onclick="window.print()">Печать текущего юнита</button>
 </div>
 <section class="exportpanel hidden" id="exportpanel">
 <h3>Сборка отдельных PDF-листов</h3><p class="small">Отметьте уроки и виды заданий. Кнопка откроет подготовленный лист: в браузере выберите «Печать → Сохранить как PDF». Можно создавать отдельные PDF для каждого урока или сочетать несколько упражнений.</p>
 <div class="toolbar"><select id="exportunit" onchange="drawExportLessons()"></select><button onclick="exportCheck(true)">Выбрать все уроки</button><button onclick="exportCheck(false)">Снять выбор</button></div>
 <div id="exportlessons" class="checks"></div>
 <div class="checks"><label><input type="checkbox" id="ex-advanced" checked> Усложнённые задания · Behaviour</label><label><input type="checkbox" id="ex-theory" checked> Теория и исключения</label><label><input type="checkbox" id="ex-vocab" checked> Лексика с переводом</label><label><input type="checkbox" id="ex-translation" checked> Перевод предложений</label><label><input type="checkbox" id="ex-errors" checked> Исправление ошибок</label><label><input type="checkbox" id="ex-grammar" checked> Грамматическая тренировка</label><label><input type="checkbox" id="ex-writing" checked> Письменные задания</label><label><input type="checkbox" id="ex-listening" checked> Аудирование (если есть)</label><label><input type="checkbox" id="ex-keys"> Ключи и транскрипты (для учителя)</label></div>
-<div class="toolbar"><input id="sheetname" placeholder="Название рабочего листа (необязательно)"><button class="primary" onclick="makeSheet()">Открыть лист для сохранения PDF</button><button onclick="document.querySelector('#exportpanel').classList.add('hidden')">Закрыть сборщик</button></div>
+<div class="toolbar"><input id="sheetname" placeholder="Название рабочего листа (необязательно)"><button class="primary" onclick="makeSheet()">Открыть лист для сохранения PDF</button><button onclick="makeStudentLink()">Создать ссылку для ученика</button><button onclick="document.querySelector('#exportpanel').classList.add('hidden')">Закрыть сборщик</button></div><div id="studentlinkbox" class="hidden task"><b>Ссылка для ученика</b><p class="small">Отправь эту ссылку ученику. Он увидит только выбранные упражнения, без ключей и панели преподавателя.</p><div class="toolbar"><input id="studentlink" readonly aria-label="Ссылка для ученика"><button class="primary" onclick="copyStudentLink()">Копировать ссылку</button></div></div>
 </section><div class="layout"><aside class="side"><h3 style="margin-top:0">Содержание курса</h3><nav id="nav"></nav><p class="small">Материал организован по юнитам и урокам Student’s Book. Workbook используется как дополнительная практика по соответствующему уроку.</p></aside>
 <main class="content" id="main"></main></div>
 </div>
@@ -407,6 +407,47 @@ function openExport(){const el=$('#exportpanel');el.classList.remove('hidden');e
 function drawExportLessons(){const n=Number($('#exportunit').value),u=course.find(u=>u.n===n);$('#exportlessons').innerHTML=u.lessons.map(l=>`<label><input type="checkbox" class="picklesson" value="${esc(l[0])}" checked> ${esc(l[0])} ${esc(l[1])}</label>`).join('');}
 function exportCheck(v){document.querySelectorAll('.picklesson').forEach(e=>e.checked=v);}
 function selectedType(key){return $('#ex-'+key).checked;}
+function makeStudentLink(){
+ const u=course.find(x=>x.n===Number($('#exportunit').value)),codes=[...document.querySelectorAll('.picklesson:checked')].map(e=>e.value);
+ if(!codes.length){alert('Выберите хотя бы один урок');return;}
+ const types={};['advanced','theory','vocab','translation','errors','grammar','writing','listening'].forEach(k=>types[k]=selectedType(k));
+ if(!Object.values(types).some(Boolean)){alert('Выберите хотя бы один вид упражнений');return;}
+ const payload={v:1,u:u.n,codes,types,name:$('#sheetname').value.trim()||('Speakout B1+ · Unit '+u.n+' · '+codes.join(', '))};
+ const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).split('+').join('-').split('/').join('_').replace(/=+$/,'');
+ const link=location.href.split('#')[0]+'#assignment='+encoded;
+ $('#studentlink').value=link;$('#studentlinkbox').classList.remove('hidden');$('#studentlinkbox').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function copyStudentLink(){
+ const field=$('#studentlink');field.select();field.setSelectionRange(0,field.value.length);
+ if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(field.value).then(()=>alert('Ссылка скопирована.')).catch(()=>alert('Выделите ссылку и скопируйте её вручную.'));
+ else {try{document.execCommand('copy');alert('Ссылка скопирована.');}catch(e){alert('Выделите ссылку и скопируйте её вручную.');}}
+}
+function openStudentAssignmentFromHash(){
+ const match=location.hash.match(/^#assignment=([A-Za-z0-9_-]+)$/);if(!match)return;
+ try{
+  const encoded=match[1].replace(/-/g,'+').replace(/_/g,'/');
+  const payload=JSON.parse(decodeURIComponent(escape(atob(encoded))));
+  if(payload.v!==1||!Number.isInteger(payload.u)||!Array.isArray(payload.codes)||!payload.codes.length)throw new Error('invalid');
+  const u=course.find(x=>x.n===payload.u);if(!u)throw new Error('unit');
+  const codes=payload.codes.filter(c=>u.lessons.some(l=>l[0]===c));if(!codes.length)throw new Error('lessons');
+  const t=payload.types||{},name=String(payload.name||('Speakout B1+ · Unit '+u.n)).slice(0,120);
+  const sections=u.lessons.filter(l=>codes.includes(l[0])).map(l=>{
+   const [code,title,gram,vocab,challenge,drill,answer,extension]=l,d=EXTRA[code],a=LISTENING[code];let p=[`<h2>${esc(code)} · ${esc(title)}</h2><p class="sub">${esc(gram)} · ${esc(vocab)}</p>`];
+   if(t.advanced)p.push(advancedBehaviourPrint(code));
+   if(t.theory){p.push(`<h3>Теория / Grammar notes</h3><p>${esc(d[0])}</p>`);const q=DEEP_THEORY[code];if(q)p.push(`<p><b>Формула:</b> ${esc(q[0])}</p><p><b>Примеры / Перевод:</b> ${esc(q[1])}</p><p><b>Исключения:</b> ${esc(q[2])}</p><p>${esc(q[3])}</p>`);}
+   if(t.vocab)p.push('<h3>Vocabulary / Лексика</h3><ul>'+d[1].map(v=>`<li><b>${esc(v[0])}</b> — ${esc(v[1])}</li>`).join('')+'</ul>');
+   if(t.translation)p.push('<h3>Переведи на английский</h3><ol>'+d[2].map(v=>`<li>${esc(v)}<textarea rows="2" placeholder="Твой ответ…"></textarea></li>`).join('')+'</ol>');
+   if(t.errors)p.push('<h3>Исправь ошибки / Correct mistakes</h3><ol>'+d[3].map(v=>`<li>${esc(v)}<textarea rows="2" placeholder="Исправленный вариант…"></textarea></li>`).join('')+'</ol>');
+   if(t.grammar)p.push(`<h3>Grammar check</h3><div>${formatTrainerText(drill)}</div><textarea rows="3" placeholder="Твой ответ…"></textarea>`);
+   if(t.writing)p.push(`<h3>Индивидуальная практика</h3><p>${esc(d[4])}</p><p>${esc(extension)}</p><textarea rows="6" placeholder="Напиши свой ответ…"></textarea>`);
+   if(t.listening&&a)p.push(`<h3>Аудирование · ${esc(a[0])}</h3><audio controls preload="none" src="audio/${code}.mp3"></audio><p>${esc(a[2])}</p><textarea rows="3" placeholder="Ответы на вопросы…"></textarea>`);
+   return '<section class="lesson">'+p.join('')+'</section>';
+  }).join('');
+  document.title=name;
+  document.body.className='heritage-page student-assignment';
+  document.body.innerHTML=`<header><h1>${esc(name)}</h1><p>Индивидуальные упражнения · Speakout 3rd Edition B1+</p></header><main class="student-sheet"><div class="student-actions"><button onclick="window.print()">Печать / Сохранить PDF</button></div><p class="student-intro">Выполни задания самостоятельно. Ответы можно вписать прямо на странице; перед закрытием страницы сохрани свою работу или распечатай её.</p>${sections}<p class="student-end">Работа завершена? Проверь ответы и отправь преподавателю.</p></main>`;
+ }catch(e){document.body.innerHTML='<main class="student-sheet"><h1>Не удалось открыть задание</h1><p>Ссылка повреждена или относится к старой версии сборщика. Попроси преподавателя создать новую ссылку.</p></main>';}
+}
 function makeSheet(){
  const u=course.find(x=>x.n===Number($('#exportunit').value)),codes=[...document.querySelectorAll('.picklesson:checked')].map(e=>e.value);
  if(!codes.length){alert('Выберите хотя бы один урок');return;}
@@ -441,5 +482,5 @@ function lessonHTML(l,i,mode,lang){
  ${mode!=='student'?`<p class="small">Методическая заметка: начни с короткого извлечения правила из памяти, затем предложи ученику объяснить выбор формы. После письменной практики попроси самостоятельно найти и исправить две ошибки. Индивидуальный формат: все задания выполняются одним учеником.</p>`:''}
  </section>`;
 }
-$('#search').addEventListener('input',render);$('#mode').addEventListener('change',render);$('#language').addEventListener('change',render);render();
+$('#search').addEventListener('input',render);$('#mode').addEventListener('change',render);$('#language').addEventListener('change',render);render();openStudentAssignmentFromHash();
 </script></body></html>
