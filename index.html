@@ -676,14 +676,18 @@ const B=(t,f,c='')=>E('button',{textContent:t,onclick:f,className:c});
 const uid=()=>Math.random().toString(36).slice(2,9);
 const ls={g(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},s(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const THEMES=[['beige','Бежевая'],['white','Белая'],['dark','Тёмная · винная']];
-const currentTheme=()=>{const value=ls.g('aspace-theme','beige');return THEMES.some(([key])=>key===value)?value:'beige'};
+const sharedThemeRoute=()=>/^#(?:s-[a-f0-9]{48}|c-[a-zA-Z0-9_-]{1,120})$/.test(location.hash);
+let boardThemeScope=null;
+const availableThemes=()=>boardThemeScope==='guest'||(!boardThemeScope&&sharedThemeRoute())
+  ?THEMES.slice(0,1):boardThemeScope==='owner'||location.hash.startsWith('#b-')?THEMES.slice(0,2):THEMES;
+const currentTheme=()=>{const value=ls.g('aspace-theme','beige');return availableThemes().some(([key])=>key===value)?value:'beige'};
 const themeIsDark=()=>currentTheme()==='dark';
 function applyTheme(){
   const theme=currentTheme();document.documentElement.dataset.theme=theme;
   document.querySelectorAll('.theme-select').forEach(select=>select.value=theme);
   document.querySelectorAll('iframe').forEach(frame=>{try{const origin=new URL(frame.src||location.href,location.href).origin;if(origin===location.origin)frame.contentWindow.postMessage({type:'aspace-theme',theme},origin)}catch{}});
 }
-function themeControl(){return E('label',{className:'theme-control'},E('span',{textContent:'Тема'}),E('select',{className:'theme-select',ariaLabel:'Оформление Aspace',value:currentTheme(),onchange:event=>{ls.s('aspace-theme',event.target.value);applyTheme()}},...THEMES.map(([value,textContent])=>E('option',{value,textContent,selected:value===currentTheme()}))))}
+function themeControl(){return E('label',{className:'theme-control'},E('span',{textContent:'Тема'}),E('select',{className:'theme-select',ariaLabel:'Оформление Aspace',value:currentTheme(),onchange:event=>{ls.s('aspace-theme',event.target.value);applyTheme()}},...availableThemes().map(([value,textContent])=>E('option',{value,textContent,selected:value===currentTheme()}))))}
 
 applyTheme();
 if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Aspace offline shell:',e)));}
@@ -1079,7 +1083,7 @@ const say2=t=>{const e=E('div',{className:'toast',textContent:t});e.style.displa
 addEventListener('hashchange',()=>location.reload());
 let cleanup=()=>{};
 const main=()=>$('#main');
-const go=async(fn)=>{cleanup();cleanup=()=>{};main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={contentView:'Контент',boardsView:'Доски',callView:'Видеозвонки',eduView:'Английский',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
+const go=async(fn)=>{cleanup();cleanup=()=>{};boardThemeScope=null;applyTheme();main().innerHTML='';main().className='';document.querySelectorAll('header .nav-item').forEach(button=>button.classList.toggle('is-current',button.dataset.section===fn.name));const sections={contentView:'Контент',boardsView:'Доски',callView:'Видеозвонки',eduView:'Английский',psychologyView:'Психология',usageView:'Лимиты',trainerView:'Тренажер',architectureView:'Архитектура'};const title=sections[fn.name];if(title)main().className='workspace-view';await fn(main())};
 
 /* ---------- старт / пароль ---------- */
 function passwordResetDialog(prefill=currentUser?.email||''){
@@ -1143,10 +1147,11 @@ function backToBoards(){
   shell(false);
 }
 function shell(guest){
+  applyTheme();
   const toggleSidebar=()=>{const app=$('#app');if(!app)return;const collapsed=!app.classList.contains('sidebar-collapsed');app.classList.toggle('sidebar-collapsed',collapsed);ls.s('aspace-sidebar-collapsed',collapsed);const control=app.querySelector('.sidebar-toggle');if(control){control.setAttribute('aria-label',collapsed?'Развернуть меню':'Свернуть меню');control.title=collapsed?'Развернуть меню':'Свернуть меню';control.setAttribute('aria-expanded',String(!collapsed))}};
   const navButton=(title,view,number)=>{const button=E('button',{className:'nav-item',title,onclick:()=>go(view)},E('span',{className:'nav-index',textContent:number}),E('span',{textContent:title}));button.dataset.section=view.name;return button};
   const sidebarToggle=B('❤',toggleSidebar,'sidebar-toggle');sidebarToggle.setAttribute('aria-label','Свернуть меню');sidebarToggle.setAttribute('aria-expanded','true');sidebarToggle.title='Свернуть меню';
-  const hd=E('header',{},E('b',{textContent:'Aspace'}),sidebarToggle,themeControl(),...(guest?[]:[B('⌂ Домой',goHome,'nav-home')]));
+  const hd=E('header',{},E('b',{textContent:'Aspace'}),sidebarToggle,...(guest?[]:[themeControl(),B('⌂ Домой',goHome,'nav-home')]));
   if(!guest)hd.append(E('nav',{className:'section-nav',ariaLabel:'Разделы Aspace'},navButton('Доски',boardsView,'I'),navButton('Видеозвонки',callView,'II'),navButton('Английский',eduView,'III'),navButton('Психология',psychologyView,'IV'),navButton('Тренажер',trainerView,'V'),navButton('Архитектура',architectureView,'VII'),navButton('Библиотека',rhetoricView,'VIII'),navButton('Контент',contentView,'IX'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()},'nav-signout'),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password')));
   const app=E('div',{id:'app'},hd,E('div',{id:'main'}));app.classList.toggle('sidebar-collapsed',ls.g('aspace-sidebar-collapsed',false));$('#root').replaceChildren(app);
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
@@ -1242,7 +1247,19 @@ function compactCallControls(vbar,mic,cam,nz,cams,mics,speakers,fullscreen,leave
   for(const zoom of vbar.querySelectorAll(':scope > input[type=range]'))panel.append(E('label',{},'Приближение камеры',zoom));
   vbar.append(mic,cam,settings,fullscreen,leave);
 }
+function callIdentity(){
+  const key='aspace-call-identity';
+  const previous=ls.g(key,null);
+  const identity={participant:previous?.participant||uid()+uid(),
+    entered:Math.max(Date.now(),(previous?.entered||0)+1)};
+  ls.s(key,identity);
+  return identity;
+}
 function Call(r,box){
+  const identity=callIdentity();
+  const participants=new Map();
+  const send=(type,data)=>r.emit(type,{...data,...identity});
+  const iceQueue={};
   const me=uid(),pcs={},tiles={},offs=[];let st=null,helloTimer=null;const reconnectTimers=new Map();
   const tile=(id,s,l)=>{let w=tiles[id];if(!w){const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w}w.v.srcObject=s;const resume=()=>{if(w.v.srcObject!==s)w.v.srcObject=s;const p=w.v.play();if(p?.catch)p.catch(()=>{})};for(const track of s.getVideoTracks())track.addEventListener('unmute',resume);};
   // Browsers may suspend video-element rendering while a tab is in the background.
@@ -1250,7 +1267,19 @@ function Call(r,box){
   const resumeVideo=()=>{if(document.visibilityState!=='visible')return;for(const w of Object.values(tiles)){if(w.v?.srcObject){const p=w.v.play();if(p?.catch)p.catch(()=>{})}}};
   document.addEventListener('visibilitychange',resumeVideo);
   window.addEventListener('pageshow',resumeVideo);
-  const drop=id=>{clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);pcs[id]?.close();delete pcs[id];tiles[id]?.remove();delete tiles[id]};
+  const drop=id=>{clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);const pc=pcs[id];delete pcs[id];if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.oniceconnectionstatechange=null;pc.close()}delete iceQueue[id];tiles[id]?.remove();delete tiles[id]};
+  function acceptParticipant(message){
+    if(!message.participant||!Number.isSafeInteger(message.entered))return true;
+    if(message.participant===identity.participant)return false;
+    const previous=participants.get(message.participant);
+    if(previous?.from===message.from)return true;
+    if(previous){
+      if(message.entered<previous.entered||(message.entered===previous.entered&&message.from<previous.from))return false;
+      drop(previous.from);
+    }
+    participants.set(message.participant,{from:message.from,entered:message.entered});
+    return true;
+  }
   async function attachMedia(pc){
     for(const tr of pc.getTransceivers()){
       tr.direction='sendrecv';
@@ -1260,9 +1289,10 @@ function Call(r,box){
   }
   const mk=async(id,init)=>{
     const pc=new RTCPeerConnection({iceServers:ICE});pcs[id]=pc;
-    pc.onicecandidate=e=>e.candidate&&r.emit('sig',{to:id,from:me,k:'ice',d:e.candidate});
+    pc.onicecandidate=e=>e.candidate&&send('sig',{to:id,from:me,k:'ice',d:e.candidate});
     const remoteStream=new MediaStream();
     pc.ontrack=e=>{
+      if(pcs[id]!==pc)return;
       if(!remoteStream.getTrackById(e.track.id))remoteStream.addTrack(e.track);
       tile(id,remoteStream,'Участник');
     };
@@ -1270,7 +1300,7 @@ function Call(r,box){
       clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);
       if(!init||!['failed','disconnected'].includes(pc.iceConnectionState))return;
       const retry=async()=>{reconnectTimers.delete(id);if(pcs[id]!==pc||!['failed','disconnected'].includes(pc.iceConnectionState))return;
-        try{if(pc.signalingState!=='stable'){reconnectTimers.set(id,setTimeout(retry,3000));return}const o=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(o);await r.emit('sig',{to:id,from:me,k:'offer',d:o})}catch(error){console.warn('Call reconnection pending');}
+        try{if(pc.signalingState!=='stable'){reconnectTimers.set(id,setTimeout(retry,3000));return}const o=await pc.createOffer({iceRestart:true});await pc.setLocalDescription(o);await send('sig',{to:id,from:me,k:'offer',d:o})}catch(error){console.warn('Call reconnection pending');}
         if(pcs[id]===pc&&['failed','disconnected'].includes(pc.iceConnectionState))reconnectTimers.set(id,setTimeout(retry,8000));
       };reconnectTimers.set(id,setTimeout(retry,pc.iceConnectionState==='failed'?1000:4000));
     };
@@ -1278,20 +1308,19 @@ function Call(r,box){
       pc.addTransceiver('audio',{direction:'sendrecv'});
       pc.addTransceiver('video',{direction:'sendrecv'});
       await attachMedia(pc);
-      const o=await pc.createOffer();await pc.setLocalDescription(o);r.emit('sig',{to:id,from:me,k:'offer',d:o})}
+      const o=await pc.createOffer();await pc.setLocalDescription(o);send('sig',{to:id,from:me,k:'offer',d:o})}
     return pc};
   offs.push(r.on('hello',m=>{
     const x=m.data;
-    if(!st||!x?.from||x.from===me||(x.to&&x.to!==me))return;
-    if(!x.to)void r.emit('hello',{from:me,to:x.from});
+    if(!st||!x?.from||x.from===me||(x.to&&x.to!==me)||!acceptParticipant(x))return;
+    if(!x.to)void send('hello',{from:me,to:x.from});
     if(!pcs[x.from])void mk(x.from,me<x.from).catch(error=>console.warn('Call negotiation failed',error));
   }));
   offs.push(r.on('bye',m=>m.data&&drop(m.data.from)));
-  const iceQueue={};
   const flushIce=async id=>{const pc=pcs[id],q=iceQueue[id]||[];if(!pc?.remoteDescription)return;delete iceQueue[id];for(const c of q)try{await pc.addIceCandidate(c)}catch(e){console.warn('ICE candidate rejected',e)}};
-  offs.push(r.on('sig',async m=>{const x=m.data;if(!x||x.to!==me)return;
+  offs.push(r.on('sig',async m=>{const x=m.data;if(!st||!x?.from||x.to!==me||!acceptParticipant(x))return;
     try{
-      if(x.k==='offer'){const pc=pcs[x.from]||await mk(x.from,false);await pc.setRemoteDescription(x.d);await attachMedia(pc);await flushIce(x.from);const a=await pc.createAnswer();await pc.setLocalDescription(a);r.emit('sig',{to:x.from,from:me,k:'answer',d:a})}
+      if(x.k==='offer'){const pc=pcs[x.from]||await mk(x.from,false);await pc.setRemoteDescription(x.d);await attachMedia(pc);await flushIce(x.from);const a=await pc.createAnswer();await pc.setLocalDescription(a);send('sig',{to:x.from,from:me,k:'answer',d:a})}
       else if(x.k==='answer'){const pc=pcs[x.from];if(pc){await pc.setRemoteDescription(x.d);await flushIce(x.from)}}
       else if(x.k==='ice'){const pc=pcs[x.from];if(pc?.remoteDescription)await pc.addIceCandidate(x.d);else(iceQueue[x.from]=iceQueue[x.from]||[]).push(x.d)}
     }catch(e){console.error('WebRTC signaling error',x.k,e)}
@@ -1305,8 +1334,8 @@ function Call(r,box){
       // Audio/video transceivers are created for each peer; the user can grant
       // device access later with the microphone or camera controls.
       st=new MediaStream();
-      tile('me',st,'Вы');r.emit('hello',{from:me});
-      helloTimer=setInterval(()=>{if(!Object.values(pcs).some(pc=>pc.connectionState==='connected'))void r.emit('hello',{from:me})},5000)},
+      tile('me',st,'Вы');send('hello',{from:me});
+      helloTimer=setInterval(()=>{if(!Object.values(pcs).some(pc=>pc.connectionState==='connected'))void send('hello',{from:me})},5000)},
     async mic(){
       let t=st?.getAudioTracks()[0];
       if(t){
@@ -1363,7 +1392,7 @@ function Call(r,box){
     zoomCaps(){const t=st?.getVideoTracks()[0];const c=t?.getCapabilities?.();return c?.zoom||null},
     async zoom(value){const t=st?.getVideoTracks()[0];if(!t||!t.getCapabilities)return null;const c=t.getCapabilities();if(!c.zoom)return null;await t.applyConstraints({advanced:[{zoom:Math.max(c.zoom.min,Math.min(c.zoom.max,value))}]});return c.zoom},
     async noise(on){await st?.getAudioTracks()[0]?.applyConstraints({noiseSuppression:on,echoCancellation:true,autoGainControl:true})},
-    stop(){clearInterval(helloTimer);document.removeEventListener('visibilitychange',resumeVideo);window.removeEventListener('pageshow',resumeVideo);r.emit('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
+    stop(){clearInterval(helloTimer);document.removeEventListener('visibilitychange',resumeVideo);window.removeEventListener('pageshow',resumeVideo);send('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
   };
 }
 function devicePicker(call,kind,title){
@@ -2011,6 +2040,7 @@ function deferBoardSignals(){
 }
 async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const isOwner=!!(currentUser&&CFG.ownerUid&&currentUser.uid===CFG.ownerUid),ownerUid=currentUser?.uid;
+  boardThemeScope=isOwner?'owner':'guest';applyTheme();
   const loading=E('div',{className:'gate'},E('div',{className:'box',role:'status'},E('h2',{textContent:'Загружаю доску…'})));
   m.append(loading);
   let shareMeta=null,d0=null,boardShareToken=shareToken,boardTransport=null,localGuestDraft=null;
@@ -2516,7 +2546,15 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(isOwner)head.append(B('Применить',()=>applySiteUrl(field.value)));
     head.append(B('Копировать ссылку',()=>copyLink(url)),B('↗ Открыть отдельно',()=>window.open(url,'_blank','noopener,noreferrer')));
     if(isOwner)head.append(B('✕ Скрыть сайт',()=>applySiteUrl('')));
-    const frame=E('iframe',{className:'site-frame',src:url,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});
+    let frameUrl=url;
+    try{
+      const embedded=new URL(url,location.href);
+      if(embedded.origin===location.origin){
+        embedded.searchParams.set('theme',currentTheme());
+        frameUrl=embedded.href;
+      }
+    }catch{}
+    const frame=E('iframe',{className:'site-frame',src:frameUrl,title:'Совместный сайт',referrerPolicy:'no-referrer',allow:'fullscreen; clipboard-read; clipboard-write'});
     const note=E('div',{className:'mut',style:'padding:5px 10px;border-top:1px solid var(--line)',textContent:'Если сайт запрещает встраивание, используй «Открыть отдельно». Разделение экрана и ссылка синхронизируются с учеником.'});
     sitePanel.append(head,frame,note);
   };
@@ -3038,7 +3076,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   }
   if(isOwner)mi('✎ Переименовать',async()=>{const n=prompt('Название доски',d.name);if(!n)return;d.name=n;mb.lastChild.textContent=n;persist();const ix=(await load('meta/boards'))||{items:[]},b=ix.items.find(x=>x.id===id);if(b){b.name=n;await save('meta/boards',ix)}});
   if(isOwner)mi('🧹 Очистить доску',()=>{if(!confirm('Очистить доску для всех?'))return;strokes=[];items=[];redraw();renderAll();r.emit('clr',{});persistNow()});
-  mp.append(themeControl());
+  if(isOwner)mp.append(themeControl());
   const topDock=E('div',{className:'board-top-dock'},menu,boardActions);
   const bottomDock=E('div',{className:'board-bottom-dock'},E('div',{className:'board-navigation'},hist,zoom),tbar);
   root.append(topDock,bottomDock,fbar,announcementBox);

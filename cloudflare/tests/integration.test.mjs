@@ -40,7 +40,7 @@ test("shape palette and right-middle mouse pan are native board features",()=>{
  assert.match(html,/e\.button!==1&&e\.button!==2/);
 });
 test("education view is a local static HTML builder without databases",()=>{
- const m=html.match(/async function eduView\(m\)\{([\s\S]*?)\n\}\n\nstart\(\)/);
+ const m=html.match(/async function eduView\(m\)\{([\s\S]*?)\n\}\n/);
  assert.ok(m);
  assert.match(m[1],/education\/speakout-b1plus-builder\.html/);
  assert.doesNotMatch(m[1].replace(/\/\/[^\n]*/g,''),/await load\(|await save\(|firebase|cloudflare/i);
