@@ -50,7 +50,7 @@ html:has(#app),body:has(#app),#app,html:has(>body.heritage-page){background:#360
 .section-education .section-copy{border-radius:38% 38% 22px 22px / 20px 20px 22px 22px}
 .home-sections .section-enter{top:14px;right:16px;border:1px solid currentColor;border-radius:50%;width:26px;height:26px;font-size:17px;line-height:23px;opacity:.75}
 .home-sections .section-usage{background:#e8e0cc}
-.home-sections .section-usage:before{content:'';top:5%;left:50%;right:auto;width:155px;height:195px;transform:translateX(-50%);background:url('assets/home/cameo-frame.svg') center/contain no-repeat}
+.home-sections .section-usage:before{content:'';top:5%;left:50%;right:auto;width:min(100px,65%);height:min(122px,42%);transform:translateX(-50%);background:url('assets/home/cameo-frame.svg') center/contain no-repeat}
 .home-sections .section-reserve:before{content:'';top:9%;left:50%;width:185px;height:145px;transform:translateX(-50%);background:url('assets/home/ribbon-seal.svg') center/contain no-repeat}
 .home-sections .section-reserve:after{border-radius:21px}
 .section-breadcrumb{border:1px solid #b39a7e88;border-radius:18px;padding:13px 16px;background:#f6efdf08}
@@ -65,7 +65,7 @@ html:has(#app),body:has(#app),#app,html:has(>body.heritage-page){background:#360
 .heritage-page :is(.pdf,.facsimile){border-radius:18px;overflow:hidden}
 .heritage-page>header{border-radius:0 0 24px 24px}
 .heritage-page .hero{border-radius:26px}.heritage-page .hero:before{content:'✦';float:right;color:#a0856b;font-size:26px}
-@media(max-width:480px){.home-sections .section-card{border-radius:22px}.home-sections .section-card:after{border-radius:16px;inset:7px}.home-sections .section-usage:before{width:110px;height:150px;top:8%}.home-sections .section-reserve:before{width:130px;height:110px;top:13%}.section-breadcrumb{padding:11px 12px}}
+@media(max-width:480px){.home-sections .section-card{border-radius:22px}.home-sections .section-card:after{border-radius:16px;inset:7px}.home-sections .section-usage:before{width:min(76px,60%);height:min(96px,40%);top:5%}.home-sections .section-reserve:before{width:130px;height:110px;top:13%}.section-breadcrumb{padding:11px 12px}}
 @media print{body.heritage-page,body.heritage-page main,.heritage-page .reading{background:white;color:black}.heritage-page .hero:before{display:none}}
 /* Three solid themes; paper surfaces always carry dark ink. */
 :root{--shell-bg:#f2e9dc;--shell-ink:#392a33;--shell-muted:#64515d;--shell-line:#bca697;--shell-header:#e9ddce;color-scheme:light}

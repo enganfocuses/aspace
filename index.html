@@ -628,6 +628,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 @container (max-width:300px){.vwin .vbar,.vwin.home-call-window .vbar{gap:2px}.vwin .vbar>button,.vwin .vbar>details>summary{width:34px;min-width:34px;max-width:34px;font-size:34px}.vwin .vbar>button .ic{width:30px;height:30px}.vwin .vbar>button.end-call,.vwin .vh button.end-call{width:70px;min-width:70px;max-width:70px;font-size:13px}}
 
 .board-access-dialog{width:min(470px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--line);border-radius:18px;padding:22px;background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.board-access-dialog button{background:var(--shell-button,#451327);color:#fff;border-color:var(--shell-button,#451327)}
+.board-access-dialog button:not(:disabled):is(:hover,:focus-visible){background:var(--shell-button-hover,#310b1b);color:#fff}
 .board-access-dialog::backdrop{background:#24121c88}.board-access-dialog h2{margin:0 0 12px}.board-access-dialog form:not([hidden]),.board-access-link:not([hidden]),.board-access-dialog label:not([hidden]){display:grid;gap:9px}.board-access-dialog input,.board-access-dialog select{width:100%;min-width:0}.board-access-dialog [role=status]:empty{display:none}
 .password-reset-dialog{width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #b7a28c;border-radius:22px;padding:25px;background:#f6efdf;color:#3b2934;box-shadow:0 18px 60px #17081366}.password-reset-dialog::backdrop{background:#24121c88}.password-reset-dialog form{display:grid;gap:12px}:root .password-reset-dialog h2,:root .password-reset-dialog p{margin:0;color:#3b2934}.password-reset-dialog h2{font-family:Georgia,serif;font-size:26px}.password-reset-dialog p{font-size:14px;line-height:1.55}:root .password-reset-dialog input{width:100%;background:#fffaf3;color:#3b2934;border:1px solid #b7a28c}:root .password-reset-dialog button{color:#49354f;background:#c8b8e8}:root .password-reset-dialog .reset-send{background:#71384f;color:#fff}.reset-status:empty{display:none}
 
@@ -668,7 +670,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .plan-wide{grid-template-columns:minmax(0,1fr)}.plan-blocks section,.month-day{border:1px solid #baa88e;border-radius:10px;padding:8px}.plan-tile{display:grid;gap:5px;text-align:left;width:100%;white-space:normal;overflow-wrap:anywhere;margin:4px 0}.plan-tile small{font-size:.75rem}.month-scroll{max-width:100%;overflow:auto}.month-grid{display:grid;grid-template-columns:repeat(7,minmax(90px,1fr));gap:4px}.month-day{min-height:76px}.month-day>button:first-child{padding:3px 8px}.month-day .plan-tile{padding:6px;border-radius:6px;font-size:.82rem}
 .anna-edition .anna-cover{background:#51172b url('./assets/home/anna-studio.webp') center right/cover no-repeat;position:relative;isolation:isolate;overflow:hidden}.anna-cover:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#391021f5,#391021db 40%,transparent 90%)}.anna-cover select{max-width:100%}.anna-cover h2{max-width:18ch}
 </style>
-<link rel="stylesheet" href="workspace-theme.css?v=7"></head><body>
+<link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <div id="root"></div>
 <script>
 const $=s=>document.querySelector(s);
