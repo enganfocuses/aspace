@@ -58,7 +58,7 @@ export async function renderContentPlan(host,{load,save}={}){
   #content-plan .cp-layout{display:grid;grid-template-columns:210px minmax(0,1fr);flex:1;min-height:0;overflow:hidden}
   #content-plan .cp-layout.has-editor{grid-template-columns:210px minmax(0,1fr) minmax(300px,370px)}
   #content-plan .cp-backlog{display:flex;flex-direction:column;min-height:0;background:var(--cp-card);border-right:1px solid var(--cp-line2)}
-  #content-plan .cp-backlog-head,#content-plan .cp-editor-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--cp-line2)}
+  #content-plan .cp-close-ideas{display:none}#content-plan .cp-backlog-head,#content-plan .cp-editor-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--cp-line2)}
   #content-plan .cp-backlog-head b,#content-plan .cp-editor-head b{font:16px Georgia,serif;color:var(--cp-wine)}
   #content-plan .cp-ideas{overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
   #content-plan .cp-idea{padding:8px 9px;background:var(--cp-paper);border:1px solid var(--cp-line2);border-left:3px solid var(--cp-wine);border-radius:8px;cursor:pointer}
@@ -107,7 +107,7 @@ export async function renderContentPlan(host,{load,save}={}){
   #content-plan .cp-save-state{font-size:10px;color:var(--cp-muted);align-self:center}
   :root{--cp-ink:#30283b;--cp-muted:#81778b;--cp-card:#fffcf6;--cp-paper:#fbf7ee;--cp-line:#d9cbd0;--cp-line2:#e7dde2;--cp-wine:#71384f;--cp-wine2:#54283c;--cp-soft:#f1ebf7;--cp-lav:#bba8df}
   [data-theme=dark]{--cp-ink:#eee7f2;--cp-muted:#b6aabd;--cp-card:#241d2b;--cp-paper:#221b28;--cp-line:#493b55;--cp-line2:#332639;--cp-wine:#a87594;--cp-wine2:#8f5d7c;--cp-soft:#302638;--cp-lav:#806a99}
-  @media(max-width:1050px){#content-plan .cp-mobile-ideas{display:inline-block!important}#content-plan .cp-backlog.mobile-open{display:flex;position:fixed;z-index:110;left:0;top:0;bottom:0;width:min(290px,84vw);box-shadow:8px 0 30px #0003}#content-plan .cp-layout,#content-plan .cp-layout.has-editor{grid-template-columns:minmax(0,1fr)}#content-plan .cp-backlog{display:none}#content-plan .cp-editor{position:fixed;z-index:100;left:0;right:0;bottom:0;height:min(86dvh,760px);border:1px solid var(--cp-line);border-radius:18px 18px 0 0;box-shadow:0 -10px 35px #0002}#content-plan .cp-month{gap:3px}#content-plan .cp-cell{min-height:88px;padding:3px}#content-plan .cp-tile{font-size:10px!important;padding:3px!important}#content-plan .cp-week{grid-template-columns:1fr}#content-plan .cp-week-col{min-height:90px}#content-plan .cp-two{grid-template-columns:1fr}#content-plan .cp-toolbar{gap:5px}#content-plan .cp-brand{font-size:18px}#content-plan .cp-search{max-width:none;flex:1 1 130px}}
+  @media(max-width:1050px){#content-plan .cp-mobile-ideas{display:inline-block!important}#content-plan .cp-close-ideas{display:inline-block!important}#content-plan .cp-backlog.mobile-open{display:flex;position:fixed;z-index:110;left:0;top:0;bottom:0;width:min(290px,84vw);box-shadow:8px 0 30px #0003}#content-plan .cp-layout,#content-plan .cp-layout.has-editor{grid-template-columns:minmax(0,1fr)}#content-plan .cp-backlog{display:none}#content-plan .cp-editor{position:fixed;z-index:100;left:0;right:0;bottom:0;height:min(86dvh,760px);border:1px solid var(--cp-line);border-radius:18px 18px 0 0;box-shadow:0 -10px 35px #0002}#content-plan .cp-month{gap:3px}#content-plan .cp-cell{min-height:88px;padding:3px}#content-plan .cp-tile{font-size:10px!important;padding:3px!important}#content-plan .cp-week{grid-template-columns:1fr}#content-plan .cp-week-col{min-height:90px}#content-plan .cp-two{grid-template-columns:1fr}#content-plan .cp-toolbar{gap:5px}#content-plan .cp-brand{font-size:18px}#content-plan .cp-search{max-width:none;flex:1 1 130px}}
   @media(max-width:600px){#content-plan .cp-month{gap:2px}#content-plan .cp-cell{min-height:74px;padding:2px;border-radius:6px}#content-plan .cp-dow{font-size:8px;padding:3px 0}#content-plan .cp-cell-head{font-size:9px}#content-plan .cp-tile small{display:none}#content-plan .cp-views button{padding:5px 6px;font-size:11px}#content-plan .cp-nav strong{min-width:95px;font-size:12px}#content-plan .cp-coverage{gap:7px}#content-plan .cp-toolbar .cp-filter{display:none}}
   `;
   const root=document.createElement('section');root.id='content-plan';root.append(style);
@@ -128,7 +128,7 @@ export async function renderContentPlan(host,{load,save}={}){
     </div>
     <div class="cp-coverage" data-coverage></div>
     <div class="cp-layout" data-layout>
-      <aside class="cp-backlog"><div class="cp-backlog-head"><b>Идеи без даты</b><span data-save-state class="cp-save-state">Сохранено</span></div><div class="cp-ideas" data-ideas></div></aside>
+      <aside class="cp-backlog"><div class="cp-backlog-head"><b>Идеи без даты</b><span data-save-state class="cp-save-state">Сохранено</span><button class="cp-close-ideas" data-action="ideas" aria-label="Закрыть идеи">✕</button></div><div class="cp-ideas" data-ideas></div></aside>
       <main class="cp-calendar" data-calendar></main>
       <aside class="cp-editor" data-editor hidden>
         <div class="cp-editor-head"><b>Пост</b><button data-action="close" aria-label="Закрыть">✕</button></div>
