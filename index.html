@@ -688,6 +688,21 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .anna-edition>.idea-deck{margin-top:12px}
 @media(max-width:600px){.anna-season-bar{gap:6px}#main.workspace-view .anna-season-bar :is(button,summary),#main.workspace-view .anna-guide-nav button{padding:6px 8px;font-size:13px;min-height:34px}.anna-season-select{flex:1 0 100%}}
 
+@media screen {
+#main.home-menu .home-sections,#main.home-menu .home-footer{
+ display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;
+ grid-auto-flow:row!important;width:100%;max-width:1600px;margin-inline:auto;gap:10px;box-sizing:border-box
+}
+#main.home-menu .home-footer{align-items:end}
+#main.home-menu .home-footer>*{width:100%;min-width:0;box-sizing:border-box}
+#main.home-menu .home-footer select{width:100%;min-width:0}
+}
+@media screen and (max-width:900px){
+ #main.home-menu .home-sections,#main.home-menu .home-footer{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media screen and (max-width:540px){
+ #main.home-menu .home-sections,#main.home-menu .home-footer{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <div id="root"></div>
@@ -1137,12 +1152,21 @@ function loginView(message=''){
 }
 function start(){
   if(!window.CFG||!CFG.db||!CFG.firebase){document.body.append(E('div',{className:'warn',textContent:'⚠ Не заполнена конфигурация Firebase.'}));return}
+  let initialAuth=true;
   try{if(!firebase.apps.length)firebase.initializeApp(CFG.firebase);auth=firebase.auth();storage=firebase.storage();
     // Keep the owner's Firebase login across a normal page refresh so reopening
     // a board URL does not send them back to the sign-in screen.
-    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
       .catch(error=>console.warn('Aspace auth persistence:',error))
       .then(()=>auth.onAuthStateChanged(async user=>{
+    if(initialAuth){
+      initialAuth=false;
+      if(user&&!sharedThemeRoute()&&!sessionStorage.getItem('aspace-password-session')){
+        await auth.signOut();return;
+      }
+    }
+    if(user?.uid===CFG.ownerUid&&!sharedThemeRoute())sessionStorage.setItem('aspace-password-session','1');
+    if(!user)sessionStorage.removeItem('aspace-password-session');
     currentUser=user;
     if(!user){stopPersistentCall();if(boardRuntimePromise){(await boardRuntimePromise).close();boardRuntimePromise=null}}
     if(standbyOptIn()){
