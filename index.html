@@ -1203,7 +1203,7 @@ function shell(guest){
   const h=location.hash,bm=h.match(/^#b-([^-]+)(?:-(edit|view))?$/),sm=h.match(/^#s-([a-f0-9]{48})$/);
   if(sm)go(m=>openBoard(m,null,true,sm[1]));
   else if(bm)go(m=>openBoard(m,bm[1],bm[2]!=='edit'));
-  else if(h==='#boards'&&currentUser?.uid===CFG.ownerUid)go(boardsView);
+  else if((h==='#boards'||/^#boards\/[a-zA-Z0-9_-]+$/.test(h))&&currentUser?.uid===CFG.ownerUid)go(boardsView);
   else if(h==='#usage'&&currentUser?.uid===CFG.ownerUid)go(usageView);
   else if(h==='#architecture'&&currentUser?.uid===CFG.ownerUid)go(architectureView);
   else if(h==='#trainer'&&currentUser?.uid===CFG.ownerUid)go(trainerView);
@@ -1865,7 +1865,10 @@ async function boardsView(m){
   const g=E('div',{className:'grid'});
   const nw=E('button',{type:'button',className:'card new',onclick:async()=>{const n=prompt('Название доски','Новая доска');if(n==null)return;const id=uid();idx.items.push({id,name:n||'Доска'});await save('meta/boards',idx);await save('boards/'+id,{name:n||'Доска',strokes:[],items:[],bg:'dots',siteUrl:'',upd:Date.now()});go(mm=>openBoard(mm,id,false))}},'＋ Новая доска');
   g.append(nw);
+  const selectedId=location.hash.match(/^#boards\/([a-zA-Z0-9_-]+)$/)?.[1];
+  if(selectedId)nw.hidden=true;
   idx.items.forEach(b=>{
+    if(selectedId&&b.id!==selectedId)return;
     const card=E('div',{className:'card board-list-card'},E('div',{className:'board-preview',ariaHidden:'true'},E('span',{textContent:b.name.trim().slice(0,1).toUpperCase()||'A'})),E('b',{className:'board-card-title',textContent:b.name}));card.dataset.name=b.name.toLocaleLowerCase();
     const actions=E('div',{className:'row'});
     actions.append(B('Открыть',()=>go(mm=>openBoard(mm,b.id,false,null,b))));
@@ -1893,24 +1896,26 @@ async function boardsView(m){
       if(!confirm('Удалить доску «'+b.name+'»? Это удалит её из списка и удалит сохранённые данные доски.'))return;
       if(button)button.disabled=true;
       try{
-        // Revoke guest access first. If that fails, keep the board listed so
-        // the owner can retry instead of leaving an active public link behind.
-        if(b.shareToken){
-          const oldToken=b.shareToken;
-          await revokeShare(oldToken);
-          try{await syncStandbyShare(b.id,oldToken,null,true)}catch(error){notifyStandbyGrantError(error)}
-        }
-        // Read the authoritative index from Firebase, not a possibly stale
-        // IndexedDB/localStorage snapshot captured when this screen was opened.
+        if(currentUser?.uid!==CFG.ownerUid)throw Error('Войди как владелец доски.');
+        if(!/^[a-zA-Z0-9_-]{1,120}$/.test(b.id))throw Error('Неверный идентификатор доски.');
         const indexUrl=DB()+'/docs/meta/boards.json';
-        const read=await fetch(indexUrl,{cache:'no-store'});
-        if(!read.ok)throw new Error('Не удалось прочитать список досок (Firebase HTTP '+read.status+').');
-        const raw=await read.json();
-        const latest=raw&&raw.j?JSON.parse(raw.j):(raw||{items:[]});
-        latest.items=Array.isArray(latest.items)?latest.items:[];
+        const read=await fetch(indexUrl,{cache:'no-store',headers:{'X-Firebase-ETag':'true'}});
+        if(!read.ok)throw Error('Не удалось прочитать список досок (HTTP '+read.status+').');
+        const raw=await read.json(),etag=read.headers.get('etag');
+        const latest=raw?.j?JSON.parse(raw.j):(raw||{items:[]});
+        if(!Array.isArray(latest.items)||!etag)throw Error('Не удалось проверить версию списка.');
+        const entry=latest.items.find(item=>item.id===b.id);
+        const token=entry?entry.shareToken:b.shareToken;
+        if(token&&!/^[a-f0-9]{48}$/.test(token))throw Error('Неверная ссылка доски.');
+        if(token)await syncStandbyShare(b.id,token,null,true);
+        // Revocation during deletion needs no backup or read of stale share metadata.
+        const updates={['docs/boards/'+b.id]:null};
+        if(token)for(const part of ['room','board','meta'])updates['shares/'+token+'/'+part]=null;
+        const removed=await fetch(DB()+'/.json',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(updates)});
+        if(!removed.ok)throw Error('Firebase не удалил данные (HTTP '+removed.status+').');
         latest.items=latest.items.filter(item=>item.id!==b.id);
-        const write=await fetch(indexUrl,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({j:JSON.stringify(latest)})});
-        if(!write.ok)throw new Error('Firebase не сохранил удаление из списка (HTTP '+write.status+').');
+        const write=await fetch(indexUrl,{method:'PUT',headers:{'Content-Type':'application/json','if-match':etag},body:JSON.stringify({j:JSON.stringify(latest)})});
+        if(!write.ok)throw Error('Не удалось обновить список (HTTP '+write.status+'). Повтори удаление.');
         const verify=await fetch(indexUrl,{cache:'no-store'});
         if(!verify.ok)throw new Error('Не удалось проверить результат удаления (HTTP '+verify.status+').');
         const checkRaw=await verify.json();
@@ -1921,23 +1926,21 @@ async function boardsView(m){
         const stamp=Date.now();
         await localPut('docs',{key:'meta/boards',value:latest,updatedAt:stamp});
         await localDelete('pending','meta/boards');
-        try{
-          await fetch(DB()+'/docs/boards/'+encodeURIComponent(b.id)+'.json',{method:'DELETE'});
-          await localDelete('docs','boards/'+b.id);
-          await localDelete('pending','boards/'+b.id);
-        }catch(cleanupError){console.warn('Board content cleanup:',cleanupError)}
+        localStorage.removeItem('boards/'+b.id);
+        await localDelete('docs','boards/'+b.id);
+        await localDelete('pending','boards/'+b.id);
         if(standbyOptIn())try{void getBoardRuntime().then(runtime=>runtime?.mirrorIndex(latest)).catch(error=>console.warn('Standby index cleanup:',error))}
           catch(error){console.warn('Standby index cleanup:',error)}
         go(boardsView);
       }catch(error){
-        alert('Не удалось удалить доску. '+(error?.message||error)+' Доска оставлена в списке.');
+        alert('Не удалось удалить доску. '+(error?.message||error));
         if(button)button.disabled=false;
       }
     }));
     card.append(actions);g.append(card);
   });
   const search=E('input',{className:'board-search',type:'search',placeholder:'Найти доску по названию…',ariaLabel:'Поиск досок',oninput:()=>{for(const card of g.children)if(card!==nw)card.hidden=!card.dataset.name.includes(search.value.trim().toLocaleLowerCase())}});
-  m.append(search,g);
+  if(selectedId){m.append(g);if(g.children.length===1)m.append(E('p',{textContent:'Доски с этим идентификатором в списке нет.'}));m.append(B('Все доски',()=>{location.hash='boards'}))}else m.append(search,g);
   if(currentUser?.uid===CFG.ownerUid)m.append(
     E('div',{className:'row',style:'margin-top:16px;align-items:center'},
       B('📊 Лимиты и использование',()=>go(usageView)),
