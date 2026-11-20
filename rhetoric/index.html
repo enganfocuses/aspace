@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Библиотека · Aspace</title>
+  <link rel="stylesheet" href="../workspace-theme.css?v=7">
+  <link rel="stylesheet" href="style.css?v=13">
+  <script src="../appearance.js?v=2"></script>
+</head>
+<body class="heritage-page">
+  <main class="library">
+    <div id="catalog">
+      <div class="catalog-head">
+        <h1>Библиотека</h1>
+        <div class="import-tools">
+          <label for="import-section">Раздел для PDF</label>
+          <select id="import-section"></select>
+          <button id="import-pdf" class="primary" type="button">Добавить PDF</button>
+        </div>
+        <input id="pdf-files" type="file" accept="application/pdf,.pdf" multiple hidden>
+      </div>
+      <p id="import-status" role="status"></p>
+      <nav class="shelves" aria-label="Темы библиотеки"></nav>
+      <label class="search">Поиск книг
+        <input type="search" placeholder="Название, автор или вуз">
+      </label>
+      <section id="psychology-panel" aria-label="Психология" hidden></section>
+      <div id="collection"></div>
+    </div>
+    <section id="reader" aria-labelledby="reader-title" hidden>
+      <div class="reader-tools">
+        <button id="close-reader" type="button">‹ К книгам</button>
+        <button id="reader-fullscreen" type="button">На весь экран</button>
+        <select id="reading-layout" aria-label="Вид книги">
+          <option value="auto">Авто</option>
+          <option value="single">Одна страница</option>
+          <option value="spread">Две страницы</option>
+        </select>
+        <select id="contents" aria-label="Оглавление" hidden></select>
+        <details id="typography">
+          <summary>Текст</summary>
+          <div class="text-controls">
+            <label>Шрифт
+              <select id="font-family">
+                <option value="georgia">Georgia</option>
+                <option value="times">Times New Roman</option>
+                <option value="sans">Arial</option>
+                <option value="system">Системный</option>
+              </select>
+            </label>
+            <label>Размер <output id="text-size"></output>
+              <input id="font-size" type="range" min="14" max="32" step="1" aria-label="Размер текста">
+            </label>
+            <label>Межстрочный интервал
+              <select id="line-height">
+                <option value="1.45">Компактный</option>
+                <option value="1.65">Обычный</option>
+                <option value="1.9">Свободный</option>
+              </select>
+            </label>
+          </div>
+        </details>
+        <select id="pdf-mode" aria-label="Вид PDF" hidden>
+          <option value="original">Оригинал PDF</option>
+          <option value="text">Текст PDF</option>
+        </select>
+        <select id="pdf-zoom" aria-label="Масштаб PDF" hidden>
+          <option value="100">100 %</option>
+          <option value="125">125 %</option>
+          <option value="150">150 %</option>
+          <option value="200">200 %</option>
+        </select>
+        <button id="toggle-notes" type="button" aria-controls="notes-panel" aria-expanded="false">Заметки</button>
+      </div>
+      <div class="book-title-row">
+        <h2 id="reader-title" tabindex="-1"></h2>
+        <button id="rename-reader-book" type="button" class="quiet-button" aria-label="Переименовать книгу">Переименовать</button>
+      </div>
+      <p id="edition" class="byline"></p>
+      <div class="links">
+        <a id="origin" target="_blank" rel="noopener noreferrer">Источник перевода ↗</a>
+        <a id="download" download hidden>Скачать TXT</a>
+      </div>
+      <div class="book-layout">
+        <div class="book-page">
+          <button class="page-edge" id="left-edge" type="button" aria-label="Предыдущая страница" disabled>‹</button>
+          <div id="book-spread" class="book-spread">
+            <div class="book-sheet sheet-left">
+              <article id="pages" class="page-content" tabindex="-1"></article>
+              <span class="folio" aria-hidden="true"></span>
+            </div>
+            <div class="book-sheet sheet-right" hidden>
+              <article id="pages-right" class="page-content" tabindex="-1"></article>
+              <span class="folio" aria-hidden="true"></span>
+            </div>
+          </div>
+          <button class="page-edge" id="right-edge" type="button" aria-label="Следующая страница" disabled>›</button>
+        </div>
+        <aside id="notes-panel" aria-labelledby="notes-title" hidden>
+          <h3 id="notes-title">Заметки к книге</h3>
+          <textarea id="book-notes" aria-labelledby="notes-title" placeholder="Запиши мысли или цитаты…"></textarea>
+          <div class="notes-actions">
+            <button id="note-page" type="button">Номер страницы</button>
+            <button id="export-notes" class="primary" type="button" aria-label="Скачать заметки в TXT" disabled>Скачать TXT</button>
+          </div>
+          <p id="notes-status" role="status"></p>
+        </aside>
+      </div>
+      <p id="reader-status" role="status"></p>
+      <nav class="page-controls" aria-label="Страницы книги">
+        <div class="page-controls-inner">
+          <button id="previous-page" type="button" aria-keyshortcuts="ArrowLeft" disabled>‹ Назад</button>
+          <div id="page-jump" role="group" aria-label="Переход к странице">
+            <input id="page-number" type="number" inputmode="numeric" aria-label="Номер страницы" min="1" step="1" value="1" required disabled>
+            <span id="page-total"></span>
+            <button id="jump-page" type="button" aria-label="Перейти на страницу" title="Перейти на страницу" disabled>↵</button>
+          </div>
+          <button id="next-page" type="button" aria-keyshortcuts="ArrowRight" disabled>Дальше ›</button>
+        </div>
+        <span id="page-announcement" role="status"></span>
+      </nav>
+    </section>
+  </main>
+  <dialog id="rename-book" aria-labelledby="rename-heading">
+    <h2 id="rename-heading">Название и раздел</h2>
+    <label for="book-title-input">Новое название</label>
+    <input id="book-title-input" maxlength="160" required>
+    <label for="book-section-input">Раздел</label>
+    <select id="book-section-input"></select>
+    <p id="rename-status" role="status"></p>
+    <div class="rename-actions">
+      <button id="cancel-rename" type="button" class="quiet-button">Отмена</button>
+      <button id="save-rename" type="button" class="primary">Сохранить</button>
+    </div>
+  </dialog>
+  <script type="module" src="app.mjs?v=12"></script>
+</body>
+</html>

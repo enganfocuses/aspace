@@ -1,0 +1,25 @@
+name: Board regression checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - fix/board-video-chat-announcements
+
+permissions:
+  contents: read
+
+jobs:
+  board-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Aspace
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run board regression tests
+        run: node --test tests/ui.test.mjs

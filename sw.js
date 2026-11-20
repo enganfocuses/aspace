@@ -1,5 +1,48 @@
-self.addEventListener('install',()=>self.skipWaiting());
-self.addEventListener('activate',e=>e.waitUntil((async()=>{
-for(const key of await caches.keys())if(key.startsWith('aspace-shell-')||key==='aspace-rhetoric-texts')await caches.delete(key);
-await self.registration.unregister();
-})()));
+const CACHE_NAME='aspace-shell-v62';
+const BOOK_CACHE='aspace-rhetoric-texts';
+const BOOK_PATH=new URL('./rhetoric/texts/',self.location.href).pathname;
+const CORE=['./workspace-tools.js?v=8','./anna-editorial.js?v=5','./assets/home/anna-studio.webp','./assets/resources/anesterovna.ru.html.txt','./assets/resources/harizma.deploya.ru.html.txt','./rhetoric/index.html','./rhetoric/style.css?v=13','./rhetoric/app.mjs?v=12','./rhetoric/catalog.mjs?v=4','./rhetoric/pagination.mjs?v=1','./rhetoric/pdf-library.mjs?v=3','./rhetoric/pdf-reader.mjs?v=2','./architecture/index.html','./trainer/panel.html','./trainer/issue-code.html','./appearance.js?v=2','./assets/home/cameo-frame.svg','./assets/home/ribbon-seal.svg','./workspace-theme.css?v=7','./workspace-theme.css?v=8','./assets/home/art-436105.jpg','./assets/home/library-cover.webp','./assets/home/art-436535.jpg','./','./psychology/index.html?v=7','./psychology/app.mjs?v=7','./psychology/style.css?v=4','./psychology/course-data.mjs?v=2','./psychology/book-excerpts.mjs','./psychology/book-library.mjs','./psychology/excerpt-manifest.json','./psychology/excerpts/activation.mjs','./psychology/excerpts/alliance.mjs','./psychology/excerpts/attention.mjs','./psychology/excerpts/avoidance.mjs','./psychology/excerpts/beliefs.mjs','./psychology/excerpts/biases.mjs','./psychology/excerpts/communication.mjs','./psychology/excerpts/emotions.mjs','./psychology/excerpts/evidence.mjs','./psychology/excerpts/experiments.mjs','./psychology/excerpts/goals.mjs','./psychology/excerpts/homework.mjs','./psychology/excerpts/imagery.mjs','./psychology/excerpts/integration.mjs','./psychology/excerpts/model.mjs','./psychology/excerpts/obstacles.mjs','./psychology/excerpts/problems.mjs','./psychology/excerpts/relapse.mjs','./psychology/excerpts/response.mjs','./psychology/excerpts/rules.mjs','./psychology/excerpts/standards.mjs','./psychology/excerpts/start.mjs','./psychology/excerpts/thoughts.mjs','./psychology/excerpts/worry.mjs','./psychology/index.html','./psychology/style.css','./psychology/app.mjs','./psychology/course-data.mjs','./psychology/worksheets.mjs','./psychology/vault.mjs','./psychology/local-journal.mjs','./usage-tracker.js','./usage-view.js','./usage-view.js?v=8','./usage.css','./index.html','./config.js','./vendor/pdf.min.js','./vendor/pdf.worker.min.js','./education/speakout-b1plus-builder.html','./education/english-file-elementary-builder.html?v=2','./cloudflare/runtime.js','./cloudflare/runtime.js?v=2','./cloudflare/live-board.js','./cloudflare/live-board.js?v=2','./cloudflare/merge-board.js','./cloudflare/adapter.js','./cloudflare/adapter.js?v=2','./cloudflare/guest-standby.js','./cloudflare/queue.js'];
+self.addEventListener('install',event=>{
+ event.waitUntil((async()=>{
+  const cache=await caches.open(CACHE_NAME);
+  await Promise.all(CORE.map(async path=>{try{const response=await fetch(path,{cache:'reload'});if(response.ok)await cache.put(path,response)}catch{}}));
+  await self.skipWaiting();
+ })());
+});
+self.addEventListener('activate',event=>{
+ event.waitUntil((async()=>{
+  const keys=await caches.keys();
+  await Promise.all(keys.filter(key=>key.startsWith('aspace-shell-')&&key!==CACHE_NAME).map(key=>caches.delete(key)));
+  await self.clients.claim();
+ })());
+});
+self.addEventListener('fetch',event=>{
+ const request=event.request;
+ if(request.method!=='GET')return;
+ const url=new URL(request.url);
+ if(url.origin!==self.location.origin)return;
+ // Book URLs are versioned. Cache only books that have been opened.
+ if(url.pathname.startsWith(BOOK_PATH)&&url.pathname.endsWith('.ru.txt.gz')&&/^\?v=\d+$/.test(url.search)){
+  const result=(async()=>{
+   const cache=await caches.open(BOOK_CACHE).catch(()=>null);
+   const cached=await cache?.match(request).catch(()=>null);
+   if(cached)return {response:cached};
+   const response=await fetch(request);
+   const saved=response.ok&&cache?cache.put(request,response.clone()).catch(()=>{}):undefined;
+   return {response,saved};
+  })();
+  event.respondWith(result.then(({response})=>response));
+  event.waitUntil(result.then(({saved})=>saved).catch(()=>{}));
+  return;
+ }
+ event.respondWith((async()=>{
+  const cache=await caches.open(CACHE_NAME);
+  try{
+   const response=await fetch(request,request.mode==='navigate'?{cache:'no-cache'}:{});
+   if(response&&response.ok)await cache.put(request,response.clone());
+   return response;
+  }catch(error){
+   return await cache.match(request)||(request.mode==='navigate'&&(await cache.match(request,{ignoreSearch:true})||await cache.match('./index.html')))||Response.error();
+  }
+ })());
+});

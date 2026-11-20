@@ -1,0 +1,40 @@
+# Aspace psychology
+
+A static Russian-language self-study course, linked from the owner's `#psychology` route. The static course URL is readable without an owner session; personal records are a separate, locally encrypted vault, not Firebase documents. This is education and skills practice, not assessment, treatment, professional qualification, or a replacement for individual clinical care.
+
+## Content
+
+- 24 modules with 112 verbatim source pages (102 from the digital third edition; 10 from the scanned challenging-problems edition), plus 24 separately labelled editorial worked examples.
+- 72 written practice prompts and 48 knowledge questions with explanations.
+- 16 reusable worksheets and 12 fictional learning cases.
+- Bibliographic mapping to the supplied PDFs, critical context for the defenses handout, and Vygotsky reading links/questions.
+
+The provided ZIP was read locally. It contains Judith Beck's Russian third edition (translation 2024, 482 PDF pages), the Russian 2020 edition of *Cognitive Therapy for Challenging Problems* (436 PDF pages), and two byte-identical 18-page defenses handouts from “Литература для психологов 2.0”. Handout claims are not treated as validated diagnostic guidance. At the user’s explicit request, theory is now verbatim selected page text from the supplied books, with book/chapter/PDF-page citations and per-page SHA-256 checksums. Author-written theory paragraphs were removed. The 10 selected scanned pages also have original-page facsimiles because their OCR text contains recognition errors; OCR is collapsed and explicitly labelled. Editorial navigation, goals, fictional examples and exercises remain separate and are labelled as such. These selected excerpts and facsimiles are public static course assets; complete source PDFs, personal notes and the uploaded archive are not hosted.
+
+Vygotsky's *Thinking and Speech* (1934) is linked to the MSUPE electronic library, with the edition cross-checked against the Russian State Library catalogue. The external book requires network access. Its historical theory is explicitly separate from CBT clinical guidance.
+
+References checked 2026-11-09:
+- https://psychlib.ru/mgppu/vmr-1934/vmr-001.htm
+- https://search.rsl.ru/ru/record/01008656366
+- https://beckinstitute.org/cbt-resources/resources-for-professionals-and-students/cbtresources/
+- https://www.nice.org.uk/guidance/ng222/chapter/recommendations
+
+## Local records
+
+The journal opens without a separate password. Entries and drafts stay in browser storage on the current device without encryption. A downloadable JSON backup can be imported on another device. Older encrypted records and backups can be brought into the current journal by entering their original passphrase once. The old encrypted data remains available for recovery.
+
+Only static assets are loaded over the network. Archive originals can be imported by selecting the extracted PDFs together. Exact file hashes match them to the known book cards, and originals stay in IndexedDB on the current device. Other PDFs are session-only. PDF.js displays original pages from local bytes.
+
+## Verification
+
+Run `node --test tests/*.test.mjs cloudflare/tests/*.test.mjs` from the repository root. Tests cover content completeness, owner route integration, passwordless storage and legacy migration, wrong-password and tamper handling, serialized saves, local quota failure/recovery backup, locked backup export and offline assets.
+
+Browser QA uses a separate preview with synthetic in-memory records; no personal journal or production Firebase account is opened. Covers course navigation, answer explanations, a saved synthetic worksheet, closed-vault guard, library links and a 390px viewport.
+
+## Verbatim source verification
+
+`excerpt-manifest.json` maps all 24 modules to exact PDF pages. Every text page retains the supplied PDF text layer, trimming only outer whitespace. No spelling, punctuation, line breaks or OCR errors are rewritten. The current 112 page texts were independently compared against fresh `pdftotext -layout` extraction from the original supplied PDFs; all matched. Ten scanned source pages are rendered as eight adjacent WebP image strips each, retaining the original page order and printed wording; strip boundaries do not remove content. Their OCR remains optional, with an explicit recognition-error label. Full diagrams/layout from the digital book are not represented in its text layer.
+
+
+
+Two supplied digital PDF pages (303 and 401) are completely blank and excluded. Three other pages (304, 340 and 402) contain rasterized material or diagrams and are preserved as original facsimiles. Thirteen original-page facsimiles are included in total.

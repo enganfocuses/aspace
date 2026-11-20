@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /uploads/{fileName} {
+      // Only the board owner can upload or manage source files.
+      allow read: if request.auth != null
+                  && request.auth.uid == 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2';
+      allow create, update: if request.auth != null
+                            && request.auth.uid == 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2'
+                            && request.resource.size <= 300 * 1024 * 1024;
+      allow delete: if request.auth != null
+                    && request.auth.uid == 'cL7MbA9JSUQDEN794Fk7Uuj4WoO2';
+    }
+  }
+}
