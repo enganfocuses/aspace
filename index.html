@@ -3123,16 +3123,29 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const formatTabs={};
   const chooseFormat=tab=>{formatTab=formatTab===tab?null:tab;updateFormatSections();queueFormatPosition()};
   for(const [key,label,title] of [['text','Aa','Текст и шрифт'],['fill','Цвет','Заливка'],['links','↗','Связи и стрелки']])formatTabs[key]=E('button',{textContent:label,title,ariaLabel:title,ariaExpanded:'false',onclick:()=>chooseFormat(key)});
-  let copiedBoardItems=[];
+  const boardClipboardKey='aspace-board-clipboard-v1';
+  const readBoardClipboard=()=>{
+    try{const value=JSON.parse(localStorage.getItem(boardClipboardKey)||'null');return value?.version===1&&Array.isArray(value.items)?value.items:[]}catch{return[]}
+  };
+  const writeBoardClipboard=values=>{
+    try{localStorage.setItem(boardClipboardKey,JSON.stringify({version:1,copiedAt:Date.now(),items:values}));return true}
+    catch{say('Не удалось сохранить копию: объекты слишком большие для буфера браузера');return false}
+  };
+  let copiedBoardItems=readBoardClipboard();
   let pasteOffset=0,downloadTarget=null;
   const copySelected=()=>{
     if(guest||!selectedItems.length)return false;
-    copiedBoardItems=selectedItems.map(n=>cloneBoard(n));pasteOffset=0;pasteButton.disabled=false;
-    say('Скопировано объектов: '+copiedBoardItems.length);
+    const next=selectedItems.map(n=>cloneBoard(n));
+    if(!writeBoardClipboard(next))return false;
+    copiedBoardItems=next;pasteOffset=0;pasteButton.disabled=false;
+    say('Скопировано объектов: '+copiedBoardItems.length+' — можно перейти на другую доску и вставить');
     return true;
   };
   const pasteCopied=()=>{
-    if(guest||!copiedBoardItems.length)return false;
+    if(guest)return false;
+    const sharedClipboard=readBoardClipboard();
+    if(sharedClipboard.length)copiedBoardItems=sharedClipboard;
+    if(!copiedBoardItems.length)return false;
     const idMap=new Map(copiedBoardItems.map(n=>[n.id,uid()]));
     const groupMap=new Map();pasteOffset+=24;
     const pasted=copiedBoardItems.map(source=>{
@@ -3148,7 +3161,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     return true;
   };
   const copyButton=E('button',{title:'Копировать (Ctrl+C)',ariaLabel:'Копировать',onclick:copySelected},ic('copy'));
-  const pasteButton=E('button',{disabled:true,title:'Вставить (Ctrl+V)',ariaLabel:'Вставить',onclick:pasteCopied},ic('paste'));
+  const pasteButton=E('button',{disabled:!copiedBoardItems.length,title:'Вставить (Ctrl+V)',ariaLabel:'Вставить',onclick:pasteCopied},ic('paste'));
   const downloadButton=E('button',{textContent:'Скачать',title:'Скачать объект',ariaLabel:'Скачать объект',onclick:()=>downloadObject(downloadTarget)});
   const deleteSelected=E('button',{textContent:'×',title:'Удалить',ariaLabel:'Удалить',onclick:()=>{for(const n of [...selectedItems])delItem(n)}});
   const arrange=E('select',{title:'Слои и группы',ariaLabel:'Слои и группы'});
