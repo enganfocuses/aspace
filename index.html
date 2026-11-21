@@ -61,7 +61,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .bfull{position:fixed;inset:0;z-index:20;background:#fffef9}
 .bscroll{position:absolute;inset:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y}
-.sizer{position:relative}
+.sizer{position:relative;overflow:clip}
 .wrap{position:absolute;left:0;top:0;transform-origin:0 0;background:transparent;will-change:transform}
 .bscroll{background-color:#fffef9}
 .bscroll.dots{background-image:radial-gradient(#ddd5c0 1.3px,transparent 1.3px);background-size:24px 24px}
@@ -2241,18 +2241,23 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const stopUsage=isOwner?usageTracker.trackBoard('boards/'+id,boardShareToken):()=>{};
   if(localGuestDraft?.value&&!guest)d0=cloneBoard(localGuestDraft.value);
   const d=d0;
-  const W=8192,H=6144;
+  // Keep existing board coordinates. The new margins extend into negative x/y.
+  const oldWidth=8192,oldHeight=6144;
+  const left=-oldWidth/2,top=-oldHeight/2,right=oldWidth*1.5,bottom=oldHeight*1.5;
+  let boardBottom=bottom;
   let tool='select',color=INK[0],width=4,eraserWidth=32,strokes=d.strokes||[],bg=d.bg||'dots',tm,cur=null,sel=null,selectedItems=[],got=false,sent=0,lastT=0,pan=null,vw=null,call=null,callRoom=null,z=1,items=d.items||(d.notes||[]).map(n=>({id:uid(),k:'note',x:n.x,y:n.y,t:n.t,c:n.c,w:170,h:110}));
   const els={},pend={},undo=[],redo=[];
-  const cvM=E('canvas',{width:W,height:H,className:'cm'}),ink=E('canvas',{width:W,height:H,className:'ink'}),cv=E('div',{className:'board-input'}),ctx=ink.getContext('2d'),ctxM=cvM.getContext('2d');
+  const cvM=E('canvas',{className:'cm'}),ink=E('canvas',{className:'ink'}),cv=E('div',{className:'board-input'}),ctx=ink.getContext('2d'),ctxM=cvM.getContext('2d');
   const guideLayer=E('div',{className:'snap-guides'}),wrap=E('div',{className:'wrap '+bg},cvM,ink,cv,guideLayer),sizer=E('div',{className:'sizer'},wrap),sc=E('div',{className:'bscroll '+bg},sizer),toast=E('div',{className:'toast'});
-  wrap.style.width=W+'px';wrap.style.height=H+'px';
+  wrap.style.width=right+'px';
+  Object.assign(cv.style,{left:left+'px',top:top+'px'});
+  Object.assign(guideLayer.style,{left:left+'px',top:top+'px'});
   let roomWarning='',cloudPollTimer=null;
   const r=deferBoardSignals();
   const say=t=>{if(/конфликт|разные правки/i.test(t)){syncIndicator.textContent=t;toast.style.display='none';return}toast.textContent=t;toast.style.display=t?'block':'none'};
   let myName=ls.g('aspace-name','');if(!myName){myName=prompt('Как показывать твоё имя другим участникам?','Участник')||'Участник';ls.s('aspace-name',myName)}
   const peers={},peerSelect=E('select',{title:'Участники доски'});let followId=null,applyingRemote=false,viewTimer=null,presenceTimer=null,remoteTimer=null;
-  const myViewport=()=>({cx:(sc.scrollLeft+sc.clientWidth/2)/z,cy:(sc.scrollTop+sc.clientHeight/2)/z,z});
+  const myViewport=()=>({cx:left+(sc.scrollLeft+sc.clientWidth/2)/z,cy:top+(sc.scrollTop+sc.clientHeight/2)/z,z});
   const queueViewport=()=>{if(applyingRemote)return;clearTimeout(viewTimer);viewTimer=setTimeout(()=>r.emit('vp',{id:r.id,name:myName,v:myViewport()}),110)};
   const applyViewport=v=>{
     if(!v)return;
@@ -2260,7 +2265,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     const cx=Number.isFinite(Number(v.cx))?Number(v.cx):((Number(v.x)||0)+sc.clientWidth/2)/(Number(v.z)||1);
     const cy=Number.isFinite(Number(v.cy))?Number(v.cy):((Number(v.y)||0)+sc.clientHeight/2)/(Number(v.z)||1);
     applyingRemote=true;clearTimeout(remoteTimer);z=nz;applyZ();
-    sc.scrollLeft=Math.max(0,cx*z-sc.clientWidth/2);sc.scrollTop=Math.max(0,cy*z-sc.clientHeight/2);
+    sc.scrollLeft=(cx-left)*z-sc.clientWidth/2;sc.scrollTop=(cy-top)*z-sc.clientHeight/2;
     remoteTimer=setTimeout(()=>{applyingRemote=false},250);
   };
   const refreshPeers=()=>{
@@ -2361,7 +2366,21 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const eraseAt=(x,y)=>{const radius=eraserWidth/2;const dist=(px,py,ax,ay,bx,by)=>{const dx=bx-ax,dy=by-ay,l=dx*dx+dy*dy,t=l?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/l)):0;return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))};const removed=strokes.filter(st=>{if(st.e)return false;for(let i=0;i<st.p.length;i+=2){if(i===0){if(Math.hypot(x-st.p[i],y-st.p[i+1])<=radius+st.w/2)return true}else if(dist(x,y,st.p[i-2],st.p[i-1],st.p[i],st.p[i+1])<=radius+st.w/2)return true}return false});if(removed.length){const ids=new Set(removed.map(st=>st.id));strokes=strokes.filter(st=>!ids.has(st.id));redraw();removed.forEach(st=>r.emit('ds',{id:st.id}));rec({t:'er',strokes:removed});persist()}};
   const seg=(s,a)=>{if(s.e)return;const c=s.m?ctxM:ctx;paint(c,s,a,0);
     if(s.ar&&s.p.length>=4){const n=s.p.length,x2=s.p[n-2],y2=s.p[n-1],an=Math.atan2(y2-s.p[n-3],x2-s.p[n-4]),l=12+s.w*3;c.beginPath();c.moveTo(x2-l*Math.cos(an-.45),y2-l*Math.sin(an-.45));c.lineTo(x2,y2);c.lineTo(x2-l*Math.cos(an+.45),y2-l*Math.sin(an+.45));c.stroke()}};
-  const redraw=()=>{ctx.clearRect(0,0,W,H);ctxM.clearRect(0,0,W,H);strokes.forEach(s=>seg(s,0))};
+  let inkFrame=0;
+  const redraw=()=>{
+    if(!sc.clientWidth||!sc.clientHeight)return;
+    const gutter=96;
+    const x=left+(sc.scrollLeft-gutter)/z,y=top+(sc.scrollTop-gutter)/z;
+    const w=sc.clientWidth+2*gutter,h=sc.clientHeight+2*gutter;
+    for(const [canvas,context] of [[ink,ctx],[cvM,ctxM]]){
+      if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
+      Object.assign(canvas.style,{left:x+'px',top:y+'px',width:w/z+'px',height:h/z+'px'});
+      context.resetTransform();context.clearRect(0,0,w,h);
+      context.setTransform(z,0,0,z,-x*z,-y*z);
+    }
+    strokes.forEach(s=>seg(s,0));
+  };
+  const queueInk=()=>{if(!inkFrame)inkFrame=requestAnimationFrame(()=>{inkFrame=0;redraw()})};
   /* элементы */
   const styleT=(t,n)=>{const s=t.style;s.fontFamily=`'${n.f||'Open Sans'}',sans-serif`;s.fontSize=(n.fs||16)+'px';s.fontWeight=n.b?700:400;s.fontStyle=n.i?'italic':'normal';s.textDecoration=n.ul?'underline':'none';s.color=n.col||'#3a3a46'};
   const svgNode=(tag,attrs={})=>{
@@ -2403,9 +2422,19 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   }
   function queueWires(){if(!wireFrame)wireFrame=requestAnimationFrame(drawWires)}
   const geom=(el,n)=>{el.style.left=n.x+'px';el.style.top=n.y+'px';el.style.width=n.w+'px';el.style.height=n.h+'px';el.style.setProperty('z-index', String(n.layer??(n.k==='frame'?2:3)),'important');queueWires();queueFormatPosition()};
-  const applyZ=()=>{wrap.style.transform=`scale(${z})`;sizer.style.width=W*z+'px';sizer.style.height=parseFloat(wrap.style.height)*z+'px';zl.textContent=Math.round(z*100)+'%';queueFormatPosition()};
-  const fit=()=>{wrap.style.height=Math.max(H,...items.map(i=>i.y+i.h+120))+'px';applyZ()};
-  const setZ=nz=>{nz=Math.min(2.5,Math.max(.25,nz));const cx=(sc.scrollLeft+sc.clientWidth/2)/z,cy=(sc.scrollTop+sc.clientHeight/2)/z;z=nz;applyZ();sc.scrollLeft=cx*z-sc.clientWidth/2;sc.scrollTop=cy*z-sc.clientHeight/2;queueViewport()};
+  const applyZ=()=>{
+    Object.assign(wrap.style,{left:-left*z+'px',top:-top*z+'px',transform:`scale(${z})`});
+    sizer.style.width=(right-left)*z+'px';sizer.style.height=(boardBottom-top)*z+'px';
+    zl.textContent=Math.round(z*100)+'%';queueFormatPosition();queueInk();
+  };
+  const fit=()=>{
+    boardBottom=Math.max(bottom,...items.map(i=>i.y+i.h+120));
+    wrap.style.height=boardBottom+'px';applyZ();
+  };
+  const setZ=nz=>{
+    const {cx,cy}=myViewport();z=Math.min(2.5,Math.max(.25,nz));applyZ();
+    sc.scrollLeft=(cx-left)*z-sc.clientWidth/2;sc.scrollTop=(cy-top)*z-sc.clientHeight/2;queueViewport();
+  };
   const rmEl=n=>{queueWires();els[n.id]?.remove();delete els[n.id];if(selectedItems.includes(n))selectMany(selectedItems.filter(q=>q!==n))};
   const delItem=(n,keep)=>{if(guest||n.locked)return;items=items.filter(x=>x!==n);rmEl(n);r.emit('d',{id:n.id});persist();if(!keep)rec({t:'d',n})};
   const clearGuides=()=>guideLayer.replaceChildren();
@@ -2415,11 +2444,11 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(dx>threshold)gx=null;if(dy>threshold)gy=null;
     if(gx!==null){const candidates=[x,x+n.w/2,x+n.w],nearest=candidates.reduce((best,v)=>Math.abs(v-gx)<Math.abs(best-gx)?v:best,candidates[0]);x+=gx-nearest}
     if(gy!==null){const candidates=[y,y+n.h/2,y+n.h],nearest=candidates.reduce((best,v)=>Math.abs(v-gy)<Math.abs(best-gy)?v:best,candidates[0]);y+=gy-nearest}
-    guideLayer.replaceChildren();if(gx!==null)guideLayer.append(E('div',{className:'snap-guide v',style:`left:${gx}px`}));if(gy!==null)guideLayer.append(E('div',{className:'snap-guide h',style:`top:${gy}px`}));return{x:Math.max(0,x),y:Math.max(0,y)};
+    guideLayer.replaceChildren();if(gx!==null)guideLayer.append(E('div',{className:'snap-guide v',style:`left:${gx-left}px`}));if(gy!==null)guideLayer.append(E('div',{className:'snap-guide h',style:`top:${gy-top}px`}));return{x:Math.max(left,x),y:Math.max(top,y)};
   };
   const drag=(h,el,n)=>{h.addEventListener('pointerdown',e=>{if(guest||n.locked||e.shiftKey||e.button!==0||e.target.closest('.g,.wire-port,.timer-controls,.session-widget,a,button,video,audio,iframe'))return;if(e.target.closest('.t')===document.activeElement)return;e.preventDefault();e.stopPropagation();h.setPointerCapture(e.pointerId);const rect=wrap.getBoundingClientRect(),ox=(e.clientX-rect.left)/z-n.x,oy=(e.clientY-rect.top)/z-n.y;
       const group=selectedItems.filter(q=>q!==n&&!q.locked).map(q=>({q,dx:q.x-n.x,dy:q.y-n.y}));const before=itemStates([n,...group.map(o=>o.q)]);let moved=false,lastPreview=0;
-      h.onpointermove=ev=>{if(n.locked||guest)return;const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);if(Math.abs(p.x-n.x)>0.5||Math.abs(p.y-n.y)>0.5)moved=true;n.x=Math.max(p.x,...group.map(o=>-o.dx));n.y=Math.max(p.y,...group.map(o=>-o.dy));geom(el,n);for(const {q,dx,dy} of group){if(q.locked||!els[q.id])continue;q.x=n.x+dx;q.y=n.y+dy;geom(els[q.id],q)}
+      h.onpointermove=ev=>{if(n.locked||guest)return;const r=wrap.getBoundingClientRect(),p=snapPosition(n,(ev.clientX-r.left)/z-ox,(ev.clientY-r.top)/z-oy);if(Math.abs(p.x-n.x)>0.5||Math.abs(p.y-n.y)>0.5)moved=true;n.x=Math.max(p.x,...group.map(o=>left-o.dx));n.y=Math.max(p.y,...group.map(o=>top-o.dy));geom(el,n);for(const {q,dx,dy} of group){if(q.locked||!els[q.id])continue;q.x=n.x+dx;q.y=n.y+dy;geom(els[q.id],q)}
         if(moved&&Date.now()-lastPreview>120){lastPreview=Date.now();void r.emit('move',{points:[n,...group.map(o=>o.q)].map(({id,x,y})=>({id,x,y}))})}
       };
       const finish=()=>{h.onpointermove=h.onpointerup=h.onpointercancel=null;clearGuides();fit();if(moved){r.emit('i',{n});for(const {q} of group)r.emit('i',{n:q});const after=itemStates([n,...group.map(o=>o.q)]);rec({t:'u',before,after});persistNow()}};
@@ -2478,7 +2507,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
           const before=itemStates([n]),x=n.x,w=n.w,start=e.clientX;
           grip.onpointermove=ev=>{
             const delta=(ev.clientX-start)/z;
-            n.w=Math.max(Number.isFinite(n.timerDurationMs)||n.deadline?100:40,side==='left'?Math.min(w+x,w-delta):w+delta);
+            n.w=Math.max(Number.isFinite(n.timerDurationMs)||n.deadline?100:40,side==='left'?Math.min(w+x-left,w-delta):w+delta);
             if(side==='left')n.x=x+w-n.w;
             upsert(n);push(n);
           };
@@ -2518,8 +2547,8 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(fitBoard)fit()};
   const pollVoter=localStorage.getItem('aspace-voter')||uid();localStorage.setItem('aspace-voter',pollVoter);
   const renderAll=()=>{select(null);queueWires();Object.values(els).forEach(e=>e.remove());for(const k in els)delete els[k];items.forEach(n=>upsert(n,false));fit()};
-  const center=()=>[(sc.scrollLeft+sc.clientWidth/2)/z,(sc.scrollTop+sc.clientHeight/2)/z];
-  const add=(k,x,y,extra={})=>{const D=SIZES[k],n={id:uid(),k,x:Math.max(0,(x-D[0]/2)|0),y:Math.max(0,(y-D[1]/2)|0),w:D[0],h:D[1],t:'',f:'Open Sans',fs:k==='txt'?22:k==='frame'?14:16,c:k==='note'?FILLS[2]:FILLS[0],...extra};
+  const center=()=>{const {cx,cy}=myViewport();return [cx,cy]};
+  const add=(k,x,y,extra={})=>{const D=SIZES[k],n={id:uid(),k,x:Math.max(left,(x-D[0]/2)|0),y:Math.max(top,(y-D[1]/2)|0),w:D[0],h:D[1],t:'',f:'Open Sans',fs:k==='txt'?22:k==='frame'?14:16,c:k==='note'?FILLS[2]:FILLS[0],...extra};
     if(k==='frame')n.t='Рамка';items.push(n);upsert(n);r.emit('i',{n});persist();rec({t:'i',n});select(n);if(els[n.id]._t&&k!=='frame'&&!n.poll&&!n.deadline)els[n.id]._t.focus();return n};
   /* история */
   const rec=o=>{undo.push(o);redo.length=0};
@@ -2533,7 +2562,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(o.t==='s'){strokes.push(o.s);redraw();sendStroke(o.s)}
     else if(o.t==='i'){items.push(o.n);upsert(o.n);r.emit('i',{n:o.n})}else if(o.t==='u')restoreItemStates(o.after);else if(o.t==='scale')return applyScaleGeometry(o.after);else if(o.t==='er'){const ids=new Set(o.strokes.map(st=>st.id));strokes=strokes.filter(st=>!ids.has(st.id));redraw();o.strokes.forEach(st=>r.emit('ds',{id:st.id}));persistNow()}else delItem(o.n,1);persist()};
   /* рисование */
-  const pt=e=>{const b=cv.getBoundingClientRect();return[Math.round((e.clientX-b.left)/z),Math.round((e.clientY-b.top)/z)]};
+  const pt=e=>{const b=wrap.getBoundingClientRect();return[Math.round((e.clientX-b.left)/z),Math.round((e.clientY-b.top)/z)]};
   const flush=()=>{if(!cur)return;const a=cur.ln?0:Math.max(0,sent-2);r.emit('sp',{id:cur.id,c:cur.c,w:cur.w,e:cur.e,m:cur.m,ar:cur.ar,a,p:cur.p.slice(a)});sent=cur.p.length;lastT=Date.now()};
   const selectionBox=E('div',{className:'selection-box',hidden:true});
   wrap.append(selectionBox);
@@ -2570,7 +2599,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     }),lines:lines.map(({id,w,p})=>({id,w,p:p.slice()}))};
   }
   function limitScale(bounds,factor,hasInk){
-    const maxX=Math.max(1,(W-bounds.left)/bounds.w),maxY=hasInk?Math.max(1,(H-bounds.top)/bounds.h):Infinity;
+    const maxX=Math.max(1,(right-bounds.left)/bounds.w),maxY=hasInk?Math.max(1,(bottom-bounds.top)/bounds.h):Infinity;
     return Math.min(maxX,maxY,Math.max(.02,factor));
   }
   function applyScaleGeometry(data){
@@ -2657,7 +2686,8 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   cv.onpointermove=e=>{if(marquee){updateMarquee(...pt(e));return}if(pan){sc.scrollLeft=pan.l-(e.clientX-pan.x);sc.scrollTop=pan.t-(e.clientY-pan.y);return}if(!cur)return;
     const[x,y]=pt(e);if(cur.erase){eraseAt(x,y);cur.p.push(x,y)}else if(cur.ln){cur.p=[cur.p[0],cur.p[1],x,y];redraw()}else{const n=cur.p.length;const px=cur.p[n-2],py=cur.p[n-1];cur.p.push(Math.round(.8*x+.2*px),Math.round(.8*y+.2*py));seg(cur,n-2)}if(Date.now()-lastT>55&&!cur.erase)flush()};
   cv.onpointerup=e=>{if(marquee){updateMarquee(...pt(e));endMarquee();return}if(pan){pan=null;setTool(tool);return}if(!cur)return;if(!cur.erase){flush();rec({t:'s',s:cur})}cur=null;persistNow()};
-  sc.addEventListener('scroll',queueViewport,{passive:true});
+  sc.addEventListener('scroll',()=>{queueInk();queueViewport()},{passive:true});
+  const inkObserver=new ResizeObserver(queueInk);inkObserver.observe(sc);
   // Secondary mouse buttons always pan the viewport regardless of the selected tool.
   // Capture-phase prevents right click on contenteditable objects from moving them.
   let mousePan=null;
@@ -2720,7 +2750,24 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
-  const makeSvg=async()=>{let maxX=Math.max(1200,...items.map(n=>n.x+n.w+40)),maxY=Math.max(900,...items.map(n=>n.y+n.h+40));for(const stroke of strokes){for(let i=0;i<stroke.p.length;i+=2){maxX=Math.max(maxX,stroke.p[i]+(Number(stroke.w)||4)+32);maxY=Math.max(maxY,stroke.p[i+1]+(Number(stroke.w)||4)+32)}}let out=[`<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${maxX}\" height=\"${maxY}\" viewBox=\"0 0 ${maxX} ${maxY}\">`,`<rect width=\"100%\" height=\"100%\" fill=\"${bg==='dots'?'#fffef9':'#ffffff'}\"/>`];
+  const makeSvg=async()=>{
+    let minX=0,minY=0,maxX=1200,maxY=900;
+    for(const n of items){
+      minX=Math.min(minX,n.x<0?n.x-40:0);minY=Math.min(minY,n.y<0?n.y-40:0);
+      maxX=Math.max(maxX,n.x+n.w+40);maxY=Math.max(maxY,n.y+n.h+40);
+    }
+    for(const stroke of strokes){
+      const pad=(Number(stroke.w)||4)+32;
+      for(let i=0;i<stroke.p.length;i+=2){
+        const x=stroke.p[i],y=stroke.p[i+1];
+        if(x<0)minX=Math.min(minX,x-pad);
+        if(y<0)minY=Math.min(minY,y-pad);
+        maxX=Math.max(maxX,x+pad);maxY=Math.max(maxY,y+pad);
+      }
+    }
+    const width=Math.ceil(maxX-minX),height=Math.ceil(maxY-minY);
+    let out=[`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${minX} ${minY} ${width} ${height}">`,
+      `<rect x="${minX}" y="${minY}" width="100%" height="100%" fill="${bg==='dots'?'#fffef9':'#ffffff'}"/>`];
     const exportedInk=[];for(const st of strokes){let p='';for(let i=0;i<st.p.length;i+=2)p+=(i?'L':'M')+st.p[i]+' '+st.p[i+1]+' ';exportedInk.push(`<path d=\"${p}\" fill=\"none\" stroke=\"${st.e?'#fff':xml(st.c)}\" stroke-width=\"${st.w}\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>`)}
     for(const n of [...items].sort((a,b)=>(a.layer??(a.k==='frame'?2:3))-(b.layer??(b.k==='frame'?2:3)))){if(n.k==='embed'){out.push(`<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="#f6f1fa" stroke="#a98cac"/><text x="${n.x+12}" y="${n.y+30}" font-size="16" fill="#715385">${xml(n.t||'Внешний плеер')}</text>`);continue}if(n.k==='img'){const src=await imgSrc(n.u);out.push(`<image href=\"${xml(src)}\" x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" preserveAspectRatio=\"none\"/>`);continue}if(n.k==='emo'){out.push(`<text x=\"${n.x+n.w/2}\" y=\"${n.y+n.h*.82}\" text-anchor=\"middle\" font-size=\"${n.w*.8}\">${xml(n.t)}</text>`);continue}if(n.k==='txt'||n.k==='note'||n.k==='frame'){const fill=n.k==='note'?xml(n.c||'#f6e7b8'):'none';out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='note'?8:4}\" fill=\"${fill}\" stroke=\"${n.k==='frame'?'#7f9bbd':'none'}\"/>`);out.push(`<text x=\"${n.x+12}\" y=\"${n.y+Math.max(22,(n.fs||16)+8)}\" font-family=\"${xml(n.f||'Arial')}\" font-size=\"${n.fs||16}\" fill=\"${xml(n.col||'#3a3a46')}\">${xml(n.t).split(/\\n/).map((v,i)=>`<tspan x=\"${n.x+12}\" dy=\"${i?1.25*(n.fs||16):0}\">${v}</tspan>`).join('')}</text>`);continue}const fill=xml(n.c||'#B7D1EA'),stroke='#7f9bbd';if(n.k==='oval')out.push(`<ellipse cx=\"${n.x+n.w/2}\" cy=\"${n.y+n.h/2}\" rx=\"${n.w/2}\" ry=\"${n.h/2}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`);else out.push(`<rect x=\"${n.x}\" y=\"${n.y}\" width=\"${n.w}\" height=\"${n.h}\" rx=\"${n.k==='pill'?50:n.k==='rr'?22:3}\" fill=\"${fill}\" stroke=\"${stroke}\"/>`)}    drawWires();out.push(wires.innerHTML,...exportedInk,'</svg>');return new Blob([out.join('')],{type:'image/svg+xml;charset=utf-8'})};
   function pictureOfItem(n){
@@ -2779,16 +2826,16 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     }catch(error){say('Не удалось скачать объект. '+error.message)}
   }
   const exportSvg=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),a=E('a',{href:url,download:(d.name||'board')+'.svg'});a.click();setTimeout(()=>URL.revokeObjectURL(url),30000)};
-  const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const c=E('canvas',{width:im.naturalWidth,height:im.naturalHeight});c.getContext('2d').drawImage(im,0,0);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
+  const exportPng=async()=>{const blob=await makeSvg(),url=URL.createObjectURL(blob),im=new Image();try{await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=url});const scale=Math.min(1,4096/Math.max(im.naturalWidth,im.naturalHeight));const c=E('canvas',{width:Math.max(1,Math.round(im.naturalWidth*scale)),height:Math.max(1,Math.round(im.naturalHeight*scale))});c.getContext('2d').drawImage(im,0,0,c.width,c.height);const a=E('a',{href:c.toDataURL('image/png'),download:(d.name||'board')+'.png'});a.click()}catch(e){alert('Не удалось создать PNG: '+e.message)}finally{URL.revokeObjectURL(url)}};
   const exportPdf=async()=>{const w=window.open('about:blank','_blank');if(!w){alert('Разрешите всплывающие окна для экспорта PDF');return}try{const blob=await makeSvg(),url=URL.createObjectURL(blob);w.document.open();w.document.write('<!doctype html><html><head><title>'+xml(d.name||'Доска')+'</title><style>html,body{margin:0}img{width:100%;height:auto;display:block}@page{margin:10mm}</style></head><body><img src="'+url+'" onload="setTimeout(()=>window.print(),300)"><\/body><\/html>');w.document.close()}catch(e){w.close();alert('Не удалось подготовить PDF: '+e.message)}};
   const exportCsv=()=>{const rows=[['type','text','x','y','width','height'],...items.filter(n=>n.t).map(n=>[n.k,n.t,n.x,n.y,n.w,n.h])];const csv='\ufeff'+rows.map(r=>r.map(v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"').join(';')).join('\r\n');const a=E('a',{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:(d.name||'board')+'.csv'});a.click()};
   const fi=E('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:async()=>{
     const[cx,cy]=center();let y=cy-150;try{for(const f of fi.files){say('Загрузка картинки…');const s=await shrink(f);addImg(await upload(s.u),s.w,s.h,cx-200,y);y+=40}persist()}catch{alert('Не удалось загрузить картинку. Проверьте config.js и правила базы (см. инструкцию).')}say('');fi.value=''}});
   const fp=E('input',{type:'file',accept:'application/pdf',hidden:true,onchange:async()=>{
-    const f=fp.files[0];if(!f)return;try{const lib=await pdfjs(),doc=await lib.getDocument({data:await f.arrayBuffer()}).promise,n=Math.min(doc.numPages,40),[cx,cy]=center(),x0=Math.max(20,cx-420);let x=x0,y=Math.max(20,cy-250),rh=0;
+    const f=fp.files[0];if(!f)return;try{const lib=await pdfjs(),doc=await lib.getDocument({data:await f.arrayBuffer()}).promise,n=Math.min(doc.numPages,40),[cx,cy]=center(),x0=Math.max(left+20,cx-420);let x=x0,y=Math.max(top+20,cy-250),rh=0;
       for(let i=1;i<=n;i++){say(`PDF: страница ${i} из ${n}`);const pg=await doc.getPage(i),v0=pg.getViewport({scale:1}),v=pg.getViewport({scale:800/v0.width}),c=E('canvas',{width:v.width|0,height:v.height|0});
         await pg.render({canvasContext:c.getContext('2d'),viewport:v}).promise;const u=await upload(c.toDataURL('image/jpeg',.7)),dw=420,dh=dw*v.height/v.width;
-        if(x+dw>W-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
+        if(x+dw>right-20){x=x0;y+=rh+20;rh=0}const nn={id:uid(),k:'img',u,x,y,w:dw,h:dh};items.push(nn);upsert(nn);r.emit('i',{n:nn});x+=dw+20;rh=Math.max(rh,dh)}
       persist()}catch{alert('Не удалось прочитать PDF. См. раздел «Возможные ошибки» в инструкции.')}say('');fp.value=''}});
   const addExternalLink=()=>{
     const raw=prompt('Вставь ссылку на Google Диск, Яндекс Диск, YouTube, Vimeo, SoundCloud, изображение или прямую ссылку MP3/MP4 (https://):','');
@@ -2796,7 +2843,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     const resource=externalMedia(raw);
     if(!resource){alert('Ссылка не поддерживается. Для видео: YouTube/Vimeo, для аудио: SoundCloud или прямая MP3, для фото: HTTPS-ссылка на картинку.');return}
     const [cx,cy]=center();
-    if(resource.kind==='img'){addImg(resource.url,640,400,Math.max(0,cx-210),Math.max(0,cy-140))}
+    if(resource.kind==='img'){addImg(resource.url,640,400,Math.max(left,cx-210),Math.max(top,cy-140))}
     else{
       const n=add(resource.kind,cx,cy,{u:resource.kind==='embed'?raw:resource.url,
         t:resource.host,w:resource.audio?440:460,h:resource.audio?175:280});
@@ -2806,7 +2853,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     persist();say('Добавлено по ссылке, без загрузки в наши базы');
   };
   const fm=E('input',{type:'file',accept:'audio/*,video/*',multiple:true,hidden:true,onchange:async()=>{
-    const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>MAX_UPLOAD_BYTES){alert('Файл «'+f.name+'» больше 6 МиБ. Добавь большой файл внешней ссылкой.');continue}say('Загружаю '+f.name+'…');const u=await upload(f);const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(0,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось загрузить медиафайл: '+e.message)}say('');fm.value=''}});
+    const[cx,cy]=center();let y=cy-120;try{for(const f of fm.files){if(f.size>MAX_UPLOAD_BYTES){alert('Файл «'+f.name+'» больше 6 МиБ. Добавь большой файл внешней ссылкой.');continue}say('Загружаю '+f.name+'…');const u=await upload(f);const k=f.type.startsWith('audio/')?'aud':'vid',n={id:uid(),k,u,x:Math.max(left,cx-180),y,w:360,h:k==='aud'?90:220,t:f.name};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n});y+=k==='aud'?110:240}persist()}catch(e){alert('Не удалось загрузить медиафайл: '+e.message)}say('');fm.value=''}});
   /* интерфейс */
   const root=E('div',{className:'bfull'+(guest?' readonly':'')+(isOwner?' owner-board':'')},sc,toast,fi,fp,fm);if(isOwner){guest=false;root.classList.remove('readonly')}
   const sitePanel=E('section',{className:'site-panel'});
@@ -3010,8 +3057,8 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     const groupMap=new Map();pasteOffset+=24;
     const pasted=copiedBoardItems.map(source=>{
       const n=cloneBoard(source),oldId=n.id;
-      n.id=idMap.get(oldId);n.x=Math.max(0,(Number(n.x)||0)+pasteOffset);
-      n.y=Math.max(0,(Number(n.y)||0)+pasteOffset);n.locked=false;
+      n.id=idMap.get(oldId);n.x=Math.max(left,(Number(n.x)||0)+pasteOffset);
+      n.y=Math.max(top,(Number(n.y)||0)+pasteOffset);n.locked=false;
       if(n.group){if(!groupMap.has(n.group))groupMap.set(n.group,uid());n.group=groupMap.get(n.group)}
       n.arrows=(n.arrows||[]).filter(a=>idMap.has(a.to)).map(a=>({...a,to:idMap.get(a.to)}));
       return n;
@@ -3294,8 +3341,8 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const mb=E('button',{className:'mbtn',ariaLabel:'Меню доски',ariaExpanded:'false',onclick:()=>{mp.classList.toggle('open');mb.setAttribute('aria-expanded',String(mp.classList.contains('open')))}},ic('menu'),E('span',{textContent:d.name}));
   const backButton=isOwner?[E('button',{type:'button',className:'mbtn back-to-boards',title:'Назад к доскам',onclick:backToBoards},ic('back'),E('span',{textContent:'Назад к доскам'}))]:[];
   const centerBoard=B('Центр доски',()=>{
-    sc.scrollLeft=Math.max(0,(W*z-sc.clientWidth)/2);
-    sc.scrollTop=Math.max(0,(parseFloat(wrap.style.height)*z-sc.clientHeight)/2);
+    sc.scrollLeft=(right-left)*z/2-sc.clientWidth/2;
+    sc.scrollTop=(bottom-top)*z/2-sc.clientHeight/2;
     queueViewport();
   },'mbtn center-board');
   const menu=E('div',{className:'menu'},...backButton,mb,centerBoard,mp);
@@ -3331,8 +3378,9 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(!items.length&&!strokes.length)return say('На доске пока нет объектов.');
     const points=items.flatMap(n=>[[n.x,n.y],[n.x+n.w,n.y+n.h]]).concat(strokes.flatMap(s=>Array.from({length:Math.floor((s.p||[]).length/2)},(_,i)=>[s.p[i*2],s.p[i*2+1]])));
     const xs=points.map(p=>p[0]).filter(Number.isFinite),ys=points.map(p=>p[1]).filter(Number.isFinite);if(!xs.length||!ys.length)return;
-    const left=Math.min(...xs),top=Math.min(...ys),right=Math.max(...xs),bottom=Math.max(...ys);
-    setZ(Math.min((sc.clientWidth-160)/Math.max(1,right-left),(sc.clientHeight-180)/Math.max(1,bottom-top),2));sc.scrollLeft=Math.max(0,left*z-90);sc.scrollTop=Math.max(0,top*z-90);queueViewport();
+    const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);
+    setZ(Math.min((sc.clientWidth-160)/Math.max(1,maxX-minX),(sc.clientHeight-180)/Math.max(1,maxY-minY),2));
+    sc.scrollLeft=(minX-left)*z-90;sc.scrollTop=(minY-top)*z-90;queueViewport();
   });
   if(isOwner)mi('← Список досок',()=>go(boardsView));
   if(boardTransport)saveFormat('Все версии · JSON',async()=>{
@@ -3386,7 +3434,8 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
     else if(e.key==='Escape'){mp.classList.remove('open');mb.setAttribute('aria-expanded','false');saveMenu.open=false;wireSource=null;wireMode=null;wireDrag=null;wirePreview?.remove();wirePreview=null;say('');vtop.open=false;select(null);hidePops();setTool('select')}};
   document.addEventListener('keydown',key);
-  setTool('select');fbar.style.display='none';redraw();renderAll();
+  setTool('select');fbar.style.display='none';renderAll();
+  sc.scrollLeft=-left*z;sc.scrollTop=-top*z;redraw();
   let polling=false,pollFailures=0,pollStopped=false,lastShareMetaCheck=Date.now();
   const basePollDelay=guest?7000:12000;let pollDelay=basePollDelay;
   const pollBoard=async()=>{
@@ -3465,7 +3514,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   if(localGuestDraft?.pending)setTimeout(()=>say('Восстановлен несинхронизированный черновик этой доски'),1800);
   cleanup=()=>{
     if(!guest&&editEpoch!==savedEpoch){const data=snapshot();void boardTransport?.write(data,{base:displayedBase})}
-    formatObserver.disconnect();mediaObserver?.disconnect();window.removeEventListener('online',retryFailedBoardMedia);document.removeEventListener('visibilitychange',onBoardVisibility);window.removeEventListener('online',onBoardOnline);cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
+    inkObserver.disconnect();cancelAnimationFrame(inkFrame);formatObserver.disconnect();mediaObserver?.disconnect();window.removeEventListener('online',retryFailedBoardMedia);document.removeEventListener('visibilitychange',onBoardVisibility);window.removeEventListener('online',onBoardOnline);cancelAnimationFrame(formatFrame);window.removeEventListener('resize',queueFormatPosition);clearInterval(sessionTicker);for(const node of cursorNodes.values())clearTimeout(node._expiry);disposed=true;cancelAnimationFrame(wireFrame);stopUsage();document.removeEventListener('keydown',key);window.removeEventListener('aspace-sync-status',onSyncStatus);
     call&&call.stop();call=null;callRoom?.close();callRoom=null;clearInterval(presenceTimer);clearTimeout(viewTimer);
     clearTimeout(roomRetry);r.close&&r.close();clearTimeout(tm);clearInterval(shareRecoveryTimer);clearTimeout(cloudPollTimer);
     window.removeEventListener('online',retrySharedDraft);if(document.fullscreenElement)document.exitFullscreen();activeShareToken=null;

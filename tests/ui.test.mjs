@@ -256,7 +256,7 @@ test('mixed selection scales from a common corner, including ink widths and inte
  const strokes=[{id:'s',w:4,p:[110,80,120,100]}];
  const history=[];
  new Function('items','strokes','history',`
- const guest=false,W=800,H=600,els={a:{_t:true},b:{_t:true}},rec=o=>history.push(o);
+ const guest=false,right=800,bottom=600,els={a:{_t:true},b:{_t:true}},rec=o=>history.push(o);
  const scalingItems=()=>items.filter(n=>!n.locked),scalingInk=()=>strokes;
  const boundsOfSelection=()=>({left:80,top:50,w:80,h:60});
  const upsert=()=>{},r={emit(){}},sendStroke=()=>{},redraw=()=>{},fit=()=>{},updateScaleFrame=()=>{},persistNow=()=>{};
