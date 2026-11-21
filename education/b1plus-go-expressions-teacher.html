@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Collocations · B1+ test</title>
+<style>
+:root{--wine:#69405a;--wine2:#7d506d;--cream:#f6eee4;--ink:#382d36;--line:#ddcbbb}*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.5 Inter,system-ui,Arial,sans-serif;padding:24px}.wrap{max-width:850px;margin:auto}.panel{background:#fff;border:1px solid var(--line);border-radius:22px;padding:clamp(20px,4vw,34px);box-shadow:0 10px 30px #513a2410}h1{font:clamp(28px,4vw,38px)/1.15 Georgia,serif;margin:0 0 8px}.muted{color:#796d75}.sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin:22px 0}.sections label{display:flex;gap:10px;align-items:flex-start;padding:13px;border:1px solid var(--line);border-radius:13px;background:#fcf9f6;font-weight:650}.sections input{width:18px;height:18px;accent-color:var(--wine);flex:none;margin-top:3px}.actions{display:flex;gap:10px;flex-wrap:wrap}button{border:0;border-radius:13px;padding:12px 17px;background:#c9b8e4;color:#382d45;font:inherit;font-weight:750;cursor:pointer}button.primary{background:var(--wine);color:#fff}button:hover{filter:brightness(.97)}input.link{width:100%;padding:13px;border:1px solid var(--line);border-radius:10px;font:14px/1.4 ui-monospace,monospace;margin-top:8px}.result{margin-top:18px;padding:16px;background:#f7f1f7;border-radius:14px}.result[hidden]{display:none}.tag{display:inline-block;padding:4px 9px;border-radius:20px;background:#efe6f2;font-size:13px;font-weight:700;margin:8px 0}.note{font-size:14px;color:#766b72;margin-top:18px}
+</style></head><body><main class="wrap"><section class="panel">
+<div class="tag">SPEAKOUT 3RD EDITION · B1+</div><h1>Collocations &amp; Changes</h1><p class="muted">Тест по лексике making changes и грамматике Present Perfect. Отметь нужные части и создай отдельную ссылку ученику.</p>
+<div class="sections" id="sections">
+<label><input type="checkbox" value="0" checked>Vocabulary matching — сопоставление выражений и определений на английском</label>
+<label><input type="checkbox" value="1" checked>Vocabulary gap fill — collocations в контексте</label>
+<label><input type="checkbox" value="2" checked>Russian → English — 14 предложений на перевод</label>
+<label><input type="checkbox" value="3" checked>Grammar — Present Perfect Simple &amp; Continuous</label>
+<label><input type="checkbox" value="4" checked>Error correction — исправление ошибок</label>
+<label><input type="checkbox" value="5" checked>Speaking &amp; writing — свободная практика</label>
+</div>
+<div class="actions"><button class="primary" id="create">Создать ссылку ученику</button><button id="all">Выбрать всё</button><button id="none">Снять выбор</button></div>
+<div class="result" id="result" hidden><b>Ссылка для ученика</b><input class="link" id="link" readonly><div class="actions" style="margin-top:12px"><button class="primary" id="copy">Копировать ссылку</button><button id="open">Открыть тест</button></div></div>
+<p class="note">Ученик откроет тест без ключей преподавателя. Ответы сохраняются локально в браузере ученика; переводы и письменная часть проверяются по образцам.</p>
+</section></main><script>
+const $=id=>document.getElementById(id),checks=[...document.querySelectorAll('#sections input')];
+$('all').onclick=()=>checks.forEach(x=>x.checked=true);$('none').onclick=()=>checks.forEach(x=>x.checked=false);
+$('create').onclick=()=>{const sections=checks.filter(x=>x.checked).map(x=>Number(x.value));if(!sections.length){alert('Выбери хотя бы один раздел.');return;}const url=new URL('b1plus-go-expressions-student.html',location.href);url.hash='assignment='+btoa(unescape(encodeURIComponent(JSON.stringify({v:1,sections}))));$('link').value=url.href;$('result').hidden=false;};
+$('copy').onclick=async()=>{const v=$('link').value;if(!v)return;try{await navigator.clipboard.writeText(v);alert('Ссылка скопирована!');}catch(e){$('link').select();document.execCommand('copy');alert('Ссылка скопирована!');}};
+$('open').onclick=()=>{if($('link').value)window.open($('link').value,'_blank','noopener');};
+</script></body></html>
