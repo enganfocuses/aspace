@@ -121,7 +121,6 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .fbar .format-body{width:min(310px,calc(100vw - 36px));max-height:175px;overflow:auto;border-top:1px solid var(--line);padding:9px 3px 4px}
 .fbar .format-body[hidden],.fbar button[hidden]{display:none!important}
 .bfull .fbar .row.nw{flex-wrap:wrap;gap:7px}.bfull .fbar select{max-width:145px;padding:5px 8px;font-size:13px}
-.bfull .it .sb{display:none!important}
 :root[data-theme=beige] .bfull .bscroll{background-color:#fdfcf9}
 .retro-timer .tw{display:none}.retro-timer>i{top:-12px}.retro-timer .timer-value{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 0 14%;color:#54283c;cursor:grab;container-type:inline-size;user-select:none}
 .retro-timer .bgl{border-radius:50%!important;background:#fcf8ed!important;border:7px double #94765f!important;box-shadow:0 6px 18px #321a272c,inset 0 0 0 4px #d7c4a4!important}
@@ -181,7 +180,6 @@ header .theme-control{padding:5px 10px}header .theme-control select{width:100%}.
 .bfull .layer-picker{position:relative;display:grid;place-items:center;width:32px;height:34px;flex:none;border-radius:9px;background:var(--btn,#5a1f38);color:var(--shell-button-ink,#fff);cursor:pointer}
 .bfull .layer-picker select{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .layer-picker:focus-within{outline:2px solid #8b6195;outline-offset:1px}
-.bfull .format-main .object-color-control>span{display:none}
 
 
 /* Collapsible global navigation. Lavender remains an accent for controls only. */

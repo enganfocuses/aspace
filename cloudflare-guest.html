@@ -19,7 +19,7 @@ button:disabled{opacity:.45}button.ghost{color:#604274;background:#ede5f2}
 <section class="panel"><p id="role">Проверка ссылки…</p>
 <label for="title">Название</label><input id="title" disabled maxlength="120">
 <label for="text">Заметки</label><textarea id="text" disabled></textarea>
-<div class="row"><button id="save" disabled>Сохранить изменения</button><button id="reload" class="ghost">Обновить</button><button id="export" class="ghost">Скачать копию</button></div>
+<div class="row"><button id="save" disabled>Сохранить изменения</button><button id="reload" class="ghost">Обновить</button></div>
 <p id="status" role="status">Загружаю…</p>
 <small>Изменения другого участника проверяются каждые 20 секунд. Незаписанный текст не заменяется. При конфликте сохранение отклоняется.</small>
 </section>
@@ -28,7 +28,7 @@ button:disabled{opacity:.45}button.ghost{color:#604274;background:#ede5f2}
 <div class="row"><button id="add" class="ghost" disabled>＋ Стикер</button><button id="remove" class="ghost" disabled>Удалить выбранный</button></div>
 <div id="stage"><canvas id="drawing"></canvas></div></section>
 <section id="conflict" class="panel"><h2>Доска изменилась на другом устройстве</h2>
-<p>Сервер отказался перезаписать более новую версию. Скопируй свой текст или скачай резервную копию, затем обнови страницу.</p>
+<p>Сервер отказался перезаписать более новую версию. Скопируй свои правки в заметки, затем обнови страницу.</p>
 <button id="discard" class="ghost">Загрузить новую версию (сбросить черновик)</button></section>
 </main><script>
 (()=>{
@@ -136,7 +136,6 @@ $('reload').addEventListener('click',()=>{if(dirty&&!confirm('Сбросить �
 $('discard').addEventListener('click',()=>{if(!confirm('Заменить черновик серверной версией?'))return;load(true)});
 $('add').addEventListener('click',()=>{if(role!=='editor'||!board)return;board.items=cleanItems(board.items);if(board.items.length>=100)return;board.items.push({id:crypto.randomUUID(),k:'note',x:15,y:15,w:150,h:95,t:'Стикер',c:'#e9d7f0'});edited();renderStage()});
 $('remove').addEventListener('click',()=>{if(!selected||role!=='editor')return;board.items=cleanItems(board.items).filter(o=>o.id!==selected);selected=null;$('remove').disabled=true;edited();renderStage()});
-$('export').addEventListener('click',()=>{if(!board)return;const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify({kind:'aspace-guest-backup',board,revision},null,2)],{type:'application/json'}));a.href=url;a.download='aspace-guest-backup.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)});
 try{const cache=JSON.parse(localStorage.getItem(key)||'null');if(cache?.dirty&&cache.board?.kind==='aspace-prototype'){board=cache.board;revision=cache.revision;dirty=true;role='editor';$('title').value=board.title||'';$('text').value=board.text||'';renderStage();setStatus('Найден локальный черновик. Проверяю доступ по ссылке…')}}catch{}
 load();
 setInterval(()=>{if(!document.hidden&&!busy)load()},20000);

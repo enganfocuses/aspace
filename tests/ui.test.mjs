@@ -191,14 +191,14 @@ test('symbols can be dragged directly and their color is editable from the selec
  assert.match(index,/drag\(el,el,n\)/);
  assert.match(index,/el\.dataset\.symbolObject=String\(n\.k==='emo'/);
  assert.match(index,/\.bfull \.it>i\{display:none!important\}/);
- assert.match(index,/objectColorLabel\.hidden=!\(editable&&\(FILLK\.includes\(sel\.k\)\|\|sel\.k==='emo'\)\)/);
+ assert.match(index,/fill:editable&&\(FILLK\.includes\(sel\.k\)\|\|sel\.k==='emo'\)/);
  assert.match(index,/el\._bg\.style\.color=n\.c\|\|'#1f1f2b'/);
 });
 
 
 test('board object dragging is isolated from the drawing surface and saves once on release',()=>{
  const begin=index.indexOf('const drag=(h,el,n)=>{');
- const end=index.indexOf('const upsert=n=>{',begin);
+ const end=index.indexOf('const upsert=',begin);
  const drag=index.slice(begin,end);
  assert.match(drag,/e\.stopPropagation\(\)/);
  assert.match(drag,/h\.setPointerCapture\(e\.pointerId\)/);
@@ -236,4 +236,37 @@ test('eraser removes intersecting strokes and broadcasts deletions instead of pa
  assert.match(index,/removed\.forEach\(st=>r\.emit\('ds',\{id:st\.id\}\)\)/);
  assert.match(index,/if\(cur\.erase\)\{eraseAt\(x,y\);cur\.p\.push\(x,y\)\}/);
  assert.match(index,/const seg=\(s,a\)=>\{if\(s\.e\)return/);
+});
+
+test('only teachers get board and object download actions, including on editable guest boards',()=>{
+ assert.match(index,/if\(isOwner\)mp\.append\(saveMenu\)/);
+ assert.match(index,/if\(isOwner\)menuAction\(saveOptions,t,fn\)/);
+ assert.match(index,/\.\.\.\(isOwner\?\[downloadButton\]:\[\]\)/);
+ assert.match(index,/async function downloadObject\(n\)\{\s*if\(!isOwner\|\|!n\)return/);
+ const guest=readFileSync(new URL('../cloudflare-guest.html',import.meta.url),'utf8');
+ assert.doesNotMatch(guest,/\.download\s*=|Скачать копию/);
+});
+
+test('mixed selection scales from a common corner, including ink widths and internal connectors',()=>{
+ const begin=index.indexOf('  function startScale()');
+ const end=index.indexOf('  scaleGrip.onpointerdown=',begin);
+ const code=index.slice(begin,end);
+ const items=[{id:'a',x:80,y:50,w:40,h:20,fs:18,k:'note',arrows:[{to:'b',bend:12}]},
+  {id:'b',x:140,y:90,w:20,h:20,fs:20,k:'txt'},{id:'c',x:210,y:160,w:32,h:24,locked:true}];
+ const strokes=[{id:'s',w:4,p:[110,80,120,100]}];
+ const history=[];
+ new Function('items','strokes','history',`
+ const guest=false,W=800,H=600,els={a:{_t:true},b:{_t:true}},rec=o=>history.push(o);
+ const scalingItems=()=>items.filter(n=>!n.locked),scalingInk=()=>strokes;
+ const boundsOfSelection=()=>({left:80,top:50,w:80,h:60});
+ const upsert=()=>{},r={emit(){}},sendStroke=()=>{},redraw=()=>{},fit=()=>{},updateScaleFrame=()=>{},persistNow=()=>{};
+ ${code}
+ finishScale(startScale(),.5);
+ `)(items,strokes,history);
+ assert.deepEqual([items[0].w,items[0].fs,items[0].arrows[0].bend],[20,18,6]);
+ assert.deepEqual([items[1].x,items[1].y,items[1].w,items[1].fs],[110,70,10,10]);
+ assert.deepEqual([items[2].x,items[2].w],[210,32]);
+ assert.deepEqual(strokes[0],{id:'s',w:2,p:[95,65,100,75]});
+ assert.equal(history.length,1);
+ assert.deepEqual(history[0].before.lines[0].p,[110,80,120,100]);
 });
