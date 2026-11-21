@@ -3507,8 +3507,8 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   const key=e=>{const t=e.target;if(t.isContentEditable||t.closest('.board-access-dialog')||['INPUT','SELECT','TEXTAREA'].includes(t.tagName))return;
     const mod=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
     if(mod&&(key==='a'||e.code==='KeyA')&&!guest){e.preventDefault();selectAllObjects()}
-    else if(mod&&key==='c'&&selectedItems.length){if(copySelected())e.preventDefault()}
-    else if(mod&&key==='v'&&copiedBoardItems.length){if(pasteCopied())e.preventDefault()}
+    else if(mod&&(key==='c'||e.code==='KeyC')&&selectedItems.length){if(copySelected())e.preventDefault()}
+    else if(mod&&(key==='v'||e.code==='KeyV')&&copiedBoardItems.length){if(pasteCopied())e.preventDefault()}
     else if(mod&&key==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo()}
     else if(mod&&key==='y'){e.preventDefault();doRedo()}
     else if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();for(const n of [...selectedItems])delItem(n)}
