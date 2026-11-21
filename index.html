@@ -2850,7 +2850,9 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     if(o.a===0&&Number.isFinite(o.w))s.w=o.w;
     if(o.f){s.p=Array.isArray(o.p)?o.p.slice():[];remoteStrokeFinal.add(o.id);redraw()}
     else{s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a)}
-    persist(true)
+    // A completed stroke received from another editor must also be committed.
+    // Otherwise a later board snapshot can replace this peer-only preview with stale saved data.
+    if(o.f)persist();else persist(true)
   });
   r.on('move',event=>{
     if(!Array.isArray(event.data?.points))return;
