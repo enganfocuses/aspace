@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>B1+ | Changes & Transformations — Student practice</title>
+<style>
+:root{--bg:#f7f4fa;--paper:#fff;--ink:#30243a;--muted:#766b80;--accent:#76527f;--line:#e7deeb;--soft:#f0e8f3;--ok:#287b5a;--bad:#a33d52}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 Inter,system-ui,Arial,sans-serif}header{background:linear-gradient(120deg,#49334f,#795779);color:#fff;padding:27px max(18px,calc((100% - 1000px)/2))}header h1{margin:0;font-size:clamp(25px,4vw,37px)}header p{margin:5px 0 0;color:#f0e8f2}.wrap{max-width:1000px;margin:auto;padding:20px}.intro,.section,.result{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:17px;margin:14px 0}.section h2{margin:0 0 5px;font-size:21px}.meta{font-size:13px;color:var(--muted)}.question{padding:12px 0;border-bottom:1px solid #eee8f0}.question:last-child{border:0}.question label{display:block;font-weight:600;margin-bottom:6px}.question input[type=text],.question textarea,.question select{font:inherit;width:100%;max-width:680px;border:1px solid var(--line);border-radius:9px;padding:9px 10px;color:var(--ink);background:#fff}.question textarea{min-height:75px}.question select{max-width:100%;}.defs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin:12px 0}.def{background:#fbf9fc;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:14px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}button{font:inherit;border:1px solid #d9c9df;border-radius:10px;padding:10px 14px;background:var(--soft);color:var(--ink);cursor:pointer}button.primary{background:var(--accent);color:white;border-color:var(--accent)}.feedback{font-weight:600;margin:7px 0}.good{color:var(--ok)}.wrong{color:var(--bad)}.model{display:none;background:#f2faf6;border-left:3px solid var(--ok);padding:9px 12px;margin:8px 0;border-radius:6px}.model.show{display:block}.score{font-size:19px;font-weight:700}.hidden{display:none}.progress{height:8px;background:#eee7f1;border-radius:20px;overflow:hidden;margin:10px 0}.progress span{display:block;height:100%;background:var(--accent);width:0}.small{font-size:12px;color:var(--muted)}@media print{header{background:white;color:black;border-bottom:2px solid #777}.wrap{padding:0}.actions{display:none}.model{display:block}.intro,.section,.result{break-inside:avoid}}
+</style></head><body>
+<header><h1>Changes & Transformations</h1><p>B1+ Vocabulary & Grammar · Student practice</p></header>
+<div class="wrap">
+<section class="intro"><b>How to work</b><p>Complete each task by typing your answers. Press <b>Check</b> to see your result and feedback. Your progress is saved in this browser. For translations and writing, compare your answer with the suggested version and assess whether your meaning and grammar are accurate.</p><div class="progress"><span id="bar"></span></div><div class="small" id="progressText">Your work is saved automatically on this device.</div></section>
+<main id="tasks"></main>
+<section class="result"><h2>Your results</h2><div class="score" id="total">No tasks checked yet.</div><p id="summary" class="meta">Check each section to see your progress.</p><div class="actions"><button onclick="window.print()">Print / Save PDF</button><button onclick="resetWork()">Reset my answers</button></div></section>
+</div>
+<script>
+const V=[
+["go mad","to become extremely angry","The coach went mad when the players lost."],
+["go wild","to become very excited or enthusiastic","Everyone went wild when the band came on stage."],
+["go grey","to become grey, especially hair","His hair has started to go grey."],
+["go blind","to lose the ability to see","The old dog slowly went blind."],
+["go deaf","to lose the ability to hear","He went deaf after years of working with loud machines."],
+["go red","to become red in the face, usually because of embarrassment","She went red when everyone sang to her."],
+["go dark","to become dark","The sky went dark before the storm."],
+["go yellow","to become yellow over time","The pages have gone yellow."],
+["turn gold","to become golden in colour","The sky turned gold at sunset."],
+["turn white","to become white or very pale","Her hair turned white after the shock."],
+["become pregnant","to start expecting a baby","She stopped smoking when she became pregnant."],
+["get/become angry","to start feeling anger","He got angry when the waiter forgot his order."],
+["get/become bored","to start feeling uninterested","I get bored during long meetings."],
+["get/become excited","to start feeling enthusiastic","The children got excited before the trip."],
+["get/become depressed","to start feeling very unhappy for a long time","He became depressed after the loss."],
+["get/become upset","to start feeling unhappy or worried","Don't get upset — it's only a game."],
+["get/become impatient","to stop being willing to wait","The passengers became impatient."],
+["get/become violent","to start behaving aggressively","The situation got violent."],
+["become extinct","to stop existing as a species","The species became extinct long ago."],
+["become homeless","to lose one's home","Many families became homeless after the flood."],
+["become famous","to become well known","The bakery has become famous for its tarts."],
+["fall ill","to become ill","She fell ill and was taken to hospital."],
+["fall silent","to become completely quiet","The room fell silent."],
+["grow older","to become older","As he grew older, he travelled less."],
+["grow louder","to become louder gradually","The noise grew louder."],
+["turn red","to become red, often because of embarrassment","He turned red when the nurse took the blood."]
+];
+const GAP=[
+["When the coach saw the final score, he ______ mad.","went"],
+["The audience ______ wild when the singer appeared.","went"],
+["The old photographs have ______ yellow over the years.","gone"],
+["The sky ______ dark and we hurried home.","went"],
+["The sunset ______ gold as the sun disappeared.","turned"],
+["He ______ deaf after working in a noisy factory for years.","went"],
+["The room ______ silent when the announcement was made.","fell"],
+["The children ______ excited about their school trip.","got / became"],
+["The passengers were beginning to ______ impatient.","get / become"],
+["Several rare animals have ______ extinct.","become"],
+["She ______ ill a few days before the exam.","fell"],
+["The sound of the engine ______ louder as the car approached.","grew"],
+["He ______ red when everyone looked at him.","went / turned"],
+["The small company has ______ famous for its handmade products.","become"]
+];
+const TRANS=[
+["Когда тренер увидел результат, он очень разозлился.","When the coach saw the result, he went mad."],
+["Все пришли в восторг, когда группа вышла на сцену.","Everyone went wild when the band came on stage."],
+["Его волосы начали седеть.","His hair has started to go grey."],
+["С годами страницы этой книги пожелтели.","The pages of this book have gone yellow over the years."],
+["Небо стало золотым на закате.","The sky turned gold at sunset."],
+["Она покраснела, когда все начали петь.","She went red when everyone started singing."],
+["После долгих лет работы с громкими машинами он оглох.","He went deaf after years of working with loud machines."],
+["Пассажиры начали терять терпение, потому что поезд задерживался.","The passengers were becoming impatient because the train was delayed."],
+["Этот вид вымер более ста лет назад.","This species became extinct more than a hundred years ago."],
+["После наводнения многие семьи остались без жилья.","Many families became homeless after the flood."],
+["Она заболела и её отвезли в больницу.","She fell ill and was taken to hospital."],
+["В комнате стало тихо, когда они услышали эту новость.","The room fell silent when they heard the news."],
+["Шум постепенно становился громче.","The noise was gradually growing louder."],
+["В последнее время я стал(а) чаще уставать.","I have been getting tired more often lately."]
+];
+const GRAM=[
+["I ______ (know) Maya for six years.","have known","State verb: use Present Perfect Simple."],
+["They ______ (repair) the road since Monday, and they haven't finished yet.","have been repairing","An ongoing activity with a visible unfinished result."],
+["She ______ already ______ (send) the email.","has already sent","Completed action; already commonly appears with Present Perfect Simple."],
+["How long ______ you ______ (wait)?","have you been waiting","Focus on duration of an ongoing activity."],
+["We ______ (not see) him since the conference.","haven't seen","A period continuing from the past until now."],
+["I'm exhausted because I ______ (work) all morning.","have been working","Recent activity with a present result."],
+["He ______ never ______ (be) abroad.","has never been","Life experience up to now."],
+["It ______ (rain) for three hours. The streets are flooded.","has been raining","Duration and evidence of a continuing/recent activity."],
+["How many emails ______ you ______ (write) today?","have you written","Focus on the number / completed result."],
+["I ______ (read) this book for two weeks, but I'm only halfway through.","have been reading","An unfinished activity continuing over a period."],
+["The children ______ just ______ (go) to bed.","have just gone","A recently completed action."],
+["She ______ (teach) at this school since 2021.","has taught / has been teaching","Both can work: state/period or ongoing activity; context matters."]
+];
+const ERR=[
+["He has been knowing her since school.","He has known her since school."],
+["I've finished my project yesterday.","I finished my project yesterday."],
+["How long are you waiting here?","How long have you been waiting here?"],
+["She has wrote three reports today.","She has written three reports today."],
+["They have been lived here for ten years.","They have lived here for ten years."],
+["I'm tired because I have worked all night (and I'm still working).","I'm tired because I have been working all night."],
+["Did you ever go to London?","Have you ever been to London?"],
+["The situation has become worse since Monday.","The situation has got/gotten worse since Monday. / The situation has become worse since Monday."]
+];
+const NAMES=["Vocabulary: match the meaning","Vocabulary: complete the expressions","Translation: Russian → English","Grammar: Present Perfect Simple or Continuous","Correct the mistakes","Speaking & writing extension"];
+const DEFAULT=[0,1,2,3,4,5];let selected=DEFAULT;
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function norm(s){return String(s||"").toLowerCase().replace(/[’']/g,"'").replace(/[^a-z0-9/ ]/g," ").replace(/\s+/g," ").trim();}
+function saved(k){return localStorage.getItem("b1go_"+k)||""}
+function put(k,v){localStorage.setItem("b1go_"+k,v)}
+function field(id,placeholder){return '<input type="text" id="'+id+'" data-save="'+id+'" placeholder="'+esc(placeholder||"Type your answer here")+'">';}
+function model(id,txt){return '<div class="model" id="'+id+'"><b>Suggested answer:</b> '+esc(txt)+'</div>';}
+function section(id,title,desc,body){return '<section class="section" id="s'+id+'"><h2>'+title+'</h2><p class="meta">'+desc+'</p>'+body+'<div class="actions"><button class="primary" onclick="check('+id+')">Check this section</button><span class="feedback" id="f'+id+'"></span></div></section>';}
+function build(){
+let html="";
+if(selected.includes(0)){
+ const chosen=V.slice(0,16),defs=chosen.map(x=>x[1]).sort((a,b)=>a.localeCompare(b));
+ let body='<div class="defs">'+defs.map((d,i)=>'<div class="def">'+(i+1)+'. '+esc(d)+'</div>').join("")+'</div>';
+ body+=chosen.map((x,i)=>'<div class="question"><label>'+(i+1)+'. '+esc(x[0])+'</label><select id="v'+i+'" data-save="v'+i+'"><option value="">Choose a definition…</option>'+defs.map((d,j)=>'<option value="'+esc(d)+'">'+esc(d)+'</option>').join("")+'</select>'+model("vm"+i,x[1])+'</div>').join("");
+ html+=section(0,"1. Vocabulary: match the meaning","Match each expression with the correct English definition.",body);
+}
+if(selected.includes(1)){
+ let body=GAP.map((x,i)=>'<div class="question"><label>'+(i+1)+'. '+esc(x[0])+'</label>'+field("g"+i,"Type the missing word(s)") +model("gm"+i,x[1])+'</div>').join("");
+ html+=section(1,"2. Vocabulary: complete the expressions","Type the missing verb or expression. Pay attention to tense and form.",body);
+}
+if(selected.includes(2)){
+ let body=TRANS.map((x,i)=>'<div class="question"><label>'+(i+1)+'. '+esc(x[0])+'</label><textarea id="t'+i+'" data-save="t'+i+'" placeholder="Translate the sentence into English…"></textarea>'+model("tm"+i,x[1])+'</div>').join("");
+ html+=section(2,"3. Translation: Russian → English","Translate all 14 sentences. Then reveal the suggested versions and assess your own accuracy.",body);
+}
+if(selected.includes(3)){
+ const hints='<div class="question" style="background:#f8f3fa;border:1px solid #e7deeb;border-radius:12px;padding:14px;margin:12px 0"><h3 style="margin:0 0 8px">Quick grammar guide</h3><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px"><div class="def"><b>Present Perfect Simple</b><p><b>Form:</b> have / has + past participle (V3)</p><p><b>Use it for:</b></p><ul><li>a finished action with a result now</li><li>life experiences</li><li>how many / how much has been completed</li><li>states continuing until now</li></ul><p><b>Common words:</b> ever, never, already, just, yet, so far</p><p><i>I have written three emails today.</i></p></div><div class="def"><b>Present Perfect Continuous</b><p><b>Form:</b> have / has + been + verb-ing</p><p><b>Use it for:</b></p><ul><li>an activity that started in the past and is still continuing</li><li>emphasising how long an activity has lasted</li><li>a recent activity with a visible result now</li></ul><p><b>Common words:</b> for, since, how long, all day, lately, recently</p><p><i>I have been writing emails all morning.</i></p></div></div><h4 style="margin:14px 0 5px">How to choose?</h4><ul><li><b>Result / quantity:</b> focus on what is finished → Present Perfect Simple.</li><li><b>Process / duration:</b> focus on the activity or how long it has continued → Present Perfect Continuous.</li><li><b>State verbs</b> (know, believe, want, need, understand, like) are not normally used in continuous forms: <i>I have known her for years.</i></li><li><b>Since</b> + starting point (since Monday); <b>for</b> + period (for two hours).</li></ul><div class="note" style="background:#f0e8f3;padding:10px;border-radius:8px"><b>Compare:</b><br>I have cleaned the kitchen. = It is clean now (result).<br>I have been cleaning the kitchen. = The activity has taken time; it may not be finished.</div></div>';
+ let body=hints+GRAM.map((x,i)=>'<div class="question"><label>'+(i+1)+'. '+esc(x[0])+'</label>'+field("p"+i,"Complete the sentence") +model("pm"+i,x[1]+" — "+x[2])+'</div>').join("");
+ html+=section(3,"4. Grammar: Present Perfect Simple or Continuous","Read the quick guide, then complete each sentence. Think about result, duration, experience and state verbs.",body);
+}
+if(selected.includes(4)){
+ let body=ERR.map((x,i)=>'<div class="question"><label>'+(i+1)+'. '+esc(x[0])+'</label>'+field("e"+i,"Write the corrected sentence") +model("em"+i,x[1])+'</div>').join("");
+ html+=section(4,"5. Correct the mistakes","Rewrite each sentence correctly. Check the suggested correction after submitting.",body);
+}
+if(selected.includes(5)){
+ let prompts=["Have you ever gone red because you were embarrassed? What happened?","What kinds of news make people go wild? Give examples.","What habits have you been trying to change recently?","How has your hometown changed since you were a child?","What have you been doing to improve your English?"];
+ let body='<div class="question"><b>Speaking prompts</b><ol>'+prompts.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ol></div><div class="question"><label>Writing task (120–150 words)</label><p>Write about changes in your life over the last few years. Use at least six expressions from this unit, three examples of Present Perfect Simple and three examples of Present Perfect Continuous.</p><textarea id="writing" data-save="writing" style="min-height:180px" placeholder="Write your paragraph here…"></textarea><p class="meta">Self-check: Have you used the target expressions naturally? Are your tense choices accurate? Have you checked spelling and punctuation?</p></div>';
+ html+=section(5,"6. Speaking & writing extension","Develop fluency and use the target language in a personal context.",body);
+}
+document.getElementById("tasks").innerHTML=html||"<p>No sections selected. Ask your teacher for a new link.</p>";
+document.querySelectorAll("[data-save]").forEach(el=>{el.value=saved(el.dataset.save);el.addEventListener("input",()=>put(el.dataset.save,el.value));});
+document.querySelectorAll("select[data-save]").forEach(el=>{el.value=saved(el.dataset.save);el.addEventListener("change",()=>put(el.dataset.save,el.value));});
+}
+const checked={};
+function check(id){
+ let correct=0,total=0,manual=false;
+ if(id===0){const a=V.slice(0,16),defs=a.map(x=>x[1]).sort((x,y)=>x.localeCompare(y));a.forEach((x,i)=>{total++;const val=document.getElementById("v"+i).value;const ok=val===x[1];if(ok)correct++;document.getElementById("vm"+i).classList.add("show");document.getElementById("v"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
+ if(id===1){GAP.forEach((x,i)=>{total++;const val=norm(document.getElementById("g"+i).value);const options=x[1].split(" / ").map(norm);const ok=options.includes(val);if(ok)correct++;document.getElementById("gm"+i).classList.add("show");document.getElementById("g"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
+ if(id===2){manual=true;TRANS.forEach((x,i)=>document.getElementById("tm"+i).classList.add("show"));total=TRANS.length;}
+ if(id===3){GRAM.forEach((x,i)=>{total++;const val=norm(document.getElementById("p"+i).value);const options=x[1].split(" / ").map(norm);const ok=options.some(o=>val===o);if(ok)correct++;document.getElementById("pm"+i).classList.add("show");document.getElementById("p"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
+ if(id===4){ERR.forEach((x,i)=>{total++;const val=norm(document.getElementById("e"+i).value);const options=x[1].split(" / ").map(norm);const ok=options.includes(val);if(ok)correct++;document.getElementById("em"+i).classList.add("show");document.getElementById("e"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
+ if(id===5){manual=true;total=1;}
+ checked[id]={correct,total,manual};
+ const f=document.getElementById("f"+id);
+ f.className="feedback "+(manual?"":"good");
+ f.textContent=manual?"Suggested answers revealed — self-assess this section.":correct+" / "+total+" correct";
+ updateTotal();
+}
+function updateTotal(){
+ let c=0,t=0,done=0,manual=0;
+ Object.values(checked).forEach(x=>{done++;if(x.manual)manual++;else{c+=x.correct;t+=x.total;}});
+ document.getElementById("total").textContent=t?c+" / "+t+" automatically checked":"Complete and check a section to see your score.";
+ document.getElementById("summary").textContent=done+" section(s) checked · "+manual+" section(s) require self-assessment.";
+ const all=selected.length?Math.round(done/selected.length*100):0;document.getElementById("bar").style.width=all+"%";document.getElementById("progressText").textContent=all+"% of selected sections checked. Answers are saved in this browser.";
+}
+function resetWork(){if(!confirm("Delete all saved answers on this device?"))return;Object.keys(localStorage).filter(k=>k.startsWith("b1go_")).forEach(k=>localStorage.removeItem(k));location.reload();}
+(function(){const m=location.hash.match(/assignment=([^&]+)/);if(m){try{const p=JSON.parse(decodeURIComponent(escape(atob(m[1]))));if(p.v===1&&Array.isArray(p.sections))selected=p.sections.filter(n=>Number.isInteger(n)&&n>=0&&n<=5);}catch(e){}}build();})();
+</script></body></html>
