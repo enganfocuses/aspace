@@ -1551,17 +1551,52 @@ function Call(r,box){
     async speaker(id){for(const w of Object.values(tiles)){if(typeof w.v.setSinkId==='function')await w.v.setSinkId(id)}},
     async camera(id){
       if(!st)return;
-      const stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id}},audio:false});
-      const next=stream.getVideoTracks()[0],previous=st?.getVideoTracks()[0];
-      if(!st){next.stop();return}
-      next.enabled=previous?.enabled??true;
-      const senders=Object.values(pcs).flatMap(pc=>pc.getTransceivers().filter(tr=>tr.receiver.track.kind==='video').map(tr=>tr.sender));
-      try{for(const sender of senders)await sender.replaceTrack(next)}
-      catch(error){await Promise.allSettled(senders.map(sender=>sender.replaceTrack(previous||null)));next.stop();throw error}
-      if(!st){next.stop();return}
+      const previous=st.getVideoTracks()[0];
+      const previousSettings=previous?.getSettings?.()||{};
+      const previousDeviceId=previousSettings.deviceId;
+      const wasEnabled=previous?.enabled??true;
+      const senders=Object.values(pcs).flatMap(pc=>pc.getTransceivers().filter(tr=>tr.receiver?.track?.kind==='video').map(tr=>tr.sender));
+      const restorePrevious=async()=>{
+        if(!previous)return null;
+        const constraints=previousDeviceId?{deviceId:{exact:previousDeviceId}}:true;
+        const restoredStream=await navigator.mediaDevices.getUserMedia({video:constraints,audio:false});
+        const restored=restoredStream.getVideoTracks()[0];
+        if(!restored)throw new Error('Браузер не предоставил видеопоток прежней камеры.');
+        restored.enabled=wasEnabled;
+        for(const sender of senders)await sender.replaceTrack(restored);
+        if(st)st.addTrack(restored);
+        watch(restored);
+        if(tiles.me)tiles.me.v.srcObject=st;
+        state.dispatchEvent(new Event('change'));
+        return restored;
+      };
+      // Некоторые Android-устройства не позволяют открыть второй объектив,
+      // пока предыдущий видеотрек удерживает камеру.
       if(previous){st.removeTrack(previous);previous.stop()}
-      st.addTrack(next);watch(next);tiles.me.v.srcObject=st;state.dispatchEvent(new Event('change'));
-      return next.getCapabilities?.()||{};
+      let stream,next;
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id}},audio:false});
+        next=stream.getVideoTracks()[0];
+        if(!next)throw new Error('Браузер не предоставил видеопоток выбранной камеры.');
+        if(!st){next.stop();return}
+        next.enabled=wasEnabled;
+        for(const sender of senders)await sender.replaceTrack(next);
+        st.addTrack(next);watch(next);
+        if(tiles.me)tiles.me.v.srcObject=st;
+        state.dispatchEvent(new Event('change'));
+        return next.getCapabilities?.()||{};
+      }catch(error){
+        stream?.getTracks().forEach(track=>track.stop());
+        if(next&&st)st.removeTrack(next);
+        if(st&&previous){
+          try{await restorePrevious()}
+          catch(restoreError){
+            if(tiles.me)tiles.me.v.srcObject=st;
+            throw new Error('Chrome не смог запустить выбранную камеру ('+(error?.message||error?.name)+'). Не удалось автоматически восстановить прежнюю камеру ('+(restoreError?.message||restoreError?.name)+'). Разрешите доступ к камере и попробуйте снова.');
+          }
+        }
+        throw new Error('Chrome не смог запустить выбранную камеру: '+(error?.message||error?.name||'неизвестная ошибка')+(previous?' Прежняя камера восстановлена.':''));
+      }
     },
     zoomCaps(){const t=st?.getVideoTracks()[0];const c=t?.getCapabilities?.();return c?.zoom||null},
     async zoom(value){const t=st?.getVideoTracks()[0];if(!t||!t.getCapabilities)return null;const c=t.getCapabilities();if(!c.zoom)return null;await t.applyConstraints({advanced:[{zoom:Math.max(c.zoom.min,Math.min(c.zoom.max,value))}]});return c.zoom},
