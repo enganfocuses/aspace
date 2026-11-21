@@ -12,6 +12,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <title>Aspace</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" href="./assets/app/icon-192.png">
+<link rel="apple-touch-icon" href="./assets/app/icon-180.png">
+<meta name="theme-color" content="#43132a">
 <style>
 :root{--bg:#fffef9;--card:#fffef9;--ink:#3a3a46;--mut:#8a8580;--btn:#B7D1EA;/* TCX 14-4005 */--line:#7f9bbd;/* обводка: замените на цвет 20-0124 */--pink:#eaa8b8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{height:100%;margin:0}
@@ -710,6 +714,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 }
 .vwin .call-settings-panel .call-option{display:flex;align-items:center;gap:8px}
 .vwin .call-option input{width:auto;margin:0}
+.install-aspace[hidden]{display:none!important}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none">
@@ -746,6 +751,46 @@ function themeControl(){return E('label',{className:'theme-control'},E('span',{t
 
 applyTheme();
 if('serviceWorker'in navigator){addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('Aspace offline shell:',e)));}
+const installedDisplay=matchMedia('(display-mode: standalone)');
+let aspaceInstalled=installedDisplay.matches||navigator.standalone===true;
+let installPrompt=null;
+const installButton=E('button',{type:'button',className:'install-aspace',textContent:'Установить Aspace',
+  hidden:aspaceInstalled,onclick:installAspace});
+addEventListener('beforeinstallprompt',event=>{
+  event.preventDefault();
+  installPrompt=event;
+});
+function markAspaceInstalled(){
+  aspaceInstalled=true;
+  installPrompt=null;
+  installButton.hidden=true;
+}
+addEventListener('appinstalled',markAspaceInstalled);
+installedDisplay.addEventListener('change',event=>{if(event.matches)markAspaceInstalled()});
+async function installAspace(){
+  if(aspaceInstalled)return;
+  if(installPrompt){
+    const prompt=installPrompt;
+    installPrompt=null;
+    installButton.disabled=true;
+    try{
+      const {outcome}=await prompt.prompt();
+      if(outcome==='accepted')markAspaceInstalled();
+      return;
+    }catch{}finally{installButton.disabled=false}
+  }
+  const appleMobile=/iPhone|iPad|iPod/.test(navigator.userAgent)||
+    (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const instructions=appleMobile
+    ? 'Открой Aspace в Safari. Нажми «Поделиться» → «На экран Домой» → «Добавить». Если появится переключатель «Открывать как веб-приложение», оставь его включённым.'
+    : 'В Chrome или Edge нажми значок установки в адресной строке либо найди «Установить приложение» в меню браузера. На Android этот пункт может называться «Добавить на главный экран». В Safari на Mac выбери «Файл» → «Добавить в Dock».';
+  const panel=E('dialog',{className:'password-reset-dialog',ariaLabel:'Установить Aspace'},
+    E('h2',{textContent:'Установить Aspace'}),E('p',{textContent:instructions}),
+    B('Закрыть',()=>panel.close()));
+  panel.addEventListener('close',()=>panel.remove(),{once:true});
+  document.body.append(panel);
+  panel.showModal();
+}
 const DB=()=>((window.CFG&&CFG.db)||'').replace(/\/$/,'');
 let auth=null,currentUser=null,activeShareToken=null,storage=null;
 const usageTracker=AspaceUsage.create({scope:CFG.ownerUid,
@@ -1165,7 +1210,7 @@ function loginView(message=''){
   const root=$('#root'),email=E('input',{type:'email',placeholder:'Электронная почта',autocomplete:'username',required:true}),pass=E('input',{type:'password',placeholder:'Пароль',autocomplete:'current-password',required:true}),status=E('div',{className:'mut',textContent:message});
   const submit=E('button',{type:'submit',textContent:'Войти'}); 
   const card=E('form',{className:'box',onsubmit:async e=>{e.preventDefault();status.textContent='Подключаюсь к Firebase…';submit.disabled=true;try{if(!email.value.trim()||!pass.value){status.textContent='Введи электронную почту и пароль.';submit.disabled=false;return}const credential=await auth.signInWithEmailAndPassword(email.value.trim(),pass.value);status.textContent='Пароль принят. Проверяю UID владельца…';if(credential.user.uid!==CFG.ownerUid){status.textContent='Вход выполнен, но UID этой учётной записи не совпадает с UID владельца в config.js. Ожидаемый UID: '+CFG.ownerUid+'; UID аккаунта: '+credential.user.uid+'.';await auth.signOut();submit.disabled=false;return}}catch(e){const messages={'auth/invalid-credential':'Неверная электронная почта или пароль.','auth/user-not-found':'Пользователь не найден в этом Firebase-проекте.','auth/wrong-password':'Неверный пароль.','auth/too-many-requests':'Слишком много попыток. Подожди и попробуй позже.','auth/network-request-failed':'Не удалось связаться с Firebase. Проверь интернет и блокировщики.','auth/unauthorized-domain':'Домен сайта не разрешён в Firebase Authentication → Settings → Authorized domains.'};status.textContent=(messages[e.code]||e.message||'Неизвестная ошибка')+' ('+(e.code||'без кода')+')';submit.disabled=false}}});
-  card.append(E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,E('button',{type:'button',className:'forgot-password',textContent:'Забыла пароль',onclick:()=>passwordResetDialog(email.value.trim())}),status);
+  card.append(E('div',{style:'font-size:38px',textContent:'✿'}),E('h1',{textContent:'Aspace'}),E('div',{className:'mut',textContent:'Личное пространство'}),email,pass,submit,E('button',{type:'button',className:'forgot-password',textContent:'Забыла пароль',onclick:()=>passwordResetDialog(email.value.trim())}),status,installButton);
   root.replaceChildren(E('div',{className:'gate'},card));
 }
 function start(){
@@ -1787,7 +1832,7 @@ function homeView(m){
   for(const [title,description,action,key] of sections){
     const card=E('button',{className:'section-card section-'+key,onclick:action},E('span',{className:'section-art',ariaHidden:'true'}),E('span',{className:'section-copy'},E('strong',{textContent:title}),E('span',{textContent:description})),E('span',{className:'section-enter',textContent:'↗',ariaHidden:'true'}));grid.append(card);
   }
-  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password'),B('Лимиты',()=>go(usageView)),B('Резерв Cloudflare',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer'))));
+  m.append(E('div',{className:'home-masthead'},E('span',{textContent:'✦',ariaHidden:'true'}),E('h1',{textContent:'ASPACE'}),E('span',{textContent:'✦',ariaHidden:'true'})),grid,E('div',{className:'home-footer'},themeControl(),B('⌂ Архитектура',()=>go(architectureView),'architecture-shortcut'),B('Выйти',async()=>{stopPersistentCall();await auth.signOut()}),B('Забыла пароль',()=>passwordResetDialog(),'forgot-password'),B('Лимиты',()=>go(usageView)),B('Резерв Cloudflare',()=>window.open('./cloudflare-standby-preparation.html','_blank','noopener,noreferrer')),installButton));
 }
 
 const boardCallDestinations=[
