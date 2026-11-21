@@ -1416,14 +1416,28 @@ function Call(r,box){
   const me=uid(),pcs={},tiles={},offs=[];let st=null,helloTimer=null;const reconnectTimers=new Map();
   const tile=(id,s,l)=>{
     let w=tiles[id];
-    if(!w){const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w}
+    if(!w){
+      const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});
+      w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w;
+      if(id!=='me')v.addEventListener('click',()=>{
+        v.muted=!v.muted;
+        v.title=v.muted?'Нажмите на видео, чтобы включить звук':'Нажмите на видео, чтобы выключить звук';
+        const playback=v.play();if(playback?.catch)playback.catch(error=>console.warn('Aspace video playback:',error));
+      });
+    }
     w.v.style.filter=filter(id==='me'?appearance:remoteAppearance.get(id));
     const resume=()=>{
       if(w.v.srcObject!==s)w.v.srcObject=s;
       if(document.visibilityState==='hidden')return;
       const playback=w.v.play();
       if(playback?.catch)playback.catch(error=>{
-        if(error?.name!=='NotAllowedError')console.warn('Aspace remote video playback failed:',error);
+        // Chrome/Safari may block autoplay when a remote stream also has audio.
+        // Retry muted so video is visible; the student can enable sound by clicking the tile.
+        if(error?.name==='NotAllowedError'&&id!=='me'){
+          w.v.muted=true;w.v.title='Нажмите на видео, чтобы включить звук';
+          const mutedPlayback=w.v.play();
+          if(mutedPlayback?.catch)mutedPlayback.catch(retryError=>console.warn('Aspace muted video playback failed:',retryError));
+        }else console.warn('Aspace remote video playback failed:',error);
       });
     };
     if(w.v.srcObject!==s)w.v.srcObject=s;
