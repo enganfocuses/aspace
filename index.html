@@ -612,7 +612,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin .vh button{width:30px;min-width:30px;height:30px;min-height:30px;padding:0!important}
 .vwin .vbar,.vwin.home-call-window .vbar{position:relative;left:auto;bottom:auto;transform:none;display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;justify-content:center;gap:3px;flex:0 0 auto;min-height:42px;max-height:none;overflow:visible;opacity:1;padding:3px;background:transparent}
 .vwin .vbar>button,.vwin .vbar>details>summary,.vwin .vh button{display:grid;place-items:center;width:32px;min-width:32px;max-width:32px;height:32px;min-height:32px;padding:0!important;border:0!important;border-radius:6px;background:transparent!important;color:#fff!important;box-shadow:none!important;line-height:1;font-size:21px}
-.vwin .vbar>button.off{color:#ff9299!important}.vwin .vbar>input[type=range]{max-width:55px;min-width:25px;width:45px;padding:0}
+.vwin .vbar>button.off{color:#ff555e!important}.vwin .vbar>input[type=range]{max-width:55px;min-width:25px;width:45px;padding:0}
 .call-settings{position:static}.call-settings>summary{list-style:none;cursor:pointer}.call-settings>summary::-webkit-details-marker{display:none}
 .call-settings-panel{position:absolute;bottom:calc(100% + 5px);right:6px;max-width:calc(100% - 12px);width:250px;max-height:200px;overflow:auto;background:#f6efdf;color:#3b2934;padding:12px;border:1px solid #b7a28c;border-radius:13px;z-index:5;display:grid;gap:9px}.call-settings-panel label{display:grid;gap:3px;font-size:12px}.call-settings-panel select{width:100%;max-width:100%;min-width:0;background:#fffaf2;color:#3b2934}.vwin .call-settings-panel button{color:#3b2934!important;background:#c8b8e8!important;font-size:12px}
 .vwin.min,.vwin.home-call-window.min{height:42px!important;min-height:42px!important;width:230px!important;min-width:190px!important;max-width:calc(100vw - 16px)}
@@ -707,6 +707,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
   background: #43132a !important;
   color: #fff !important;
 }
+.vwin .call-settings-panel .call-option{display:flex;align-items:center;gap:8px}
+.vwin .call-option input{width:auto;margin:0}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <div id="root"></div>
@@ -1281,12 +1283,34 @@ function rhetoricView(m,shelf=''){
 /* ---------- звонок (WebRTC, сигналинг через room) ---------- */
 let ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:global.stun.twilio.com:3478']}];
 const ICE_READY=(async()=>{const c=window.CFG||{};try{if(c.turn&&c.turn.length)ICE.push(...c.turn);if(c.metered&&c.metered.app&&c.metered.key){const j=await(await fetch(`https://${c.metered.app}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(c.metered.key)}`)).json();if(Array.isArray(j))ICE.push(...j)}}catch(e){console.warn('TURN credentials unavailable',e)}return ICE})();
-function compactCallControls(vbar,mic,cam,nz,cams,mics,speakers,fullscreen,leave){
+function compactCallControls(call,vbar,cams,mics,speakers,fullscreen,leave){
+  function mediaButton(kind,title,icon,toggle){
+    const button=E('button',{},ic(icon));
+    const refresh=()=>{
+      const enabled=call.enabled(kind);
+      button.classList.toggle('off',!enabled);
+      button.setAttribute('aria-pressed',String(enabled));
+      button.title=title+' '+(kind==='video'?(enabled?'включена':'выключена'):(enabled?'включён':'выключен'));
+      button.setAttribute('aria-label',button.title);
+    };
+    call.state.addEventListener('change',refresh);
+    button.onclick=async()=>{button.disabled=true;try{await toggle()}catch(error){alert(error.message)}finally{refresh();button.disabled=false}};
+    refresh();return button;
+  }
+  const mic=mediaButton('audio','Микрофон','mic',()=>call.mic());
+  const cam=mediaButton('video','Камера','video',()=>call.cam());
+  function option(title,checked,change){
+    const input=E('input',{type:'checkbox',checked});
+    input.onchange=async()=>{input.disabled=true;try{await change(input.checked)}catch(error){input.checked=!input.checked;alert(error.message)}finally{input.disabled=false}};
+    return E('label',{className:'call-option'},input,title);
+  }
+  const nz=option('Усиленное шумоподавление',true,on=>call.noise(on));
   const settings=E('details',{className:'call-settings'},E('summary',{title:'Настройки звонка',ariaLabel:'Настройки звонка',textContent:'⚙'}),E('div',{className:'call-settings-panel'},nz,E('label',{},'Камера',cams),E('label',{},'Микрофон',mics),E('label',{},'Динамик',speakers)));
   fullscreen.title='На весь экран';fullscreen.setAttribute('aria-label',fullscreen.title);leave.textContent='End call';leave.classList.add('end-call');leave.title='End call';leave.setAttribute('aria-label',leave.title);
-  for(const b of [mic,cam])b.setAttribute('aria-label',b.title);
+
   fullscreen.textContent='⛶';
   const panel=settings.querySelector('.call-settings-panel');
+  panel.prepend(option('Мягкий портрет',false,on=>call.effect('portrait',on)),option('Осветлить лицо',false,on=>call.effect('light',on)));
   for(const zoom of vbar.querySelectorAll(':scope > input[type=range]'))panel.append(E('label',{},'Приближение камеры',zoom));
   vbar.append(mic,cam,settings,fullscreen,leave);
 }
@@ -1301,16 +1325,45 @@ function callIdentity(){
 function Call(r,box){
   const identity=callIdentity();
   const participants=new Map();
-  const send=(type,data)=>r.emit(type,{...data,...identity});
+  const appearance={portrait:false,light:false},remoteAppearance=new Map(),state=new EventTarget();
+  const send=(type,data)=>r.emit(type,{...data,...identity,...(type==='hello'?{appearance}:{})});
+  const filter=fx=>[fx?.portrait===true?'blur(0.45px) saturate(1.04)':'',fx?.light===true?'brightness(1.18) contrast(0.95)':''].filter(Boolean).join(' ')||'none';
+  let strongNoise=true,audioPath=null;
+  const constraints=()=>({echoCancellation:true,noiseSuppression:strongNoise,autoGainControl:true,...(navigator.mediaDevices.getSupportedConstraints?.().voiceIsolation?{voiceIsolation:strongNoise}:{})});
+  async function prepareAudio(raw){
+    let context=null;
+    const close=()=>{if(context)void context.close().catch(()=>{})};
+    try{
+      context=new AudioContext();
+      if(context.state!=='running')await context.resume();
+      const source=context.createMediaStreamSource(new MediaStream([raw])),low=context.createBiquadFilter(),out=context.createMediaStreamDestination();
+      low.type='highpass';low.frequency.value=strongNoise?110:0;
+      source.connect(low).connect(out);
+      return {raw,track:out.stream.getAudioTracks()[0],low,close};
+    }catch{close();return {raw,track:raw,close:()=>{}}}
+  }
+  function watch(track){track.addEventListener('ended',()=>state.dispatchEvent(new Event('change')),{once:true})}
+  async function installAudio(raw){
+    const path=await prepareAudio(raw),old=audioPath;
+    if(!st){raw.stop();path.track.stop();path.close();throw Error('Звонок завершён.')}
+    const enabled=old?.raw.readyState==='live'?old.track.enabled:true;
+    raw.enabled=path.track.enabled=enabled;
+    const senders=Object.values(pcs).flatMap(pc=>pc.getTransceivers().filter(tr=>tr.receiver.track.kind==='audio').map(tr=>tr.sender));
+    try{for(const sender of senders)await sender.replaceTrack(path.track)}
+    catch(error){await Promise.allSettled(senders.map(sender=>sender.replaceTrack(old?.track||null)));raw.stop();path.track.stop();path.close();throw error}
+    if(!st){raw.stop();path.track.stop();path.close();throw Error('Звонок завершён.')}
+    if(old){st.removeTrack(old.track);old.raw.stop();old.track.stop();old.close()}
+    audioPath=path;st.addTrack(path.track);watch(raw);state.dispatchEvent(new Event('change'));return enabled;
+  }
   const iceQueue={};
   const me=uid(),pcs={},tiles={},offs=[];let st=null,helloTimer=null;const reconnectTimers=new Map();
-  const tile=(id,s,l)=>{let w=tiles[id];if(!w){const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w}w.v.srcObject=s;const resume=()=>{if(w.v.srcObject!==s)w.v.srcObject=s;const p=w.v.play();if(p?.catch)p.catch(()=>{})};for(const track of s.getVideoTracks())track.addEventListener('unmute',resume);};
+  const tile=(id,s,l)=>{let w=tiles[id];if(!w){const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w}w.v.style.filter=filter(id==='me'?appearance:remoteAppearance.get(id));w.v.srcObject=s;const resume=()=>{if(w.v.srcObject!==s)w.v.srcObject=s;const p=w.v.play();if(p?.catch)p.catch(()=>{})};for(const track of s.getVideoTracks())track.addEventListener('unmute',resume);};
   // Browsers may suspend video-element rendering while a tab is in the background.
   // Resume playback when the page becomes visible; never stop or replace live tracks.
   const resumeVideo=()=>{if(document.visibilityState!=='visible')return;for(const w of Object.values(tiles)){if(w.v?.srcObject){const p=w.v.play();if(p?.catch)p.catch(()=>{})}}};
   document.addEventListener('visibilitychange',resumeVideo);
   window.addEventListener('pageshow',resumeVideo);
-  const drop=id=>{clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);const pc=pcs[id];delete pcs[id];if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.oniceconnectionstatechange=null;pc.close()}delete iceQueue[id];tiles[id]?.remove();delete tiles[id]};
+  const drop=id=>{clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);const pc=pcs[id];delete pcs[id];if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.oniceconnectionstatechange=null;pc.close()}delete iceQueue[id];remoteAppearance.delete(id);tiles[id]?.remove();delete tiles[id]};
   function acceptParticipant(message){
     if(!message.participant||!Number.isSafeInteger(message.entered))return true;
     if(message.participant===identity.participant)return false;
@@ -1356,6 +1409,7 @@ function Call(r,box){
   offs.push(r.on('hello',m=>{
     const x=m.data;
     if(!st||!x?.from||x.from===me||(x.to&&x.to!==me)||!acceptParticipant(x))return;
+    remoteAppearance.set(x.from,x.appearance);if(tiles[x.from])tiles[x.from].v.style.filter=filter(x.appearance);
     if(!x.to)void send('hello',{from:me,to:x.from});
     if(!pcs[x.from])void mk(x.from,me<x.from).catch(error=>console.warn('Call negotiation failed',error));
   }));
@@ -1369,6 +1423,9 @@ function Call(r,box){
     }catch(e){console.error('WebRTC signaling error',x.k,e)}
   }));
   return{
+    state,
+    enabled(kind){const t=kind==='audio'?audioPath?.raw:st?.getVideoTracks()[0];return !!(t&&t.enabled&&t.readyState==='live')},
+    effect(key,on){appearance[key]=on;if(tiles.me)tiles.me.v.style.filter=filter(appearance);return send('hello',{from:me})},
     async start(){
       await ICE_READY;
       if(!ICE.some(x=>(Array.isArray(x.urls)?x.urls:[x.urls]).some(u=>String(u||'').startsWith('turn:')||String(u||'').startsWith('turns:'))))console.warn('TURN is not configured; VPN/restricted networks may block direct WebRTC');
@@ -1381,15 +1438,15 @@ function Call(r,box){
       helloTimer=setInterval(()=>{if(!Object.values(pcs).some(pc=>pc.connectionState==='connected'))void send('hello',{from:me})},5000)},
     async mic(){
       let t=st?.getAudioTracks()[0];
-      if(t){
-        t.enabled=!t.enabled;
-        return !t.enabled;
+      if(t&&audioPath?.raw.readyState==='live'){
+        t.enabled=!t.enabled;audioPath.raw.enabled=t.enabled;state.dispatchEvent(new Event('change'));
+        return t.enabled;
       }
       if(!st)throw new Error('Сначала подключитесь к видеозвонку.');
       if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Микрофон доступен только на HTTPS или localhost.');
       let ns;
       try{
-        ns=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+        ns=await navigator.mediaDevices.getUserMedia({audio:constraints(),video:false});
       }catch(error){
         const messages={
           NotAllowedError:'Браузер не разрешил доступ к микрофону. Нажмите на значок замка рядом с адресом сайта и разрешите микрофон.',
@@ -1400,28 +1457,19 @@ function Call(r,box){
       }
       t=ns.getAudioTracks()[0];
       if(!t){ns.getTracks().forEach(x=>x.stop());throw new Error('Браузер не предоставил аудиодорожку микрофона.');}
-      st.addTrack(t);
-      try{
-        for(const pc of Object.values(pcs)){
-          const transceiver=pc.getTransceivers().find(x=>x.receiver?.track?.kind==='audio');
-          if(transceiver)await transceiver.sender.replaceTrack(t);
-        }
-      }catch(error){
-        st.removeTrack(t);t.stop();
-        throw new Error('Микрофон разрешён, но не удалось передать звук собеседнику. Переподключитесь к звонку.');
-      }
-      return true;
+      return installAudio(t);
     },
     async cam(){
       let t=st?.getVideoTracks()[0];
-      if(t){t.enabled=!t.enabled;return t.enabled}
+      if(t&&t.readyState==='live'){t.enabled=!t.enabled;state.dispatchEvent(new Event('change'));return t.enabled}if(t)st.removeTrack(t);
       if(!st)throw new Error('Сначала подключитесь к видеозвонку.');
       if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('Камера доступна только на HTTPS или localhost.');
       let ns;
       try{ns=await navigator.mediaDevices.getUserMedia({video:true,audio:false})}
       catch(error){const messages={NotAllowedError:'Браузер запретил доступ к камере. Нажмите на значок настройки сайта рядом с адресом и разрешите камеру.',NotFoundError:'Камера не найдена.',NotReadableError:'Камера занята другой программой.'};throw new Error(messages[error?.name]||('Не удалось включить камеру: '+(error?.message||error?.name)))}
       t=ns.getVideoTracks()[0];if(!t)throw new Error('Браузер не предоставил видеопоток.');
-      st.addTrack(t);
+      if(!st){t.stop();throw Error('Звонок завершён.')}
+      st.addTrack(t);watch(t);
       try{for(const pc of Object.values(pcs)){const tr=pc.getTransceivers().find(x=>x.receiver?.track?.kind==='video');if(tr)await tr.sender.replaceTrack(t)}}
       catch(error){st.removeTrack(t);t.stop();throw new Error('Не удалось подключить камеру к звонку.')}
       if(tiles.me)tiles.me.v.srcObject=st;
@@ -1429,13 +1477,26 @@ function Call(r,box){
     },
     async devices(){return await navigator.mediaDevices.enumerateDevices()},
     async cameras(){return (await this.devices()).filter(d=>d.kind==='videoinput')},
-    async microphone(id){if(!st)return;const ns=await navigator.mediaDevices.getUserMedia({video:false,audio:{deviceId:{exact:id},echoCancellation:true,noiseSuppression:true,autoGainControl:true}}),nt=ns.getAudioTracks()[0],ot=st.getAudioTracks()[0];for(const pc of Object.values(pcs)){const tr=pc.getTransceivers().find(x=>x.receiver?.track?.kind==='audio');if(tr)await tr.sender.replaceTrack(nt)}if(ot){st.removeTrack(ot);ot.stop()}st.addTrack(nt);return nt},
+    async microphone(id){if(!st)return;const ns=await navigator.mediaDevices.getUserMedia({audio:{...constraints(),deviceId:{exact:id}},video:false});return installAudio(ns.getAudioTracks()[0])},
     async speaker(id){for(const w of Object.values(tiles)){if(typeof w.v.setSinkId==='function')await w.v.setSinkId(id)}},
-    async camera(id){if(!st)return;const ns=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id}},audio:false}),nt=ns.getVideoTracks()[0],ot=st.getVideoTracks()[0];for(const pc of Object.values(pcs)){const tr=pc.getTransceivers().find(x=>x.receiver?.track?.kind==='video');if(tr)await tr.sender.replaceTrack(nt)}if(ot){st.removeTrack(ot);ot.stop()}st.addTrack(nt);tiles.me.v.srcObject=st;return nt.getCapabilities?nt.getCapabilities():{}},
+    async camera(id){
+      if(!st)return;
+      const stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:id}},audio:false});
+      const next=stream.getVideoTracks()[0],previous=st?.getVideoTracks()[0];
+      if(!st){next.stop();return}
+      next.enabled=previous?.enabled??true;
+      const senders=Object.values(pcs).flatMap(pc=>pc.getTransceivers().filter(tr=>tr.receiver.track.kind==='video').map(tr=>tr.sender));
+      try{for(const sender of senders)await sender.replaceTrack(next)}
+      catch(error){await Promise.allSettled(senders.map(sender=>sender.replaceTrack(previous||null)));next.stop();throw error}
+      if(!st){next.stop();return}
+      if(previous){st.removeTrack(previous);previous.stop()}
+      st.addTrack(next);watch(next);tiles.me.v.srcObject=st;state.dispatchEvent(new Event('change'));
+      return next.getCapabilities?.()||{};
+    },
     zoomCaps(){const t=st?.getVideoTracks()[0];const c=t?.getCapabilities?.();return c?.zoom||null},
     async zoom(value){const t=st?.getVideoTracks()[0];if(!t||!t.getCapabilities)return null;const c=t.getCapabilities();if(!c.zoom)return null;await t.applyConstraints({advanced:[{zoom:Math.max(c.zoom.min,Math.min(c.zoom.max,value))}]});return c.zoom},
-    async noise(on){await st?.getAudioTracks()[0]?.applyConstraints({noiseSuppression:on,echoCancellation:true,autoGainControl:true})},
-    stop(){clearInterval(helloTimer);document.removeEventListener('visibilitychange',resumeVideo);window.removeEventListener('pageshow',resumeVideo);send('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
+    async noise(on){const previous=strongNoise;strongNoise=on;try{await audioPath?.raw.applyConstraints(constraints());if(audioPath?.low)audioPath.low.frequency.value=on?110:0}catch(error){strongNoise=previous;throw error}},
+    stop(){audioPath?.raw.stop();audioPath?.close();audioPath=null;clearInterval(helloTimer);document.removeEventListener('visibilitychange',resumeVideo);window.removeEventListener('pageshow',resumeVideo);send('bye',{from:me});Object.keys(pcs).forEach(drop);st?.getTracks().forEach(t=>t.stop());tiles.me?.remove();offs.forEach(o=>o&&o());st=null}
   };
 }
 function devicePicker(call,kind,title){
@@ -1531,14 +1592,10 @@ async function roomUI(m,id,name,back){
         alert(e.message);call?.stop();call=null;callRoom?.close();callRoom=null;
         enterCall.disabled=false;enterCall.textContent='Повторить подключение';return;
       }
-      enterCall.remove();let ns=true;
-      const mic=E('button',{title:'Микрофон',onclick:async()=>{try{mic.classList.toggle('off',!await call.mic())}catch(e){alert(e.message)}}},ic('mic')),
-        cam=E('button',{title:'Камера',onclick:async()=>{try{cam.classList.toggle('off',!await call.cam())}catch(e){alert(e.message)}}},ic('video')),
-        nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});
-      nz.classList.add('on');
+      enterCall.remove();
       const cams=devicePicker(call,'videoinput','Камера'),mics=devicePicker(call,'audioinput','Микрофон'),speakers=devicePicker(call,'audiooutput','Динамик');
       const zc=call.zoomCaps();if(zc)vbar.append(E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,title:'Приблизить / отдалить камеру',oninput:e=>call.zoom(+e.target.value)}));
-      compactCallControls(vbar,mic,cam,nz,cams,mics,speakers,B('⛶',fs),B('Выйти',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'}));
+      compactCallControls(call,vbar,cams,mics,speakers,B('⛶',fs),B('Выйти',()=>{close();join.disabled=false;join.textContent='Открыть видеозвонок'}));
     });
     grid.append(enterCall);
     hd.style.touchAction='none';hd.onpointerdown=e=>{
@@ -2875,12 +2932,10 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     const thisWindow=vw;
     const go=B('Включить камеру и войти',async()=>{if(isOwner&&d.entryCall!=='aspace'){d.entryCall='aspace';refreshMeetings();persist()}go.disabled=true;go.textContent='Подключаю канал звонка…';
       try{const callPath=activeShareToken?('/shares/'+encodeURIComponent(activeShareToken)+'/room/call'):('/rooms/'+encodeURIComponent('b-'+id)+'/call');const channel=await room0.join('call-'+id,callPath);if(disposed||vw!==thisWindow){channel.close();return}callRoom=channel;const session=Call(channel,grid);call=session;await session.start();if(disposed||vw!==thisWindow){session.stop();channel.close();return}}catch(e){if(disposed||vw!==thisWindow)return;alert(e.message);call&&call.stop();call=null;callRoom?.close();callRoom=null;go.disabled=false;go.textContent='Включить камеру и войти';return}
-      go.remove();let ns=true;
-      const mic=E('button',{title:'Микрофон',onclick:async()=>{try{mic.classList.toggle('off',!await call.mic())}catch(e){alert(e.message)}}},ic('mic')),cam=E('button',{title:'Камера',onclick:async()=>{try{cam.classList.toggle('off',!await call.cam())}catch(e){alert(e.message)}}},ic('video')),
-        nz=B('Шумодав',async()=>{ns=!ns;await call.noise(ns);nz.classList.toggle('on',ns)});nz.classList.add('on');
+      go.remove();
       const cams=devicePicker(call,'videoinput','Камера'),mics=devicePicker(call,'audioinput','Микрофон'),speakers=devicePicker(call,'audiooutput','Динамик');
       const zc=call.zoomCaps();if(zc)vbar.append(E('input',{type:'range',min:zc.min,max:zc.max,step:zc.step||.1,value:zc.min,title:'Приблизить / отдалить камеру',oninput:e=>call.zoom(+e.target.value)}));
-      compactCallControls(vbar,mic,cam,nz,cams,mics,speakers,B('⛶',fs),B('Выйти',close))});
+      compactCallControls(call,vbar,cams,mics,speakers,B('⛶',fs),B('Выйти',close))});
     grid.append(go);
     hd.style.touchAction='none';hd.onpointerdown=e=>{if(e.target.closest('button,summary,select'))return;hd.setPointerCapture(e.pointerId);const b=vw.getBoundingClientRect(),ox=e.clientX-b.left,oy=e.clientY-b.top;
       hd.onpointermove=ev=>{vw.style.right='auto';vw.style.left=Math.max(0,ev.clientX-ox)+'px';vw.style.top=Math.max(0,ev.clientY-oy)+'px'};hd.onpointerup=()=>{hd.onpointermove=hd.onpointerup=null}};
