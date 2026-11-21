@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Duck Habits — Speakout mini-game</title>
+<style>
+:root{--navy:#12374d;--blue:#bfe5f5;--sky:#eaf7fc;--pink:#efb6d5;--yellow:#ffd65a;--ink:#17384b;--green:#4d9a78;--red:#bd5262}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(#dff3fb 0 42%,#c9e9f3 42% 100%);color:var(--ink);font:16px/1.5 Inter,system-ui,Arial,sans-serif;min-height:100vh}
+header{max-width:900px;margin:auto;padding:22px 20px 10px;display:flex;justify-content:space-between;align-items:center;gap:12px}h1{margin:0;font-size:clamp(27px,5vw,42px);letter-spacing:-1px;color:var(--navy)}.sub{margin:3px 0;color:#416276}.ducklogo{font-size:48px;filter:drop-shadow(2px 4px 0 #8ec8dc)}
+main{max-width:900px;margin:0 auto;padding:10px 18px 35px}.pond{background:linear-gradient(150deg,#80cde0,#54a9c7);border:7px solid #fff;border-radius:28px;padding:clamp(16px,4vw,30px);box-shadow:0 12px 0 #9acddd,0 18px 30px #3d839933;position:relative;overflow:hidden}.pond:before,.pond:after{content:"";position:absolute;border:2px solid #ffffff55;border-radius:50%;width:190px;height:48px;transform:rotate(-18deg);pointer-events:none}.pond:before{right:-35px;top:24px}.pond:after{left:-50px;bottom:30px}
+.hud{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;position:relative;z-index:1}.pill{background:#ffffffdd;border:2px solid #fff;border-radius:99px;padding:6px 13px;font-weight:800;font-size:14px}.progress{height:10px;background:#ffffff80;border-radius:20px;margin:15px 0 20px;overflow:hidden;position:relative;z-index:1}.progress span{height:100%;width:0;display:block;background:var(--yellow);border-radius:20px;transition:width .25s}
+.card{background:#fff;border:3px solid #e9f7fb;border-radius:22px;padding:clamp(17px,4vw,28px);max-width:680px;margin:0 auto;position:relative;z-index:1;box-shadow:0 7px 0 #387f9b55;text-align:center}.round{font-size:13px;font-weight:800;color:#66818f;text-transform:uppercase;letter-spacing:1.2px}.prompt{font-size:clamp(19px,3vw,25px);font-weight:800;line-height:1.3;margin:10px 0 20px}.answers{display:grid;grid-template-columns:1fr;gap:10px}.answer{background:#f2f8fb;border:2px solid #d7e9f0;border-radius:14px;padding:12px 14px;text-align:left;font:inherit;font-weight:700;color:var(--ink);cursor:pointer;transition:.15s}.answer:hover:not(:disabled){transform:translateY(-2px);border-color:#5ca8c2;background:#e5f5fb}.answer:disabled{cursor:default;opacity:.95}.answer.correct{background:#e4f5e9;border-color:#66ad82}.answer.wrong{background:#fff0f1;border-color:#d87986}
+.feedback{min-height:48px;margin:14px 0 0;font-weight:700}.feedback.good{color:#28734d}.feedback.bad{color:#a33d52}.next{background:var(--navy);color:#fff;border:0;border-radius:99px;padding:12px 23px;font:inherit;font-weight:800;cursor:pointer}.next:disabled{opacity:.35;cursor:default}.bottom{display:flex;justify-content:center;margin-top:8px}
+.duckrow{display:flex;justify-content:center;gap:12px;font-size:clamp(30px,6vw,48px);margin:14px 0 0;position:relative;z-index:1}.duck{animation:bob 1.6s ease-in-out infinite}.duck:nth-child(2){animation-delay:.25s}.duck:nth-child(3){animation-delay:.5s}@keyframes bob{50%{transform:translateY(-7px) rotate(4deg)}}
+.start,.finish{text-align:center}.start h2,.finish h2{font-size:clamp(24px,4vw,34px);margin:8px}.start p,.finish p{max-width:570px;margin:8px auto 18px}.start .next,.finish .next{margin:6px}.rules{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px 0}.rules span{background:#eaf7fc;border-radius:12px;padding:8px 11px;font-size:13px;font-weight:700}.hidden{display:none}.foot{text-align:center;color:#52788a;font-size:12px;margin:18px}
+@media(min-width:650px){.answers{grid-template-columns:1fr 1fr}.answer:last-child:nth-child(odd){grid-column:1/-1}}
+</style></head>
+<body>
+<header><div><h1>Duck Habits</h1><p class="sub">A tiny pond. Big life changes. Very opinionated ducks.</p></div><div class="ducklogo" aria-hidden="true">🦆</div></header>
+<main><section class="pond">
+<div class="hud"><span class="pill" id="score">⭐ 0 points</span><span class="pill" id="streak">🔥 Streak: 0</span><span class="pill" id="lives">💛💛💛</span></div>
+<div class="progress"><span id="bar"></span></div>
+<div class="card" id="game">
+<div class="start"><div style="font-size:76px">🦆🦆🦆</div><h2>Welcome to the Habit Pond!</h2><p>The ducks have made a terrible mess of their routines. Help them choose the right English expressions and fix their habits. Get 10 questions right if you can — no bribing the ducks with crisps.</p><div class="rules"><span>🎯 Vocabulary</span><span>⏳ Present Perfect Continuous</span><span>🏆 10 rounds</span></div><button class="next" onclick="startGame()">Let's waddle!</button></div>
+</div><div class="duckrow" aria-hidden="true"><span class="duck">🦆</span><span class="duck">🦆</span><span class="duck">🦆</span></div>
+</section><p class="foot">Speakout · Lesson 2A · Making changes &amp; Present Perfect Continuous</p></main>
+<script>
+const BANK = [
+{q:"Daisy wants to run a 5K. First, she needs to ______.",a:["set a goal","make a goal","do a goal"],c:0,e:"We say set a goal."},
+{q:"She trained every week and finally ______ her goal.",a:["made","achieved","stuck"],c:1,e:"Achieve a goal = succeed in doing what you planned."},
+{q:"The duck found exercise difficult, but she decided to ______.",a:["make an effort","do an effort","take an effort"],c:0,e:"Make an effort = try hard."},
+{q:"Don't ______ now! You're doing brilliantly.",a:["give up","take up","put up"],c:0,e:"Give up = stop trying or stop doing something."},
+{q:"If you want to change a habit, you have to ______.",a:["stick to it","stick it to","stay it"],c:0,e:"Stick to it = continue doing something, even when it's difficult."},
+{q:"Oliver has decided to ______ yoga. He has his first class tomorrow.",a:["take up","give up","put off"],c:0,e:"Take up = start a new hobby or activity."},
+{q:"I keep ______ my homework until the last minute.",a:["putting off","taking up","sticking to"],c:0,e:"Put off = delay doing something."},
+{q:"The ducks are trying to ______ eating crisps.",a:["give up","set up","achieve"],c:0,e:"Give up eating crisps = stop eating them."},
+{q:"Every morning, Mia goes ______ before breakfast.",a:["swimming","to swim","swim"],c:0,e:"Go swimming is the natural activity expression."},
+{q:"You made a plan. Now keep ______!",a:["going","to go","go"],c:0,e:"Keep going = continue."},
+{q:"I've been ______ to change my habits recently.",a:["trying","try","tried"],c:0,e:"Present Perfect Continuous: have/has been + -ing."},
+{q:"We've been living by the pond ______ three years.",a:["for","since","from"],c:0,e:"Use for with a period of time."},
+{q:"I've been doing yoga ______ January.",a:["for","since","during"],c:1,e:"Use since with the starting point."},
+{q:"How long ______ you been trying to stop eating crisps?",a:["have","has","are"],c:0,e:"Question form: How long have you been + -ing?"},
+{q:"He ______ been working seven days a week since he was twenty-two.",a:["has","have","is"],c:0,e:"He + has been + verb-ing."},
+{q:"I ______ been drinking coffee for a long time.",a:["have","has","am"],c:0,e:"I + have been + verb-ing."},
+{q:"The duck is exhausted. She ______ been swimming all morning.",a:["has","have","is"],c:0,e:"She + has been + verb-ing."},
+{q:"Which sentence describes an activity that is still continuing?",a:["I've been learning English for two years.","I learned English in 2020.","I learn English yesterday."],c:0,e:"Present Perfect Continuous can describe an activity continuing up to now."},
+{q:"Choose the correct sentence.",a:["I've been trying to change my habits recently.","I have trying to change my habits recently.","I've been try to change my habits recently."],c:0,e:"have/has + been + verb-ing."},
+{q:"The duck wants to stop a bad habit and start a good one. She wants to ______.",a:["make a change","do a change","take a change"],c:0,e:"Make a change is the correct collocation."}
+];
+let questions=[],index=0,points=0,streak=0,lives=3,answered=false;
+const $=id=>document.getElementById(id);
+function shuffle(arr){return [...arr].sort(()=>Math.random()-.5)}
+function startGame(){questions=shuffle(BANK).slice(0,10);index=0;points=0;streak=0;lives=3;answered=false;render();}
+function render(){
+ $('score').textContent='⭐ '+points+' points';$('streak').textContent='🔥 Streak: '+streak;$('lives').textContent='💛'.repeat(lives)+'🤍'.repeat(3-lives);
+ $('bar').style.width=(index/questions.length*100)+'%';
+ if(lives<=0||index>=questions.length){finish();return;}
+ const q=questions[index];answered=false;
+ $('game').innerHTML='<div class="round">Question '+(index+1)+' of '+questions.length+'</div><div class="prompt">'+q.q+'</div><div class="answers">'+q.a.map((v,i)=>'<button class="answer" onclick="choose('+i+')">'+String.fromCharCode(65+i)+'. '+v+'</button>').join('')+'</div><div class="feedback" id="feedback" aria-live="polite"></div><div class="bottom"><button class="next" id="next" onclick="nextQuestion()" disabled>Next duck →</button></div>';
+}
+function choose(choice){
+ if(answered)return;answered=true;const q=questions[index];const buttons=[...document.querySelectorAll('.answer')];
+ buttons.forEach((b,i)=>{b.disabled=true;if(i===q.c)b.classList.add('correct');else if(i===choice)b.classList.add('wrong');});
+ const good=choice===q.c;const f=$('feedback');
+ if(good){points+=10+Math.min(streak,5)*2;streak++;f.className='feedback good';f.textContent='Quack-tastic! '+q.e;}
+ else{lives--;streak=0;f.className='feedback bad';f.textContent='Oh, crumbs! '+q.e;}
+ $('score').textContent='⭐ '+points+' points';$('streak').textContent='🔥 Streak: '+streak;$('lives').textContent='💛'.repeat(lives)+'🤍'.repeat(3-lives);
+ $('next').disabled=false;$('next').textContent=index===questions.length-1||lives===0?'See my pond report':'Next duck →';
+}
+function nextQuestion(){if(!answered)return;index++;render();}
+function finish(){
+ $('bar').style.width=(Math.min(index,questions.length)/questions.length*100)+'%';
+ const won=lives>0&&points>=70;
+ let headline=won?'Habit hero!':'The ducks need another pep talk!';
+ let quip=points>=90?'The pond is now a productivity paradise.':points>=60?'Solid effort. One duck has stopped eating crisps.': 'The ducks got distracted by a floating biscuit. Try again!';
+ $('game').innerHTML='<div class="finish"><div style="font-size:76px">'+(won?'🏆🦆':'🦆🥨')+'</div><h2>'+headline+'</h2><p><b>'+points+' points</b> · '+Math.min(index,questions.length)+' questions reached · '+(lives>0?'All ducks survived!': 'The ducks ran out of patience.')+'</p><p>'+quip+'</p><div class="rules"><span>Correct answers earn points</span><span>Streaks earn bonus points</span><span>3 mistakes end the game</span></div><button class="next" onclick="startGame()">Play again</button></div>';
+ $('score').textContent='⭐ '+points+' points';$('streak').textContent='🔥 Best streak: '+streak;$('lives').textContent=lives>0?'🦆 All safe':'🩹 Needs practice';
+}
+</script></body></html>
