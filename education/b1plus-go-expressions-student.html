@@ -144,7 +144,7 @@ function check(id){
  if(id===1){GAP.forEach((x,i)=>{total++;const val=norm(document.getElementById("g"+i).value);const options=x[1].split(" / ").map(norm);const ok=options.includes(val);if(ok)correct++;document.getElementById("gm"+i).classList.add("show");document.getElementById("g"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
  if(id===2){manual=true;TRANS.forEach((x,i)=>document.getElementById("tm"+i).classList.add("show"));total=TRANS.length;}
  if(id===3){GRAM.forEach((x,i)=>{total++;const val=norm(document.getElementById("p"+i).value);const options=x[1].split(" / ").map(norm);const ok=options.some(o=>val===o);if(ok)correct++;document.getElementById("pm"+i).classList.add("show");document.getElementById("p"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
- if(id===4){manual=true;ERR.forEach((x,i)=>document.getElementById("em"+i).classList.add("show"));total=ERR.length;}
+ if(id===4){ERR.forEach((x,i)=>{total++;const val=norm(document.getElementById("e"+i).value);const options=x[1].split(" / ").map(norm);const ok=options.includes(val);if(ok)correct++;document.getElementById("em"+i).classList.add("show");document.getElementById("e"+i).style.borderColor=ok?"#287b5a":"#a33d52";});}
  if(id===5){manual=true;total=1;}
  checked[id]={correct,total,manual};
  const f=document.getElementById("f"+id);
