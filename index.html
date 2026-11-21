@@ -3639,7 +3639,9 @@ async function eduView(m){
   history.replaceState(null,'',location.pathname+location.search+'#english');
   const tools=[
     {url:'./education/english-file-elementary-builder.html',title:'English File Elementary · Fifth Edition',file:'English-File-Elementary-5th-Edition.html',version:2,localProgress:true},
-    {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html'}
+    {url:'./education/speakout-b1plus-builder.html',title:'Speakout B1+',file:'Speakout-B1plus-Course-Builder.html'},
+    {url:'./education/b1plus-go-expressions-teacher.html',title:'Collocations Test · B1+',file:'Collocations-Test-B1plus.html'},
+    {url:'./education/duck-habits-game.html',title:'🦆 Duck Habits · Game',file:'Duck-Habits-Game.html'}
   ];
   const owner=currentUser.uid, key='builders:'+owner,urls=[];
   const tabs=E('div',{className:'builder-tabs',ariaLabel:'Выбрать учебник'}),upload=E('input',{type:'file',accept:'.html,.htm',ariaLabel:'Загрузить сборщик HTML'});
