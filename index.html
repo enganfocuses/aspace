@@ -55,6 +55,7 @@ canvas{position:absolute;inset:0;touch-action:none}
 .vid.big{width:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 .tile{position:relative;background:#222;border-radius:14px;overflow:hidden;aspect-ratio:4/3}
 .tile video{width:100%;height:100%;object-fit:cover}
+.tile .call-pip{position:absolute;top:6px;right:6px;z-index:2;padding:4px 9px;font-size:12px;background:#fff;color:#43132a}
 .tile span{position:absolute;left:8px;bottom:6px;color:#fff;font-size:12px;background:#0007;padding:1px 8px;border-radius:8px}
 pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0}
 .mut{color:var(--mut);font-size:13px}
@@ -1419,39 +1420,47 @@ function Call(r,box){
     if(!w){
       const v=E('video',{autoplay:true,playsInline:true,muted:id==='me'});
       w=E('div',{className:'tile'},v,E('span',{textContent:l}));w.v=v;box.append(w);tiles[id]=w;
-      if(id!=='me')v.addEventListener('click',()=>{
-        v.muted=!v.muted;
-        v.title=v.muted?'Нажмите на видео, чтобы включить звук':'Нажмите на видео, чтобы выключить звук';
-        const playback=v.play();if(playback?.catch)playback.catch(error=>console.warn('Aspace video playback:',error));
-      });
+      w.resume=async()=>{
+        if(!v.srcObject?.getTracks().length||!v.paused)return;
+        try{await v.play()}catch(error){
+          if(error.name!=='NotAllowedError'||id==='me'||v.muted)return;
+          v.muted=true;v.title='Нажмите на видео, чтобы включить звук';
+          try{await v.play()}catch{}
+        }
+      };
+      if(id!=='me'){
+        v.addEventListener('click',()=>{
+          v.muted=!v.muted;
+          v.title=v.muted?'Нажмите на видео, чтобы включить звук':'Нажмите на видео, чтобы выключить звук';
+          void w.resume();
+        });
+        const standard=document.pictureInPictureEnabled&&typeof v.requestPictureInPicture==='function';
+        if(standard||typeof v.webkitSetPresentationMode==='function'){
+          const pip=B('Поверх вкладок',async()=>{
+            try{
+              if(standard){
+                if(document.pictureInPictureElement===v)await document.exitPictureInPicture();
+                else await v.requestPictureInPicture();
+              }else v.webkitSetPresentationMode(v.webkitPresentationMode==='picture-in-picture'?'inline':'picture-in-picture');
+            }catch{alert('Не удалось открыть видео поверх вкладок. Проверь, что камера собеседника включена.')}
+          });
+          pip.type='button';pip.className='call-pip';pip.hidden=v.readyState<2||!v.videoWidth;
+          const update=()=>{pip.hidden=!v.videoWidth||v.readyState<2;pip.textContent=document.pictureInPictureElement===v||v.webkitPresentationMode==='picture-in-picture'?'Вернуть на доску':'Поверх вкладок'};
+          for(const event of ['loadeddata','resize','enterpictureinpicture','leavepictureinpicture','webkitpresentationmodechanged'])v.addEventListener(event,update);
+          w.append(pip);
+        }
+      }
+      w.tracks=new WeakSet();
     }
     w.v.style.filter=filter(id==='me'?appearance:remoteAppearance.get(id));
-    const resume=()=>{
-      if(w.v.srcObject!==s)w.v.srcObject=s;
-      if(document.visibilityState==='hidden')return;
-      const playback=w.v.play();
-      if(playback?.catch)playback.catch(error=>{
-        // Chrome/Safari may block autoplay when a remote stream also has audio.
-        // Retry muted so video is visible; the student can enable sound by clicking the tile.
-        if(error?.name==='NotAllowedError'&&id!=='me'){
-          w.v.muted=true;w.v.title='Нажмите на видео, чтобы включить звук';
-          const mutedPlayback=w.v.play();
-          if(mutedPlayback?.catch)mutedPlayback.catch(retryError=>console.warn('Aspace muted video playback failed:',retryError));
-        }else console.warn('Aspace remote video playback failed:',error);
-      });
-    };
     if(w.v.srcObject!==s)w.v.srcObject=s;
-    for(const track of s.getVideoTracks()){
-      track.addEventListener('unmute',resume);
-      track.addEventListener('ended',resume,{once:true});
+    for(const track of s.getTracks()){
+      if(w.tracks.has(track))continue;
+      w.tracks.add(track);track.addEventListener('unmute',w.resume);
     }
-    // ontrack may run after the receiver has already unmuted the track.
-    // Always attempt playback immediately instead of waiting only for unmute.
-    resume();
+    void w.resume();
   };
-  // Browsers may suspend video-element rendering while a tab is in the background.
-  // Resume playback when the page becomes visible; never stop or replace live tracks.
-  const resumeVideo=()=>{if(document.visibilityState!=='visible')return;for(const w of Object.values(tiles)){if(w.v?.srcObject){const p=w.v.play();if(p?.catch)p.catch(()=>{})}}};
+  const resumeVideo=()=>{if(document.visibilityState==='visible')for(const w of Object.values(tiles))void w.resume()};
   document.addEventListener('visibilitychange',resumeVideo);
   window.addEventListener('pageshow',resumeVideo);
   const drop=id=>{clearTimeout(reconnectTimers.get(id));reconnectTimers.delete(id);const pc=pcs[id];delete pcs[id];if(pc){pc.ontrack=null;pc.onicecandidate=null;pc.oniceconnectionstatechange=null;pc.close()}delete iceQueue[id];remoteAppearance.delete(id);tiles[id]?.remove();delete tiles[id]};
