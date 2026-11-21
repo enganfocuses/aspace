@@ -2421,7 +2421,9 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       if(old){if(JSON.stringify(old)!==JSON.stringify(next)){Object.assign(old,next);old.arrows=next.arrows;upsert(old)}return old}
       const item=cloneBoard(next);upsert(item);return item;
     });
-    strokes=cloneBoard(value.strokes||[]);bg=value.bg||'dots';d.name=value.name||d.name;
+    strokes=cloneBoard(value.strokes||[]);
+    if(cur&&!cur.erase){strokes=strokes.filter(stroke=>stroke.id!==cur.id);strokes.push(cur)}
+    bg=value.bg||'dots';d.name=value.name||d.name;
     d.entryCall=value.entryCall||'';
     d.announcement=value.announcement&&typeof value.announcement.text==='string'?value.announcement:null;
     renderAnnouncement();
@@ -2671,7 +2673,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
   let strokePacketSeq=0;
   const sendStroke=s=>r.emit('sp',{id:s.id,c:s.c,w:s.w,e:s.e,m:s.m,ar:s.ar,a:0,p:s.p,q:++strokePacketSeq,f:1});
   const doUndo=()=>{const o=undo.pop();if(!o)return;if((o.t==='i'||o.t==='d')&&o.n.locked){undo.push(o);return}redo.push(o);
-    if(o.t==='s'){strokes=strokes.filter(s=>s!==o.s);redraw();r.emit('ds',{id:o.s.id})}
+    if(o.t==='s'){strokes=strokes.filter(s=>s.id!==o.s.id);redraw();r.emit('ds',{id:o.s.id})}
     else if(o.t==='i')delItem(o.n,1);else if(o.t==='u')restoreItemStates(o.before);else if(o.t==='scale')return applyScaleGeometry(o.before);else if(o.t==='er'){strokes.push(...o.strokes);redraw();o.strokes.forEach(sendStroke);persistNow()}else{items.push(o.n);upsert(o.n);r.emit('i',{n:o.n})}persist()};
   const doRedo=()=>{const o=redo.pop();if(!o)return;if((o.t==='d'||o.t==='i')&&o.n.locked){redo.push(o);return}undo.push(o);
     if(o.t==='s'){strokes.push(o.s);redraw();sendStroke(o.s)}
@@ -2846,7 +2848,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
       remoteStrokeSeq.set(o.id,o.q);
     }else if(remoteStrokeFinal.has(o.id))return;
     let s=strokes.find(q=>q.id===o.id);const had=!!s;
-    if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,ar:o.ar,ln:o.ar!==undefined&&o.a===0,p:[]};strokes.push(s)}
+    if(!s){s={id:o.id,c:o.c,w:o.w,e:o.e,m:o.m,...(o.ar!==undefined?{ar:o.ar,ln:1}:{}),p:[]};strokes.push(s)}
     if(o.a===0&&Number.isFinite(o.w))s.w=o.w;
     if(o.f){s.p=Array.isArray(o.p)?o.p.slice():[];remoteStrokeFinal.add(o.id);redraw()}
     else{s.p=s.p.slice(0,o.a).concat(o.p);if(had&&o.a===0)redraw();else seg(s,o.a)}
@@ -2878,7 +2880,7 @@ async function openBoard(m,id,guest,shareToken=null,listedBoard=null){
     lastStateReply=Date.now();
     r.emit('state',{strokes,items,bg,siteUrl:d.siteUrl||''});
   });
-  r.on('state',x=>{if(got||!x.data||unsyncedShareDraft)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
+  r.on('state',x=>{if(got||!x.data||unsyncedShareDraft)return;if(cur||editEpoch)return;got=true;strokes=x.data.strokes||[];items=x.data.items||[];bg=x.data.bg||bg;d.siteUrl=x.data.siteUrl||d.siteUrl||'';wrap.className='wrap '+bg;sc.className='bscroll '+bg;renderSite();redraw();renderAll()});
   /* картинки / PDF */
   const addImg=(u,w,h,x,y)=>{const dw=Math.min(w,460),n={id:uid(),k:'img',u,x,y,w:dw,h:h*dw/w};items.push(n);upsert(n);r.emit('i',{n});rec({t:'i',n})};
   const xml=t=>String(t??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&apos;'}[c]));
