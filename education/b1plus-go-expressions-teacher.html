@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>B1+ | Changes & Transformations — Teacher's pack</title>
+<style>
+:root{--bg:#f7f4fa;--paper:#fff;--ink:#30243a;--muted:#766b80;--accent:#76527f;--accent2:#a77a9f;--line:#e7deeb;--soft:#f0e8f3;--ok:#287b5a;--bad:#a33d52}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Inter,system-ui,Arial,sans-serif}header{background:linear-gradient(120deg,#49334f,#795779);color:#fff;padding:28px max(20px,calc((100% - 1160px)/2))}header h1{font-size:clamp(25px,4vw,38px);margin:0}header p{margin:5px 0 0;color:#f0e8f2}.wrap{max-width:1160px;margin:auto;padding:22px}.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:16px}button,a.btn{font:inherit;border:1px solid #d9c9df;border-radius:10px;padding:10px 14px;background:var(--soft);color:var(--ink);cursor:pointer;text-decoration:none}button.primary,.primary{background:var(--accent);color:white;border-color:var(--accent)}.layout{display:grid;grid-template-columns:245px 1fr;gap:18px}.side,.content,.panel{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:17px;min-width:0}.side{height:max-content;position:sticky;top:12px}.nav button{display:block;width:100%;text-align:left;margin:5px 0;background:white;border-color:transparent}.nav button.active{background:var(--soft);border-color:#d9c9df}.meta{color:var(--muted);font-size:13px}.tag{display:inline-block;background:var(--soft);border-radius:30px;padding:3px 9px;font-size:12px;margin:2px}.task{background:#fbf9fc;border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}.task h3{margin:0 0 8px;font-size:17px}.key{display:none;background:#f2faf6;border-left:3px solid var(--ok);padding:10px 12px;margin-top:9px}.key.show{display:block}.item{padding:8px 0;border-bottom:1px solid #eee8f0}.item:last-child{border:0}.answer{color:#287b5a;font-weight:600}input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:white;color:var(--ink)}input[type=text]{width:100%;max-width:600px}textarea{width:100%;min-height:80px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}.note{background:#f8f3fa;border-left:4px solid var(--accent);padding:12px 14px;border-radius:10px}.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.controls label{display:flex;gap:7px;align-items:center}.hide{display:none}.copybox{width:100%;min-height:75px}.studentlink{overflow-wrap:anywhere;background:#f7f4fa;padding:12px;border-radius:10px}.small{font-size:12px;color:var(--muted)}@media(max-width:780px){.layout{grid-template-columns:1fr}.side{position:static}.nav{display:grid;grid-template-columns:repeat(2,1fr)}}@media print{header{background:white;color:black;border-bottom:2px solid #777;padding:15px}.wrap{padding:0}.side,.toolbar,.no-print{display:none!important}.layout{display:block}.content,.panel{border:0}.key{display:block!important}}
+</style></head><body>
+<header><h1>Changes & Transformations</h1><p>B1+ Vocabulary & Grammar Trainer · Teacher's pack</p></header>
+<div class="wrap">
+<div class="toolbar no-print"><button onclick="window.print()">Print / Save PDF</button><button class="primary" onclick="showLinkPanel()">Create student link</button><a class="btn" href="b1plus-go-expressions-student.html">Open student version ↗</a></div>
+<div class="note"><b>Lesson focus:</b> common verb + adjective combinations for changes, plus Present Perfect Simple and Present Perfect Continuous. Suggested level: B1+.</div>
+<div class="layout" style="margin-top:16px"><aside class="side"><h3>Teacher navigation</h3><nav class="nav" id="nav"></nav><p class="small">Use the answer buttons to reveal keys. Student tasks are designed for typed answers and self-checking.</p></aside>
+<main class="content" id="main"></main></div>
+<section class="panel no-print hide" id="linkPanel" style="margin-top:18px"><h2>Student assignment link</h2><p>Select the sections you want the student to complete. The generated link opens the separate student HTML file with those sections selected.</p><div class="checks" id="checks"></div><div class="controls"><button class="primary" onclick="makeLink()">Generate link</button><button onclick="copyLink()">Copy link</button></div><p id="linkOut" class="studentlink"></p><p class="small">The link contains the assignment selection only. Student answers stay in the student's browser and are not sent to a server.</p></section>
+</div>
+<script>
+const V=[
+["go mad","to become extremely angry","The coach went mad when the players lost."],
+["go wild","to become very excited or enthusiastic","Everyone went wild when the band came on stage."],
+["go grey","to become grey, especially hair","His hair has started to go grey."],
+["go blind","to lose the ability to see","The old dog slowly went blind."],
+["go deaf","to lose the ability to hear","He went deaf after years of working with loud machines."],
+["go red","to become red in the face, usually because of embarrassment","She went red when everyone sang to her."],
+["go dark","to become dark","The sky went dark before the storm."],
+["go yellow","to become yellow over time","The pages have gone yellow."],
+["turn gold","to become golden in colour","The sky turned gold at sunset."],
+["turn white","to become white or very pale","Her hair turned white after the shock."],
+["become pregnant","to start expecting a baby","She stopped smoking when she became pregnant."],
+["get/become angry","to start feeling anger","He got angry when the waiter forgot his order."],
+["get/become bored","to start feeling uninterested","I get bored during long meetings."],
+["get/become excited","to start feeling enthusiastic","The children got excited before the trip."],
+["get/become depressed","to start feeling very unhappy for a long time","He became depressed after the loss."],
+["get/become upset","to start feeling unhappy or worried","Don't get upset — it's only a game."],
+["get/become impatient","to stop being willing to wait","The passengers became impatient."],
+["get/become violent","to start behaving aggressively","The situation got violent."],
+["become extinct","to stop existing as a species","The species became extinct long ago."],
+["become homeless","to lose one's home","Many families became homeless after the flood."],
+["become famous","to become well known","The bakery has become famous for its tarts."],
+["fall ill","to become ill","She fell ill and was taken to hospital."],
+["fall silent","to become completely quiet","The room fell silent."],
+["grow older","to become older","As he grew older, he travelled less."],
+["grow louder","to become louder gradually","The noise grew louder."],
+["turn red","to become red, often because of embarrassment","He turned red when the nurse took the blood."]
+];
+const GAP=[
+["When the coach saw the final score, he ______ mad.","went"],
+["The audience ______ wild when the singer appeared.","went"],
+["The old photographs have ______ yellow over the years.","gone"],
+["The sky ______ dark and we hurried home.","went"],
+["The sunset ______ gold as the sun disappeared.","turned"],
+["He ______ deaf after working in a noisy factory for years.","went"],
+["The room ______ silent when the announcement was made.","fell"],
+["The children ______ excited about their school trip.","got / became"],
+["The passengers were beginning to ______ impatient.","get / become"],
+["Several rare animals have ______ extinct.","become"],
+["She ______ ill a few days before the exam.","fell"],
+["The sound of the engine ______ louder as the car approached.","grew"],
+["He ______ red when everyone looked at him.","went / turned"],
+["The small company has ______ famous for its handmade products.","become"]
+];
+const TRANS=[
+["Когда тренер увидел результат, он очень разозлился.","When the coach saw the result, he went mad."],
+["Все пришли в восторг, когда группа вышла на сцену.","Everyone went wild when the band came on stage."],
+["Его волосы начали седеть.","His hair has started to go grey."],
+["С годами страницы этой книги пожелтели.","The pages of this book have gone yellow over the years."],
+["Небо стало золотым на закате.","The sky turned gold at sunset."],
+["Она покраснела, когда все начали петь.","She went red when everyone started singing."],
+["После долгих лет работы с громкими машинами он оглох.","He went deaf after years of working with loud machines."],
+["Пассажиры начали терять терпение, потому что поезд задерживался.","The passengers were becoming impatient because the train was delayed."],
+["Этот вид вымер более ста лет назад.","This species became extinct more than a hundred years ago."],
+["После наводнения многие семьи остались без жилья.","Many families became homeless after the flood."],
+["Она заболела и её отвезли в больницу.","She fell ill and was taken to hospital."],
+["В комнате стало тихо, когда они услышали эту новость.","The room fell silent when they heard the news."],
+["Шум постепенно становился громче.","The noise was gradually growing louder."],
+["В последнее время я стал(а) чаще уставать.","I have been getting tired more often lately."]
+];
+const GRAM=[
+["I ______ (know) Maya for six years.","have known","State verb: use Present Perfect Simple."],
+["They ______ (repair) the road since Monday, and they haven't finished yet.","have been repairing","An ongoing activity with a visible unfinished result."],
+["She ______ already ______ (send) the email.","has already sent","Completed action; already commonly appears with Present Perfect Simple."],
+["How long ______ you ______ (wait)?","have you been waiting","Focus on duration of an ongoing activity."],
+["We ______ (not see) him since the conference.","haven't seen","A period continuing from the past until now."],
+["I'm exhausted because I ______ (work) all morning.","have been working","Recent activity with a present result."],
+["He ______ never ______ (be) abroad.","has never been","Life experience up to now."],
+["It ______ (rain) for three hours. The streets are flooded.","has been raining","Duration and evidence of a continuing/recent activity."],
+["How many emails ______ you ______ (write) today?","have you written","Focus on the number / completed result."],
+["I ______ (read) this book for two weeks, but I'm only halfway through.","have been reading","An unfinished activity continuing over a period."],
+["The children ______ just ______ (go) to bed.","have just gone","A recently completed action."],
+["She ______ (teach) at this school since 2021.","has taught / has been teaching","Both can work: state/period or ongoing activity; context matters."]
+];
+const ERR=[
+["He has been knowing her since school.","He has known her since school."],
+["I've finished my project yesterday.","I finished my project yesterday."],
+["How long are you waiting here?","How long have you been waiting here?"],
+["She has wrote three reports today.","She has written three reports today."],
+["They have been lived here for ten years.","They have lived here for ten years."],
+["I'm tired because I have worked all night (and I'm still working).","I'm tired because I have been working all night."],
+["Did you ever go to London?","Have you ever been to London?"],
+["The situation has become worse since Monday.","The situation has got/gotten worse since Monday. / The situation has become worse since Monday. (Both acceptable in context.)"]
+];
+const SECTIONS=["Vocabulary: match the meaning","Vocabulary: complete the expressions","Translation: Russian → English","Grammar: Present Perfect Simple or Continuous","Correct the mistakes","Speaking & writing extension"];
+let active=0;
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function reveal(id){document.getElementById(id).classList.toggle("show");}
+function nav(){document.getElementById("nav").innerHTML=SECTIONS.map((s,i)=>'<button class="'+(i===active?'active':'')+'" onclick="active='+i+';render()">'+(i+1)+'. '+s+'</button>').join("");}
+function keyBox(id,html){return '<div class="key" id="'+id+'">'+html+'</div>';}
+function render(){
+nav();let h="";
+if(active===0){
+ const defs=V.map(x=>x[1]).sort((a,b)=>a.localeCompare(b));
+ h='<h2>Vocabulary: match the meaning</h2><p class="meta">Match each expression with its English definition. No translation is needed.</p><div class="task"><h3>Student task</h3>'+V.map((x,i)=>'<div class="item">'+(i+1)+'. <b>'+esc(x[0])+'</b><div class="meta">'+esc(x[2])+'</div></div>').join("")+'</div><div class="task"><h3>Definitions for matching</h3><ol>'+defs.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ol>'+keyBox("k0",'<b>Suggested matching key:</b><ol>'+V.map(x=>'<li>'+esc(x[0])+' — '+esc(x[1])+'</li>').join("")+'</ol>')+'<button onclick="reveal(\\'k0\\')">Show answer key</button></div>';
+}
+if(active===1)h='<h2>Vocabulary: complete the expressions</h2><p class="meta">Complete each sentence with the correct form of the expression in brackets.</p><div class="task"><ol>'+GAP.map(x=>'<li>'+esc(x[0])+' <span class="answer">'+esc(x[1])+'</span></li>').join("")+'</ol></div>';
+if(active===2)h='<h2>Translation: Russian → English</h2><p class="meta">At least 10 sentences; encourage natural, accurate translations rather than word-for-word versions.</p><div class="task"><ol>'+TRANS.map(x=>'<li>'+esc(x[0])+'</li>').join("")+'</ol>'+keyBox("k2",'<ol>'+TRANS.map(x=>'<li>'+esc(x[1])+'</li>').join("")+'</ol>')+'<button onclick="reveal(\\'k2\\')">Show suggested translations</button></div>';
+if(active===3)h='<h2>Grammar: Present Perfect Simple or Continuous</h2><p class="meta">Focus on form, meaning, duration, result and state verbs.</p><div class="task"><ol>'+GRAM.map(x=>'<li>'+esc(x[0])+'<div class="answer">'+esc(x[1])+'</div><div class="meta">'+esc(x[2])+'</div></li>').join("")+'</ol></div>';
+if(active===4)h='<h2>Correct the mistakes</h2><p class="meta">Each sentence contains an error or an unsuitable tense choice. Correct it and explain why.</p><div class="task"><ol>'+ERR.map(x=>'<li>'+esc(x[0])+'<div class="answer">'+esc(x[1])+'</div></li>').join("")+'</ol></div>';
+if(active===5)h='<h2>Speaking & writing extension</h2><div class="task"><h3>Speaking prompts</h3><ol><li>Have you ever gone red because you were embarrassed? What happened?</li><li>What kinds of news make people go wild? Give examples.</li><li>What habits have you been trying to change recently?</li><li>How has your hometown changed since you were a child?</li><li>What have you been doing to improve your English?</li></ol></div><div class="task"><h3>Writing task</h3><p>Write 120–150 words about changes in your life over the last few years. Use at least six expressions from the vocabulary list, three examples of Present Perfect Simple and three examples of Present Perfect Continuous.</p><p class="meta">Assessment: range and accuracy of target expressions · tense choice · organisation · spelling and punctuation.</p></div>';
+document.getElementById("main").innerHTML=h;
+}
+function showLinkPanel(){document.getElementById("linkPanel").classList.remove("hide");}
+function makeLink(){
+ const chosen=[...document.querySelectorAll("#checks input:checked")].map(x=>x.value);
+ const base=new URL("b1plus-go-expressions-student.html",location.href);
+ base.hash="assignment="+btoa(unescape(encodeURIComponent(JSON.stringify({v:1,sections:chosen}))));
+ document.getElementById("linkOut").textContent=base.href;
+}
+function copyLink(){const t=document.getElementById("linkOut").textContent;if(!t){alert("Generate a link first.");return;}navigator.clipboard.writeText(t).then(()=>alert("Link copied.")).catch(()=>alert("Please copy the link manually."));}
+document.getElementById("checks").innerHTML=SECTIONS.map((s,i)=>'<label><input type="checkbox" value="'+i+'" checked> '+esc(s)+'</label>').join(" ");
+render();
+</script></body></html>
