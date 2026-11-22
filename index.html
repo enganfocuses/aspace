@@ -719,7 +719,21 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none">
-  <defs><filter id="aspace-touchup" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+  <defs><filter id="aspace-tone" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="5" edgeMode="duplicate" result="average"/>
+    <feBlend in="SourceGraphic" in2="average" mode="luminosity" result="even"/>
+    <feBlend in="SourceGraphic" in2="average" mode="difference"/>
+    <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -1 -2 -1 0 1.15" result="edges"/>
+    <feColorMatrix in="average" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  5 0 -5 0 .15"/>
+    <feComposite in2="edges" operator="in"/>
+    <feComponentTransfer result="mask"><feFuncA type="linear" slope="1"/></feComponentTransfer>
+    <feComposite in="even" in2="mask" operator="in" result="overlay"/>
+    <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="overlay"/></feMerge>
+  </filter>
+  <filter id="aspace-sharpness" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feConvolveMatrix order="3" kernelMatrix="0 -1 0 -1 5 -1 0 -1 0" divisor="1" edgeMode="duplicate" preserveAlpha="true"/>
+  </filter>
+  <filter id="aspace-touchup" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
     <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" edgeMode="duplicate" result="soft"/>
     <feBlend in="SourceGraphic" in2="soft" mode="difference"/>
     <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -1.5 -3 -.5 0 1.18" result="detailMask"/>
@@ -1381,11 +1395,18 @@ function compactCallControls(call,vbar,cams,mics,speakers,fullscreen,leave){
     select.onchange=async()=>{select.disabled=true;try{await call.effect(key,Number(select.value))}catch(error){alert(error.message)}finally{select.value=String(call.effectLevel(key));select.disabled=false}};
     return E('label',{},title,select);
   }
-  const strength=E('input',{type:'range',min:'0',max:'100',step:'1',value:String(call.touchup())});
-  const amount=E('output',{textContent:strength.value+'%'});
-  strength.oninput=()=>{amount.textContent=strength.value+'%';call.previewTouchup(Number(strength.value))};
-  strength.onchange=async()=>{strength.disabled=true;try{await call.effect('portrait',Number(strength.value))}catch(error){alert(error.message)}finally{strength.disabled=false;strength.value=String(call.touchup());amount.textContent=strength.value+'%'}};
-  panel.prepend(E('label',{},'Улучшить внешность',strength,amount),effectLevel('Мягкий свет','light'));
+  function adjustment(title,key,min=0){
+    const slider=E('input',{type:'range',min:String(min),max:'100',step:'1',value:String(call.adjustment(key))});
+    const amount=E('output',{textContent:slider.value+'%'});
+    slider.oninput=()=>{amount.textContent=slider.value+'%';call.previewAdjustment(key,Number(slider.value))};
+    slider.onchange=async()=>{
+      slider.disabled=true;
+      try{await call.effect(key,Number(slider.value))}catch(error){alert(error.message)}
+      finally{slider.disabled=false;slider.value=String(call.adjustment(key));amount.textContent=slider.value+'%'}
+    };
+    return E('label',{},title,slider,amount);
+  }
+  panel.prepend(adjustment('Улучшить внешность','portrait'),adjustment('Выровнять тон кожи','tone'),adjustment('Резкость','sharpness'),adjustment('Контраст','contrast',-100),effectLevel('Мягкий свет','light'));
   for(const zoom of vbar.querySelectorAll(':scope > input[type=range]'))panel.append(E('label',{},'Приближение камеры',zoom));
   vbar.append(mic,cam,settings,fullscreen,leave);
 }
@@ -1404,6 +1425,18 @@ function Call(r,box){
   const send=(type,data)=>r.emit(type,{...data,...identity,...(type==='hello'?{appearance:{...appearance}}:{})});
   const level=(fx,key)=>fx?.[key]===true?([1,2,3].includes(fx[key+'Level'])?fx[key+'Level']:2):0;
   const touchup=fx=>fx?.portrait===true?(Number.isInteger(fx.touchup)?Math.min(100,Math.max(0,fx.touchup)):level(fx,'portrait')*30):0;
+  const adjustment=(fx,key)=>key==='portrait'?touchup(fx):Math.max(key==='contrast'?-100:0,Math.min(100,Number.isFinite(fx?.[key+'Level'])?fx[key+'Level']:0));
+  function weightedFilter(key,value){
+    const id='aspace-'+key+'-'+value;
+    if(!document.getElementById(id)){
+      const template=document.getElementById('aspace-'+key),copy=template.cloneNode(true);
+      copy.id=id;
+      if(key==='sharpness')copy.querySelector('feConvolveMatrix').setAttribute('kernelMatrix',[0,-value/100,0,-value/100,1+4*value/100,-value/100,0,-value/100,0].join(' '));
+      else copy.querySelector('feFuncA').setAttribute('slope',String(value/100));
+      template.parentNode.append(copy);
+    }
+    return 'url(#'+id+')';
+  }
   function filter(fx){
     const percent=touchup(fx),effects=[];
     if(percent){
@@ -1414,7 +1447,11 @@ function Call(r,box){
       }
       effects.push('url(#'+id+')');
     }
+    const tone=adjustment(fx,'tone'),sharpness=adjustment(fx,'sharpness'),contrast=adjustment(fx,'contrast');
+    if(tone)effects.push(weightedFilter('tone',tone));
     if(level(fx,'light'))effects.push('url(#aspace-light-'+level(fx,'light')+')');
+    if(contrast)effects.push('contrast('+(1+contrast/200)+')');
+    if(sharpness)effects.push(weightedFilter('sharpness',sharpness));
     return effects.join(' ')||'none';
   }
   let strongNoise=true,audioPath=null;
@@ -1561,8 +1598,11 @@ function Call(r,box){
     state,
     enabled(kind){const t=kind==='audio'?audioPath?.raw:st?.getVideoTracks()[0];return !!(t&&t.enabled&&t.readyState==='live')},
     effectLevel(key){return level(appearance,key)},
-    touchup(){return touchup(appearance)},
-    previewTouchup(value){if(tiles.me)tiles.me.v.style.filter=filter({...appearance,portrait:value>0,touchup:value})},
+    adjustment(key){return adjustment(appearance,key)},
+    previewAdjustment(key,value){
+      const preview=key==='portrait'?{portrait:value>0,touchup:value}:{[key+'Level']:value};
+      if(tiles.me)tiles.me.v.style.filter=filter({...appearance,...preview});
+    },
     async effect(key,intensity){
       const previousTouchup=appearance.touchup;
       if(key==='portrait'){appearance.touchup=intensity;intensity=Math.ceil(intensity*3/100)}
