@@ -716,6 +716,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 .vwin .call-settings-panel .call-option{display:flex;align-items:center;gap:8px}
 .vwin .call-option input{width:auto;margin:0}
 .install-aspace[hidden]{display:none!important}
+.video-quality>summary{cursor:pointer;font-weight:600}.video-quality>div{display:grid;gap:8px;padding-top:8px}
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none">
@@ -727,7 +728,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
     <feColorMatrix in="average" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  5 0 -5 0 .15"/>
     <feComposite in2="edges" operator="in"/>
     <feComponentTransfer result="mask"><feFuncA type="linear" slope="1"/></feComponentTransfer>
-    <feComposite in="even" in2="mask" operator="in" result="overlay"/>
+    <feComponentTransfer in="even" result="warm"><feFuncR type="table" tableValues="0 .26 .51 .76 1"/><feFuncG type="table" tableValues="0 .235 .475 .73 1"/><feFuncB type="table" tableValues="0 .215 .45 .71 1"/></feComponentTransfer>
+    <feComposite in="warm" in2="mask" operator="in" result="overlay"/>
     <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="overlay"/></feMerge>
   </filter>
   <filter id="aspace-sharpness" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -1389,12 +1391,6 @@ function compactCallControls(call,vbar,cams,mics,speakers,fullscreen,leave){
 
   fullscreen.textContent='⛶';
   const panel=settings.querySelector('.call-settings-panel');
-  function effectLevel(title,key){
-    const select=E('select',{},...['Выкл.','Легко','Умеренно','Выраженно'].map((label,value)=>E('option',{value:String(value),textContent:label})));
-    select.value=String(call.effectLevel(key));
-    select.onchange=async()=>{select.disabled=true;try{await call.effect(key,Number(select.value))}catch(error){alert(error.message)}finally{select.value=String(call.effectLevel(key));select.disabled=false}};
-    return E('label',{},title,select);
-  }
   function adjustment(title,key,min=0){
     const slider=E('input',{type:'range',min:String(min),max:'100',step:'1',value:String(call.adjustment(key))});
     const amount=E('output',{textContent:slider.value+'%'});
@@ -1406,7 +1402,9 @@ function compactCallControls(call,vbar,cams,mics,speakers,fullscreen,leave){
     };
     return E('label',{},title,slider,amount);
   }
-  panel.prepend(adjustment('Улучшить внешность','portrait'),adjustment('Выровнять тон кожи','tone'),adjustment('Резкость','sharpness'),adjustment('Контраст','contrast',-100),effectLevel('Мягкий свет','light'));
+  panel.prepend(E('details',{className:'video-quality'},E('summary',{textContent:'Качество видео'}),E('div',{},
+    adjustment('Улучшить внешность','portrait'),adjustment('Тон кожи · лёгкий загар','tone'),
+    adjustment('Мягкий свет','light'),adjustment('Резкость','sharpness'),adjustment('Контраст','contrast',-100))));
   for(const zoom of vbar.querySelectorAll(':scope > input[type=range]'))panel.append(E('label',{},'Приближение камеры',zoom));
   vbar.append(mic,cam,settings,fullscreen,leave);
 }
@@ -1425,13 +1423,31 @@ function Call(r,box){
   const send=(type,data)=>r.emit(type,{...data,...identity,...(type==='hello'?{appearance:{...appearance}}:{})});
   const level=(fx,key)=>fx?.[key]===true?([1,2,3].includes(fx[key+'Level'])?fx[key+'Level']:2):0;
   const touchup=fx=>fx?.portrait===true?(Number.isInteger(fx.touchup)?Math.min(100,Math.max(0,fx.touchup)):level(fx,'portrait')*30):0;
-  const adjustment=(fx,key)=>key==='portrait'?touchup(fx):Math.max(key==='contrast'?-100:0,Math.min(100,Number.isFinite(fx?.[key+'Level'])?fx[key+'Level']:0));
+  const adjustment=(fx,key)=>key==='portrait'?touchup(fx):key==='light'?(Number.isInteger(fx?.lightPercent)?Math.max(0,Math.min(100,fx.lightPercent)):Math.round(level(fx,'light')*100/3)):Math.max(key==='contrast'?-100:0,Math.min(100,Number.isFinite(fx?.[key+'Level'])?fx[key+'Level']:0));
+  const qualityKey='aspace-video-quality-v1';
+  const savedQuality=ls.g(qualityKey,{});
+  function qualityFields(key,value){
+    if(key==='portrait')return {portrait:value>0,portraitLevel:Math.ceil(value*3/100),touchup:value};
+    if(key==='light')return {light:value>0,lightLevel:Math.ceil(value*3/100),lightPercent:value};
+    return {[key+'Level']:value};
+  }
+  const qualityKeys=['portrait','tone','light','sharpness','contrast'];
+  for(const key of qualityKeys){
+    const value=savedQuality?.[key];
+    if(Number.isInteger(value)&&value<101&&value>=(key==='contrast'?-100:0))Object.assign(appearance,qualityFields(key,value));
+  }
   function weightedFilter(key,value){
-    const id='aspace-'+key+'-'+value;
+    const id='aspace-adjust-'+key+'-'+value;
     if(!document.getElementById(id)){
-      const template=document.getElementById('aspace-'+key),copy=template.cloneNode(true);
+      const template=document.getElementById(key==='light'?'aspace-light-3':'aspace-'+key),copy=template.cloneNode(true);
       copy.id=id;
       if(key==='sharpness')copy.querySelector('feConvolveMatrix').setAttribute('kernelMatrix',[0,-value/100,0,-value/100,1+4*value/100,-value/100,0,-value/100,0].join(' '));
+      else if(key==='light'){
+        for(const channel of copy.querySelectorAll('[tableValues]')){
+          const curve=channel.getAttribute('tableValues').split(' ').map(Number);
+          channel.setAttribute('tableValues',curve.map((target,i)=>i/8+(target-i/8)*value/100).join(' '));
+        }
+      }
       else copy.querySelector('feFuncA').setAttribute('slope',String(value/100));
       template.parentNode.append(copy);
     }
@@ -1449,7 +1465,7 @@ function Call(r,box){
     }
     const tone=adjustment(fx,'tone'),sharpness=adjustment(fx,'sharpness'),contrast=adjustment(fx,'contrast');
     if(tone)effects.push(weightedFilter('tone',tone));
-    if(level(fx,'light'))effects.push('url(#aspace-light-'+level(fx,'light')+')');
+    if(adjustment(fx,'light'))effects.push(weightedFilter('light',adjustment(fx,'light')));
     if(contrast)effects.push('contrast('+(1+contrast/200)+')');
     if(sharpness)effects.push(weightedFilter('sharpness',sharpness));
     return effects.join(' ')||'none';
@@ -1597,24 +1613,21 @@ function Call(r,box){
   return{
     state,
     enabled(kind){const t=kind==='audio'?audioPath?.raw:st?.getVideoTracks()[0];return !!(t&&t.enabled&&t.readyState==='live')},
-    effectLevel(key){return level(appearance,key)},
     adjustment(key){return adjustment(appearance,key)},
     previewAdjustment(key,value){
-      const preview=key==='portrait'?{portrait:value>0,touchup:value}:{[key+'Level']:value};
+      const preview=qualityFields(key,value);
       if(tiles.me)tiles.me.v.style.filter=filter({...appearance,...preview});
     },
     async effect(key,intensity){
-      const previousTouchup=appearance.touchup;
-      if(key==='portrait'){appearance.touchup=intensity;intensity=Math.ceil(intensity*3/100)}
-      const previous=appearance[key],previousLevel=appearance[key+'Level'];
-      appearance[key]=intensity>0;appearance[key+'Level']=intensity;appearance.revision++;
+      const previous=adjustment(appearance,key);
+      Object.assign(appearance,qualityFields(key,intensity));appearance.revision++;
       if(tiles.me)tiles.me.v.style.filter=filter(appearance);
       if(await send('hello',{from:me})===false&&await send('hello',{from:me})===false){
-        if(key==='portrait')appearance.touchup=previousTouchup;
-        appearance[key]=previous;appearance[key+'Level']=previousLevel;appearance.revision++;
+        Object.assign(appearance,qualityFields(key,previous));appearance.revision++;
         if(tiles.me)tiles.me.v.style.filter=filter(appearance);
         throw Error('Не удалось передать настройки собеседнику. Проверь соединение и попробуй ещё раз.');
       }
+      const stored=ls.g(qualityKey,{});ls.s(qualityKey,{...stored,[key]:intensity});
     },
     async start(){
       await ICE_READY;
