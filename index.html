@@ -719,15 +719,27 @@ input:focus,select:focus,textarea:focus{outline:2px solid #c8b8e8;outline-offset
 </style>
 <link rel="stylesheet" href="workspace-theme.css?v=8"></head><body>
 <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;pointer-events:none">
-  <defs><filter id="aspace-soft-portrait" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
-    <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" edgeMode="duplicate" result="soft"/>
-    <feComposite in="soft" in2="SourceGraphic" operator="arithmetic" k2=".62" k3=".38"/>
-    <feComponentTransfer>
-      <feFuncR type="linear" slope=".98" intercept=".035"/>
-      <feFuncG type="linear" slope=".98" intercept=".025"/>
-      <feFuncB type="linear" slope=".98" intercept=".018"/>
-    </feComponentTransfer>
-  </filter></defs>
+  <defs><filter id="aspace-portrait-1" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="1.5" edgeMode="duplicate" result="soft"/>
+    <feBlend in="SourceGraphic" in2="soft" mode="difference"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -3 -6 -1 0 1"/>
+    <feComponentTransfer result="mask"><feFuncA type="linear" slope=".28"/></feComponentTransfer>
+    <feComposite in="soft" in2="mask" operator="in" result="overlay"/>
+    <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="overlay"/></feMerge></filter>
+<filter id="aspace-light-1" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="table" tableValues="0 .20 .36 .50 .62 .72 .82 .91 1"/><feFuncG type="table" tableValues="0 .20 .36 .50 .62 .72 .82 .91 1"/><feFuncB type="table" tableValues="0 .20 .36 .50 .62 .72 .82 .91 1"/></feComponentTransfer></filter>
+<filter id="aspace-portrait-2" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="1.5" edgeMode="duplicate" result="soft"/>
+    <feBlend in="SourceGraphic" in2="soft" mode="difference"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -3 -6 -1 0 1"/>
+    <feComponentTransfer result="mask"><feFuncA type="linear" slope=".48"/></feComponentTransfer>
+    <feComposite in="soft" in2="mask" operator="in" result="overlay"/>
+    <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="overlay"/></feMerge></filter>
+<filter id="aspace-light-2" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="table" tableValues="0 .24 .40 .54 .65 .75 .84 .92 1"/><feFuncG type="table" tableValues="0 .24 .40 .54 .65 .75 .84 .92 1"/><feFuncB type="table" tableValues="0 .24 .40 .54 .65 .75 .84 .92 1"/></feComponentTransfer></filter>
+<filter id="aspace-portrait-3" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceGraphic" stdDeviation="1.5" edgeMode="duplicate" result="soft"/>
+    <feBlend in="SourceGraphic" in2="soft" mode="difference"/>
+    <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -3 -6 -1 0 1"/>
+    <feComponentTransfer result="mask"><feFuncA type="linear" slope=".68"/></feComponentTransfer>
+    <feComposite in="soft" in2="mask" operator="in" result="overlay"/>
+    <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="overlay"/></feMerge></filter>
+<filter id="aspace-light-3" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="table" tableValues="0 .28 .45 .58 .69 .78 .86 .93 1"/><feFuncG type="table" tableValues="0 .28 .45 .58 .69 .78 .86 .93 1"/><feFuncB type="table" tableValues="0 .28 .45 .58 .69 .78 .86 .93 1"/></feComponentTransfer></filter></defs>
 </svg>
 <div id="root"></div>
 <script>
@@ -1368,7 +1380,13 @@ function compactCallControls(call,vbar,cams,mics,speakers,fullscreen,leave){
 
   fullscreen.textContent='⛶';
   const panel=settings.querySelector('.call-settings-panel');
-  panel.prepend(option('Мягкий портрет',false,on=>call.effect('portrait',on)),option('Осветлить лицо',false,on=>call.effect('light',on)));
+  function effectLevel(title,key){
+    const select=E('select',{},...['Выкл.','Легко','Умеренно','Выраженно'].map((label,value)=>E('option',{value:String(value),textContent:label})));
+    select.value=String(call.effectLevel(key));
+    select.onchange=async()=>{select.disabled=true;try{await call.effect(key,Number(select.value))}catch(error){alert(error.message)}finally{select.value=String(call.effectLevel(key));select.disabled=false}};
+    return E('label',{},title,select);
+  }
+  panel.prepend(effectLevel('Ретушь портрета','portrait'),effectLevel('Мягкий свет','light'));
   for(const zoom of vbar.querySelectorAll(':scope > input[type=range]'))panel.append(E('label',{},'Приближение камеры',zoom));
   vbar.append(mic,cam,settings,fullscreen,leave);
 }
@@ -1385,7 +1403,8 @@ function Call(r,box){
   const participants=new Map();
   const appearance={portrait:false,light:false,revision:0},remoteAppearance=new Map(),state=new EventTarget();
   const send=(type,data)=>r.emit(type,{...data,...identity,...(type==='hello'?{appearance:{...appearance}}:{})});
-  const filter=fx=>[fx?.portrait===true?'url(#aspace-soft-portrait)':'',fx?.light===true?'brightness(1.18) contrast(0.95)':''].filter(Boolean).join(' ')||'none';
+  const level=(fx,key)=>fx?.[key]===true?([1,2,3].includes(fx[key+'Level'])?fx[key+'Level']:2):0;
+  const filter=fx=>['portrait','light'].filter(key=>level(fx,key)).map(key=>'url(#aspace-'+key+'-'+level(fx,key)+')').join(' ')||'none';
   let strongNoise=true,audioPath=null;
   const constraints=()=>({echoCancellation:true,noiseSuppression:strongNoise,autoGainControl:true,...(navigator.mediaDevices.getSupportedConstraints?.().voiceIsolation?{voiceIsolation:strongNoise}:{})});
   async function prepareAudio(raw){
@@ -1529,12 +1548,13 @@ function Call(r,box){
   return{
     state,
     enabled(kind){const t=kind==='audio'?audioPath?.raw:st?.getVideoTracks()[0];return !!(t&&t.enabled&&t.readyState==='live')},
-    async effect(key,on){
-      const previous=appearance[key];
-      appearance[key]=on;appearance.revision++;
+    effectLevel(key){return level(appearance,key)},
+    async effect(key,intensity){
+      const previous=appearance[key],previousLevel=appearance[key+'Level'];
+      appearance[key]=intensity>0;appearance[key+'Level']=intensity;appearance.revision++;
       if(tiles.me)tiles.me.v.style.filter=filter(appearance);
       if(await send('hello',{from:me})===false&&await send('hello',{from:me})===false){
-        appearance[key]=previous;appearance.revision++;
+        appearance[key]=previous;appearance[key+'Level']=previousLevel;appearance.revision++;
         if(tiles.me)tiles.me.v.style.filter=filter(appearance);
         throw Error('Не удалось передать настройки собеседнику. Проверь соединение и попробуй ещё раз.');
       }
