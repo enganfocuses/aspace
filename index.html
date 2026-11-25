@@ -1590,17 +1590,25 @@ function Call(r,box){
       await attachMedia(pc);
       const o=await pc.createOffer();await pc.setLocalDescription(o);send('sig',{to:id,from:me,k:'offer',d:o})}
     return pc};
+  const applyRemoteAppearance=x=>{
+    if(!st||!x?.from||x.from===me||(x.to&&x.to!==me)||!acceptParticipant(x))return;
+    const fx=x.appearance;
+    if(!fx||!Number.isSafeInteger(fx.revision)||fx.revision<0)return;
+    const previous=remoteAppearance.get(x.from);
+    if(fx.revision>=(previous?.revision||0)){
+      remoteAppearance.set(x.from,fx);
+      if(tiles[x.from])tiles[x.from].v.style.filter=filter(fx);
+    }
+  };
   offs.push(r.on('hello',m=>{
     const x=m.data;
     if(!st||!x?.from||x.from===me||(x.to&&x.to!==me)||!acceptParticipant(x))return;
-    const previous=remoteAppearance.get(x.from);
-    if(x.appearance&&(x.appearance.revision||0)>=(previous?.revision||0)){
-      remoteAppearance.set(x.from,x.appearance);
-      if(tiles[x.from])tiles[x.from].v.style.filter=filter(x.appearance);
-    }
+    applyRemoteAppearance(x);
     if(!x.to)void send('hello',{from:me,to:x.from});
     if(!pcs[x.from])void mk(x.from,me<x.from).catch(error=>console.warn('Call negotiation failed',error));
   }));
+  // Keep live appearance updates separate from peer discovery and SDP negotiation.
+  offs.push(r.on('appearance',m=>applyRemoteAppearance(m.data)));
   offs.push(r.on('bye',m=>m.data&&drop(m.data.from)));
   const flushIce=async id=>{const pc=pcs[id],q=iceQueue[id]||[];if(!pc?.remoteDescription)return;delete iceQueue[id];for(const c of q)try{await pc.addIceCandidate(c)}catch(e){console.warn('ICE candidate rejected',e)}};
   offs.push(r.on('sig',async m=>{const x=m.data;if(!st||!x?.from||x.to!==me||!acceptParticipant(x))return;
@@ -1622,7 +1630,9 @@ function Call(r,box){
       const previous=adjustment(appearance,key);
       Object.assign(appearance,qualityFields(key,intensity));appearance.revision++;
       if(tiles.me)tiles.me.v.style.filter=filter(appearance);
-      if(await send('hello',{from:me})===false&&await send('hello',{from:me})===false){
+      let delivered=await send('appearance',{from:me,appearance:{...appearance}});
+      if(!delivered)delivered=await send('appearance',{from:me,appearance:{...appearance}});
+      if(!delivered){
         Object.assign(appearance,qualityFields(key,previous));appearance.revision++;
         if(tiles.me)tiles.me.v.style.filter=filter(appearance);
         throw Error('Не удалось передать настройки собеседнику. Проверь соединение и попробуй ещё раз.');
